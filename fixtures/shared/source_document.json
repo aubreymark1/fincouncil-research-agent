@@ -1,0 +1,16 @@
+{
+  "doc_id": "DOC-FOOD-001",
+  "title": "示例食品公司 2025 年年度报告",
+  "source_type": "annual_report",
+  "publisher": "示例食品公司",
+  "source_url": null,
+  "local_path": "data/raw/food_beverage/annual_report_2025.pdf",
+  "published_at": "2026-03-30",
+  "event_date": "2025-12-31",
+  "retrieved_at": "2026-08-20T09:30:00+08:00",
+  "company_name": "示例食品公司",
+  "industry_id": "food_beverage",
+  "trust_level": 5,
+  "content_hash": "sha256:fixture-food-annual-2025",
+  "review_status": "formal"
+}

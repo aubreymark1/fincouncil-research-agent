@@ -1,0 +1,11 @@
+{
+  "run_id": "RUN-DEMO",
+  "company_name": "示例食品公司",
+  "ticker": "000001.SZ",
+  "industry_id": "food_beverage",
+  "cutoff_date": "2026-08-20",
+  "comparison_start": "2025-01-01",
+  "comparison_end": "2025-12-31",
+  "source_manifest_path": "data/manifests/food_case.csv",
+  "output_dir": "outputs/reports/RUN-DEMO"
+}

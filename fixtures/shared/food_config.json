@@ -1,0 +1,34 @@
+{
+  "industry_id": "food_beverage",
+  "display_name": "食品饮料",
+  "required_metrics": [
+    {
+      "metric_id": "revenue_growth",
+      "display_name": "收入增速",
+      "keywords": ["营业收入", "收入增长"],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "inventory",
+      "display_name": "存货与库存",
+      "keywords": ["存货", "库存"],
+      "required": true,
+      "evidence_requirement": "multiple",
+      "missing_action": "warn"
+    }
+  ],
+  "event_taxonomy": ["业绩", "渠道", "食品安全"],
+  "risk_rules": [
+    {
+      "risk_id": "inventory_pressure",
+      "display_name": "库存压力",
+      "trigger_description": "库存变化需要结合收入和动销证据判断。",
+      "required_evidence_types": ["financial", "operating"],
+      "severity": "medium"
+    }
+  ],
+  "report_sections": ["summary", "fundamentals", "risks"],
+  "retrieval_keywords": ["收入", "毛利率", "存货", "动销"]
+}

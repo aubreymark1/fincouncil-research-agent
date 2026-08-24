@@ -1,0 +1,78 @@
+{
+  "run_id": "RUN-DEMO",
+  "company_name": "示例食品公司",
+  "industry_id": "food_beverage",
+  "cutoff_date": "2026-08-20",
+  "summary": ["报告示例仅用于 Schema 校验。"],
+  "claims": [
+    {
+      "claim_id": "CL-FOOD-001",
+      "text": "报告披露本期营业收入同比增长 12.0%。",
+      "claim_type": "fact",
+      "evidence_ids": ["EV-FOOD-001"],
+      "calculation": null,
+      "confidence": 0.95,
+      "industry_metric_ids": ["revenue_growth"],
+      "status": "pass"
+    }
+  ],
+  "risks": [
+    {
+      "claim_id": "CL-FOOD-002",
+      "text": "库存压力仍需结合动销证据进一步确认。",
+      "claim_type": "risk",
+      "evidence_ids": ["EV-FOOD-001"],
+      "calculation": null,
+      "confidence": 0.55,
+      "industry_metric_ids": ["inventory"],
+      "status": "review"
+    }
+  ],
+  "unresolved_items": [
+    {
+      "claim_id": "CL-FOOD-003",
+      "text": "尚缺少可核验的渠道库存证据。",
+      "claim_type": "unresolved",
+      "evidence_ids": [],
+      "calculation": null,
+      "confidence": 0.0,
+      "industry_metric_ids": ["inventory"],
+      "status": "review"
+    }
+  ],
+  "evidence_index": [
+    {
+      "evidence_id": "EV-FOOD-001",
+      "doc_id": "DOC-FOOD-001",
+      "chunk_id": "CHUNK-FOOD-001",
+      "fact_text": "报告披露本期营业收入同比增长 12.0%。",
+      "quote": "本期营业收入同比增长 12.0%。",
+      "published_at": "2026-03-30",
+      "page": 42,
+      "section": "经营情况讨论与分析",
+      "locator": "第 42 页，经营情况讨论与分析，收入小节",
+      "company_name": "示例食品公司",
+      "industry_id": "food_beverage",
+      "evidence_type": "financial",
+      "confidence": 0.98,
+      "review_status": "verified"
+    }
+  ],
+  "validation_issues": [
+    {
+      "issue_id": "ISSUE-FOOD-001",
+      "check_name": "required_metric_coverage",
+      "severity": "warning",
+      "issue_type": "missing_metric",
+      "message": "渠道库存证据仍需人工确认。",
+      "claim_id": null,
+      "evidence_id": null,
+      "report_section": "risks",
+      "rerun_required": false,
+      "human_confirmation_required": true,
+      "status": "open"
+    }
+  ],
+  "generated_at": "2026-08-24T10:00:00+08:00",
+  "report_version": "v1"
+}

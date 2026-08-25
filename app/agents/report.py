@@ -14,6 +14,7 @@ from app.schemas import Claim, Evidence, ResearchReport, ResearchRequest, Valida
 
 _REPORTABLE_STATUSES = {"pass", "review"}
 _BODY_CLAIM_TYPES = {"fact", "change", "analysis"}
+_BLOCKING_SEVERITIES = {"error", "critical"}
 
 
 def _is_reportable(claim: Claim) -> bool:
@@ -26,17 +27,67 @@ def _is_reportable(claim: Claim) -> bool:
     return claim.status in _REPORTABLE_STATUSES
 
 
+def _blocking_claim_ids(issues: list[ValidationIssue]) -> set[str]:
+    return {
+        issue.claim_id
+        for issue in issues
+        if issue.status == "open"
+        and issue.severity in _BLOCKING_SEVERITIES
+        and issue.claim_id is not None
+    }
+
+
+def _blocking_evidence_ids(issues: list[ValidationIssue]) -> set[str]:
+    return {
+        issue.evidence_id
+        for issue in issues
+        if issue.status == "open"
+        and issue.severity in _BLOCKING_SEVERITIES
+        and issue.evidence_id is not None
+    }
+
+
+def _apply_issue_gating(
+    claims: list[Claim],
+    issues: list[ValidationIssue],
+) -> list[Claim]:
+    """Downgrade pass Claims that are blocked by open error/critical issues.
+
+    The Critic reports problems without mutating Claim status, so the report
+    renderer must apply those issues when deciding what may enter the body.
+    ``error``/``critical`` issues targeting a Claim ID or one of its evidence
+    IDs demote the Claim from ``pass`` to ``review``.
+    """
+
+    blocked_claim_ids = _blocking_claim_ids(issues)
+    blocked_evidence_ids = _blocking_evidence_ids(issues)
+    gated: list[Claim] = []
+    for claim in claims:
+        if not _is_reportable(claim):
+            continue
+        is_blocked = (
+            claim.claim_id in blocked_claim_ids
+            or any(evidence_id in blocked_evidence_ids for evidence_id in claim.evidence_ids)
+        )
+        if is_blocked and claim.status == "pass":
+            claim = claim.model_copy(update={"status": "review"})
+        gated.append(claim)
+    return gated
+
+
 def _build_summary(
     *,
     body_count: int,
     risk_count: int,
+    review_count: int,
     unresolved_count: int,
     evidence_count: int,
 ) -> list[str]:
     """Build a metadata-only summary without inventing facts."""
 
     return [
-        f"生成 {body_count} 条正文结论、{risk_count} 条风险、{unresolved_count} 个未决项。",
+        f"生成 {body_count} 条正文结论、{risk_count} 条风险。",
+        f"另有 {review_count} 条待人工确认、{unresolved_count} 个未决项。",
         f"证据索引共 {evidence_count} 条。",
     ]
 
@@ -50,13 +101,16 @@ def render_report(
     """Build a structured ``ResearchReport`` from validated Claims.
 
     Only ``pass`` and ``review`` Claims are kept. ``reject`` Claims are dropped
-    from the report, and ``draft`` Claims are not reportable either. Review
-    Claims remain in the ``claims``/``risks`` lists with ``status="review"`` so
-    downstream UI and Markdown can place them in the pending-confirmation
-    section without losing them.
+    from the report, and ``draft`` Claims are not reportable either. Open
+    ``error``/``critical`` Critic issues demote affected ``pass`` Claims to
+    ``review`` so they cannot appear in the body. Review Claims remain in the
+    ``claims``/``risks`` lists with ``status="review"`` so downstream UI and
+    Markdown can place them in the pending-confirmation section without losing
+    them. The evidence index only contains verified Evidence actually
+    referenced by reportable Claims.
     """
 
-    reportable = [claim for claim in claims if _is_reportable(claim)]
+    reportable = _apply_issue_gating(claims, issues)
 
     body_claims = [
         claim
@@ -73,7 +127,28 @@ def render_report(
         for claim in reportable
         if claim.claim_type == "unresolved"
     ]
-    evidence_index = sorted(evidence, key=lambda item: item.evidence_id)
+    pass_body_count = sum(1 for claim in body_claims if claim.status == "pass")
+    pass_risk_count = sum(1 for claim in risks if claim.status == "pass")
+    review_count = sum(
+        1
+        for claim in [*body_claims, *risks]
+        if claim.status == "review"
+    )
+
+    referenced_evidence_ids = {
+        evidence_id
+        for claim in reportable
+        for evidence_id in claim.evidence_ids
+    }
+    evidence_index = sorted(
+        (
+            item
+            for item in evidence
+            if item.evidence_id in referenced_evidence_ids
+            and item.review_status == "verified"
+        ),
+        key=lambda item: item.evidence_id,
+    )
 
     return ResearchReport(
         run_id=request.run_id,
@@ -81,8 +156,9 @@ def render_report(
         industry_id=request.industry_id,
         cutoff_date=request.cutoff_date,
         summary=_build_summary(
-            body_count=len(body_claims),
-            risk_count=len(risks),
+            body_count=pass_body_count,
+            risk_count=pass_risk_count,
+            review_count=review_count,
             unresolved_count=len(unresolved_items),
             evidence_count=len(evidence_index),
         ),

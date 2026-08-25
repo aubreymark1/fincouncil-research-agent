@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from fpdf import FPDF
 from pypdf import PdfReader, PdfWriter
+from pypdf.errors import PyPdfError
 
 from app.ingestion import PdfExtractionError, extract_pdf
 from app.schemas import SourceDocument
@@ -104,3 +105,64 @@ def test_encrypted_pdf_raises_e100(tmp_path: Path) -> None:
         extract_pdf(_document(str(encrypted)))
 
     assert exc_info.value.code == "E100"
+
+
+def test_empty_password_encrypted_pdf_is_extracted(tmp_path: Path) -> None:
+    plain = _write_pdf(tmp_path, "plain.pdf", pages_with_text=[True])
+    reader = PdfReader(str(plain))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+    writer.encrypt("", "")
+    encrypted = tmp_path / "empty_password.pdf"
+    with encrypted.open("wb") as handle:
+        writer.write(handle)
+
+    chunks = extract_pdf(_document(str(encrypted)))
+
+    assert len(chunks) == 1
+    assert chunks[0].text
+
+
+def test_pdf_with_no_extractable_text_raises(tmp_path: Path) -> None:
+    path = _write_pdf(tmp_path, "all_blank.pdf", pages_with_text=[False, False])
+
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extract_pdf(_document(str(path)))
+
+    assert exc_info.value.code == "E100"
+    assert "no extractable text" in exc_info.value.message
+
+
+def test_single_page_failure_raises_with_page_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakePage:
+        def __init__(self, text: str | None) -> None:
+            self._text = text
+
+        def extract_text(self) -> str:
+            if self._text is None:
+                raise PyPdfError("simulated page failure")
+            return self._text
+
+    class FakeReader:
+        is_encrypted = False
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        @property
+        def pages(self) -> list[FakePage]:
+            return [FakePage("page one text"), FakePage(None)]
+
+    monkeypatch.setattr("app.ingestion.pdf_extractor.PdfReader", FakeReader)
+
+    path = tmp_path / "any.pdf"
+    path.write_bytes(b"%PDF-1.4 placeholder")
+
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extract_pdf(_document(str(path)))
+
+    assert exc_info.value.code == "E100"
+    assert "page 2" in exc_info.value.message

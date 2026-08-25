@@ -7,7 +7,9 @@ B-002: read a PDF page by page and produce location-preserving
 
 The original PDF is never modified and its text is never rewritten; each chunk
 keeps the page number so evidence can later be located. Blank pages are skipped
-(and logged) rather than producing empty-text chunks.
+(and logged) rather than producing empty-text chunks. If no page yields any
+text (for example a scanned document with no text layer), the function raises
+instead of returning an empty success.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from pypdf import PdfReader
+from pypdf import PasswordType, PdfReader
 from pypdf.errors import PyPdfError
 
 from app.schemas import SourceDocument, TextChunk
@@ -24,7 +26,7 @@ from app.schemas import SourceDocument, TextChunk
 logger = logging.getLogger(__name__)
 
 #: pypdf emits noisy warnings (e.g. "invalid pdf header") that duplicate the
-#: E100 error already raised below; quiet them so failures surface only through
+#: errors already raised below; quiet them so failures surface only through
 #: :class:`PdfExtractionError`.
 logging.getLogger("pypdf").setLevel(logging.ERROR)
 
@@ -33,9 +35,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class PdfExtractionError(Exception):
-    """Raised when a PDF cannot be read, with a shared error code.
+    """Raised when a PDF cannot be read, decrypted, or yields no text.
 
-    ``code`` is one of the shared error codes from docs/CONTRACTS.md (E100).
+    ``code`` is E100 ("source file unavailable") until A approves a dedicated
+    code for "unreadable/corrupted" via CONTRACT-CHANGE; the ``message`` always
+    names the concrete cause so downstream modules do not misdiagnose it as a
+    simple missing file.
     """
 
     def __init__(self, code: str, path: str, message: str) -> None:
@@ -55,8 +60,9 @@ def _resolve(local_path: str) -> Path:
 def extract_pdf(document: SourceDocument) -> list[TextChunk]:
     """Extract one TextChunk per non-blank page of ``document``.
 
-    Raises :class:`PdfExtractionError` with code E100 when the file is missing,
-    corrupted, unsupported, or encrypted without a password.
+    Raises :class:`PdfExtractionError` when the file is missing, cannot be
+    parsed, cannot be decrypted, a page fails to extract, or the document has
+    no extractable text at all.
     """
     path = _resolve(document.local_path)
     if not path.is_file():
@@ -73,10 +79,16 @@ def extract_pdf(document: SourceDocument) -> list[TextChunk]:
 
     if reader.is_encrypted:
         try:
-            reader.decrypt("")
-        except (PyPdfError, NotImplementedError):
-            pass
-        if reader.is_encrypted:
+            result = reader.decrypt("")
+        except (PyPdfError, NotImplementedError) as exc:
+            raise PdfExtractionError(
+                "E100",
+                document.local_path,
+                f"PDF is encrypted and could not be decrypted: {exc}",
+            ) from exc
+        # pypdf keeps is_encrypted=True after a successful decrypt, so use the
+        # returned status to decide whether the empty password actually worked.
+        if result == PasswordType.NOT_DECRYPTED:
             raise PdfExtractionError(
                 "E100",
                 document.local_path,
@@ -88,13 +100,11 @@ def extract_pdf(document: SourceDocument) -> list[TextChunk]:
         try:
             text = (page.extract_text() or "").strip()
         except PyPdfError as exc:
-            logger.warning(
-                "failed to extract text from page %d of %s: %s",
-                page_index,
-                document.doc_id,
-                exc,
-            )
-            continue
+            raise PdfExtractionError(
+                "E100",
+                document.local_path,
+                f"failed to extract text from page {page_index}: {exc}",
+            ) from exc
 
         if not text:
             logger.info("skipped blank page %d of %s", page_index, document.doc_id)
@@ -111,6 +121,13 @@ def extract_pdf(document: SourceDocument) -> list[TextChunk]:
                 char_start=0,
                 char_end=len(text),
             )
+        )
+
+    if not chunks:
+        raise PdfExtractionError(
+            "E100",
+            document.local_path,
+            "no extractable text found in PDF (may be a scanned document or have no text layer)",
         )
 
     return chunks

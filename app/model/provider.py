@@ -26,7 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from .cache import ModelCache, make_cache_key
+from .cache import ModelCache, hash_cache_key, make_cache_key
 
 
 MAX_RETRIES = 5
@@ -159,6 +159,7 @@ class ModelProvider:
         self._transport = transport
         self._cache = cache
         self._sleep = sleep_fn
+        self.last_cache_error: str | None = None
 
     @classmethod
     def from_env(
@@ -193,15 +194,26 @@ class ModelProvider:
         response_model_name = None
         if response_model is not None:
             response_model_name = f"{response_model.__module__}.{response_model.__qualname__}"
-        key = cache_key or make_cache_key(
-            prompt=prompt,
-            model_name=self.config.model_name,
-            temperature=self.config.temperature,
-            response_model_name=response_model_name,
+        key = (
+            hash_cache_key(cache_key)
+            if cache_key is not None
+            else make_cache_key(
+                prompt=prompt,
+                provider_name=self.config.provider_name,
+                model_name=self.config.model_name,
+                base_url=self.config.base_url,
+                temperature=self.config.temperature,
+                response_model_name=response_model_name,
+            )
         )
 
+        self.last_cache_error = None
         if self._cache is not None:
-            cached = self._cache.get(key)
+            try:
+                cached = self._cache.get(key)
+            except Exception as exc:
+                self.last_cache_error = f"cache read failed (error_type={type(exc).__name__})"
+                cached = None
             if cached is not None:
                 try:
                     return self._validate(cached, response_model)
@@ -209,25 +221,40 @@ class ModelProvider:
                     pass
 
         attempts = self.config.max_retries + 1
-        last_error_type = "UnknownError"
+        last_transport_error_type = "UnknownError"
         for attempt in range(attempts):
             try:
                 raw = self._transport(prompt, self.config)
+            except Exception as exc:
+                last_transport_error_type = type(exc).__name__
+                if attempt == attempts - 1:
+                    raise ModelProviderError(
+                        f"E300 module=model: transport failed after {attempts} attempts "
+                        f"(error_type={last_transport_error_type})"
+                    ) from None
+                self._sleep(0)
+                continue
+
+            try:
                 payload = _as_json_object(raw)
                 result = self._validate(payload, response_model)
-                if self._cache is not None:
-                    self._cache.set(key, _to_jsonable(result))
-                return result
-            except Exception as exc:
-                last_error_type = type(exc).__name__
+            except (TypeError, ValueError, ValidationError) as exc:
                 if attempt == attempts - 1:
-                    break
+                    raise ModelProviderError(
+                        f"E301 module=model: output could not be parsed after {attempts} attempts "
+                        f"(error_type={type(exc).__name__})"
+                    ) from None
                 self._sleep(0)
+                continue
 
-        raise ModelProviderError(
-            f"E300 module=model: structured invocation failed after {attempts} attempts "
-            f"(error_type={last_error_type})"
-        )
+            if self._cache is not None:
+                try:
+                    self._cache.set(key, _to_jsonable(result))
+                except Exception as exc:
+                    self.last_cache_error = f"cache write failed (error_type={type(exc).__name__})"
+            return result
+
+        raise ModelProviderError("E300 module=model: transport failed")
 
     def generate(
         self,

@@ -72,7 +72,9 @@ class JsonFileCache:
 def make_cache_key(
     *,
     prompt: str,
+    provider_name: str,
     model_name: str,
+    base_url: str | None,
     temperature: float,
     response_model_name: str | None = None,
 ) -> str:
@@ -80,9 +82,17 @@ def make_cache_key(
 
     payload: Mapping[str, Any] = {
         "prompt": prompt,
+        "provider_name": provider_name,
         "model_name": model_name,
+        "base_url": base_url,
         "temperature": temperature,
         "response_model": response_model_name,
     }
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(serialized).hexdigest()
+
+
+def hash_cache_key(value: str) -> str:
+    """Hash caller-provided keys before they reach a persistent cache."""
+
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()

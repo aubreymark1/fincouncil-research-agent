@@ -128,7 +128,7 @@ missing_action
 每个配置还包含：
 
 - event_taxonomy；
-- risk_rules；
+- risk_rules（每条必须包含 metric_ids、required_evidence_types、severity）；
 - report_sections；
 - retrieval_keywords。
 
@@ -184,7 +184,9 @@ build_industry_checklist(
 
 check_required_metrics(
     evidence: list[Evidence],
-    config: IndustryConfig
+    config: IndustryConfig,
+    *,
+    documents: list[SourceDocument]
 ) -> list[ValidationIssue]
 ~~~
 
@@ -194,7 +196,8 @@ check_required_metrics(
 - 找不到证据时按 missing_action 返回 warn、review 或 reject；
 - 不静默跳过；
 - Evidence 类型和关键词不匹配时不能算覆盖；
-- 多来源要求必须至少有两个独立来源。
+- 多来源要求必须至少有两个不同 publisher，且 content_hash 也不同；
+- documents 为 multiple 独立来源检查的必填输入，不能只用不同 doc_id 判断。
 
 关键测试：
 
@@ -254,8 +257,8 @@ apply_risk_rules(
 - 绑定 Evidence；
 - 没有足够证据时使用 unresolved；
 - 不能给出确定性股价判断；
-- severity 来自配置；
-- 每条风险包含观察指标。
+- severity 从 RiskRule.severity 写入 Claim.risk_severity；
+- RiskRule.metric_ids 必须引用当前配置的 metric_id，并写入 Claim.industry_metric_ids。
 
 ### C-006：提示词要求
 

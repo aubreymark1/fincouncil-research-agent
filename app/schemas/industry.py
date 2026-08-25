@@ -28,6 +28,7 @@ class RiskRule(BaseModel):
     risk_id: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     trigger_description: str = Field(min_length=1)
+    metric_ids: list[str] = Field(min_length=1)
     required_evidence_types: list[str]
     severity: Literal["low", "medium", "high"]
 
@@ -46,8 +47,20 @@ class IndustryConfig(BaseModel):
     retrieval_keywords: list[str]
 
     @model_validator(mode="after")
-    def validate_unique_metric_ids(self) -> Self:
+    def validate_ids_and_risk_metric_references(self) -> Self:
         metric_ids = [metric.metric_id for metric in self.required_metrics]
         if len(metric_ids) != len(set(metric_ids)):
             raise ValueError("metric_id must be unique within one industry configuration")
+
+        risk_ids = [rule.risk_id for rule in self.risk_rules]
+        if len(risk_ids) != len(set(risk_ids)):
+            raise ValueError("risk_id must be unique within one industry configuration")
+
+        known_metric_ids = set(metric_ids)
+        for rule in self.risk_rules:
+            unknown = sorted(set(rule.metric_ids) - known_metric_ids)
+            if unknown:
+                raise ValueError(
+                    f"risk rule {rule.risk_id} references unknown metric_ids: {unknown}"
+                )
         return self

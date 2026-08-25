@@ -250,12 +250,13 @@ tests/core/test_agents.py
 
 每个节点：
 
-- 只接收 Evidence 和 IndustryConfig；
+- 基础节点接收 Evidence 和 IndustryConfig；multiple 指标额外通过 keyword-only documents 接收 SourceDocument 元数据；
 - 只输出 Claim；
 - 不自行创造 URL；
 - 不使用 cutoff 后证据；
 - 无法判断时输出 unresolved；
-- 输出经过 Pydantic 校验。
+- 输出经过 Pydantic 校验；
+- 风险 Claim 必须携带 RiskRule.severity 和 RiskRule.metric_ids。
 
 ### A-006：Critic
 

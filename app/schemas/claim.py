@@ -15,6 +15,7 @@ class Claim(BaseModel):
     claim_id: str = Field(min_length=1, pattern=r"^CL-[A-Za-z0-9][A-Za-z0-9._-]*$")
     text: str = Field(min_length=1)
     claim_type: Literal["fact", "change", "analysis", "risk", "unresolved"]
+    risk_severity: Literal["low", "medium", "high"] | None = None
     evidence_ids: list[str]
     calculation: str | None = Field(default=None, min_length=1)
     confidence: float = Field(ge=0, le=1)
@@ -35,4 +36,8 @@ class Claim(BaseModel):
             raise ValueError("fact, change, analysis, and risk claims require evidence_ids")
         if self.claim_type == "unresolved" and self.status == "pass":
             raise ValueError("unresolved claims cannot have status=pass")
+        if self.claim_type == "risk" and self.risk_severity is None:
+            raise ValueError("risk claims require risk_severity")
+        if self.claim_type in {"fact", "change", "analysis"} and self.risk_severity is not None:
+            raise ValueError("risk_severity is only valid for risk or unresolved claims")
         return self

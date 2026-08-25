@@ -26,6 +26,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.schemas import SourceDocument, ValidationIssue
 
 
@@ -162,22 +164,31 @@ def _record_to_document(record: dict[str, Any], *, path: str) -> SourceDocument:
     local_path = _clean(record["local_path"])
     content_hash = _content_hash(local_path, path=path)
 
-    return SourceDocument(
-        doc_id=_clean(record["doc_id"]),
-        title=_clean(record["title"]),
-        source_type=_clean(record["source_type"]),
-        publisher=_clean(record["publisher"]),
-        source_url=_clean(record.get("source_url")) or None,
-        local_path=local_path,
-        published_at=published_at,
-        event_date=event_date,
-        retrieved_at=retrieved_at,
-        company_name=_clean(record.get("company_name")) or None,
-        industry_id=_clean(record.get("industry_id")) or None,
-        trust_level=trust_level,
-        content_hash=content_hash,
-        review_status=review_status,
-    )
+    try:
+        return SourceDocument(
+            doc_id=_clean(record["doc_id"]),
+            title=_clean(record["title"]),
+            source_type=_clean(record["source_type"]),
+            publisher=_clean(record["publisher"]),
+            source_url=_clean(record.get("source_url")) or None,
+            local_path=local_path,
+            published_at=published_at,
+            event_date=event_date,
+            retrieved_at=retrieved_at,
+            company_name=_clean(record.get("company_name")) or None,
+            industry_id=_clean(record.get("industry_id")) or None,
+            trust_level=trust_level,
+            content_hash=content_hash,
+            review_status=review_status,
+        )
+    except ValidationError as exc:
+        errors = exc.errors()
+        detail = errors[0].get("msg", str(exc)) if errors else str(exc)
+        raise ManifestError(
+            "E101",
+            path,
+            f"document fields failed validation: {detail}",
+        ) from exc
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
@@ -202,7 +213,17 @@ def _read_json(path: Path) -> list[dict[str, Any]]:
             str(path),
             "JSON manifest must be a list of objects or contain a 'documents' list",
         )
-    return [record for record in payload if isinstance(record, dict)]
+
+    records: list[dict[str, Any]] = []
+    for index, record in enumerate(payload, start=1):
+        if not isinstance(record, dict):
+            raise ManifestError(
+                "E101",
+                str(path),
+                f"record {index} is not an object (got {type(record).__name__})",
+            )
+        records.append(record)
+    return records
 
 
 def load_manifest(path: str) -> list[SourceDocument]:

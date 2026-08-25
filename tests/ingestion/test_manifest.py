@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import csv
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -156,8 +159,6 @@ def test_invalid_manifest_reports_two_issues() -> None:
 
 
 def test_json_manifest_is_supported(tmp_path: Path) -> None:
-    import json
-
     path = tmp_path / "manifest.json"
     path.write_text(
         json.dumps(
@@ -190,3 +191,62 @@ def test_json_manifest_is_supported(tmp_path: Path) -> None:
     assert len(documents) == 1
     assert documents[0].doc_id == "DOC-JSON-001"
     assert documents[0].trust_level == 5
+
+
+def test_invalid_doc_id_format_raises_e101(tmp_path: Path) -> None:
+    path = _write_manifest(tmp_path, _row(doc_id="BAD-001"))
+
+    with pytest.raises(ManifestError) as exc_info:
+        load_manifest(path)
+
+    assert exc_info.value.code == "E101"
+    assert "record 1" in exc_info.value.message
+
+
+def test_cli_exits_2_on_invalid_doc_id(tmp_path: Path) -> None:
+    path = _write_manifest(tmp_path, _row(doc_id="BAD-001"))
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "validate_manifest.py"), path],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "E101" in result.stderr
+
+
+def test_json_non_object_record_raises_e101(tmp_path: Path) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            {
+                "documents": [
+                    {
+                        "doc_id": "DOC-JSON-001",
+                        "title": "JSON 资料",
+                        "source_type": "news",
+                        "publisher": "测试机构",
+                        "source_url": None,
+                        "local_path": LOCAL_PLACEHOLDER,
+                        "published_at": "2026-03-30",
+                        "event_date": None,
+                        "retrieved_at": "2026-08-20T09:30:00+08:00",
+                        "company_name": "测试公司",
+                        "industry_id": "food_beverage",
+                        "trust_level": 5,
+                        "review_status": "formal",
+                    },
+                    None,
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ManifestError) as exc_info:
+        load_manifest(str(path))
+
+    assert exc_info.value.code == "E101"
+    assert "record 2" in exc_info.value.message

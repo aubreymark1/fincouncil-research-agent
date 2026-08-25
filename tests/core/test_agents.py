@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from app.agents import analyze_fundamentals, analyze_news_policy, analyze_risks
-from app.schemas import Evidence, IndustryConfig
+from app.schemas import Evidence, IndustryConfig, SourceDocument
 
 
 ROOT = Path(__file__).parents[2]
@@ -19,6 +19,11 @@ def load_fixture(name: str) -> dict:
 def make_evidence(**updates: object) -> Evidence:
     payload = {**load_fixture("evidence.json"), **updates}
     return Evidence.model_validate(payload)
+
+
+def make_document(**updates: object) -> SourceDocument:
+    payload = {**load_fixture("source_document.json"), **updates}
+    return SourceDocument.model_validate(payload)
 
 
 def test_fundamentals_only_pass_when_metric_evidence_is_sufficient() -> None:
@@ -57,6 +62,44 @@ def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> N
     inventory_claim = next(claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-"))
     assert inventory_claim.claim_type == "unresolved"
     assert "独立来源" in inventory_claim.text
+
+
+def test_multiple_metric_passes_with_independent_source_documents() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    first = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-101",
+        doc_id="DOC-FOOD-001",
+        fact_text="公司披露存货余额保持稳定。",
+        quote="存货余额保持稳定。",
+        evidence_type="financial",
+    )
+    second = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-102",
+        doc_id="DOC-FOOD-002",
+        fact_text="独立机构跟踪库存周转改善。",
+        quote="库存周转改善。",
+        evidence_type="operating",
+    )
+    documents = [
+        make_document(),
+        make_document(
+            doc_id="DOC-FOOD-002",
+            publisher="独立研究机构",
+            content_hash="sha256:independent-source",
+        ),
+    ]
+
+    claims = analyze_fundamentals(
+        [first, second],
+        config,
+        documents=documents,
+    )
+
+    inventory_claim = next(
+        claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-")
+    )
+    assert inventory_claim.claim_type == "fact"
+    assert inventory_claim.status == "pass"
 
 
 def test_cross_industry_and_unknown_industry_evidence_are_excluded() -> None:
@@ -134,6 +177,8 @@ def test_risk_returns_review_claim_when_all_evidence_types_exist() -> None:
 
     assert claims[0].claim_type == "risk"
     assert claims[0].status == "review"
+    assert claims[0].risk_severity == "medium"
+    assert set(claims[0].industry_metric_ids) == {"inventory", "revenue_growth"}
     assert set(claims[0].evidence_ids) == {"EV-FOOD-INVENTORY-001", "EV-FOOD-OPERATING-001"}
 
 

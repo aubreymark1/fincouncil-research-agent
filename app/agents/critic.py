@@ -51,12 +51,18 @@ def _make_issue(
     message: str,
     claim_id: str | None = None,
     evidence_id: str | None = None,
+    target_key: str | None = None,
     human_confirmation_required: bool = False,
     rerun_required: bool = True,
 ) -> ValidationIssue:
-    """Create one open ValidationIssue using a deterministic ID."""
+    """Create one open ValidationIssue using a deterministic ID.
 
-    key = claim_id or evidence_id or issue_type
+    ``target_key`` makes the ID unique when neither ``claim_id`` nor
+    ``evidence_id`` fully identifies the problem (e.g. metric-level checks,
+    or the same claim referencing several unknown evidence IDs).
+    """
+
+    key = target_key or claim_id or evidence_id or issue_type
     return ValidationIssue(
         issue_id=_issue_key(check_name, key),
         check_name=check_name,
@@ -156,9 +162,50 @@ def _check_unknown_evidence(
                         ),
                         claim_id=claim.claim_id,
                         evidence_id=evidence_id,
+                        target_key=f"{claim.claim_id}:{evidence_id}",
                         rerun_required=True,
                     )
                 )
+    return issues
+
+
+def _check_non_verified_evidence(
+    claims: list[Claim],
+    evidence_by_id: dict[str, Evidence],
+) -> list[ValidationIssue]:
+    """Block pending/rejected evidence from supporting substantive claims.
+
+    The public contract says pending and rejected Evidence must not support
+    key report conclusions. A Claim that is not unresolved and is ready for
+    reporting (pass or review) must only reference verified Evidence.
+    """
+
+    issues: list[ValidationIssue] = []
+    for claim in claims:
+        if claim.claim_type == "unresolved":
+            continue
+        if claim.status not in {"pass", "review"}:
+            continue
+        for evidence_id in claim.evidence_ids:
+            item = evidence_by_id.get(evidence_id)
+            if item is None or item.review_status == "verified":
+                continue
+            issues.append(
+                _make_issue(
+                    check_name="evidence_status",
+                    severity="critical",
+                    issue_type="non_verified_evidence",
+                    message=(
+                        f"{claim.claim_id} references {evidence_id} with "
+                        f"review_status={item.review_status}; pending or "
+                        "rejected Evidence must not support substantive claims."
+                    ),
+                    claim_id=claim.claim_id,
+                    evidence_id=evidence_id,
+                    target_key=f"{claim.claim_id}:{evidence_id}",
+                    rerun_required=True,
+                )
+            )
     return issues
 
 
@@ -276,14 +323,37 @@ def _check_management_plan_as_fact(claims: list[Claim]) -> list[ValidationIssue]
     return issues
 
 
+def _has_valid_evidence(
+    claim: Claim,
+    evidence_by_id: dict[str, Evidence],
+) -> bool:
+    """Return whether a Claim can count as metric coverage.
+
+    Unresolved, draft, rejected, evidence-less Claims, and Claims that only
+    reference pending/rejected Evidence do not cover a required metric.
+    """
+
+    if claim.claim_type == "unresolved" or claim.status in {"draft", "reject"}:
+        return False
+    if not claim.evidence_ids:
+        return False
+    return any(
+        evidence_id in evidence_by_id
+        and evidence_by_id[evidence_id].review_status == "verified"
+        for evidence_id in claim.evidence_ids
+    )
+
+
 def _check_required_metrics(
     claims: list[Claim],
     config: IndustryConfig,
+    evidence_by_id: dict[str, Evidence],
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     covered_metric_ids = {
         metric_id
         for claim in claims
+        if _has_valid_evidence(claim, evidence_by_id)
         for metric_id in claim.industry_metric_ids
     }
     for metric in config.required_metrics:
@@ -300,6 +370,7 @@ def _check_required_metrics(
                     f"E202 required metric {metric.metric_id} "
                     f"({metric.display_name}) has no Claim."
                 ),
+                target_key=metric.metric_id,
                 rerun_required=True,
             )
         )
@@ -376,6 +447,7 @@ def _check_conflicting_evidence(
                         f"metric {metric_id} has claims with conflicting "
                         f"directions: {claim_ids}."
                     ),
+                    target_key=f"metric:{metric_id}",
                     human_confirmation_required=True,
                     rerun_required=False,
                 )
@@ -420,10 +492,11 @@ def run_critic(
     issues.extend(_check_cutoff(request, evidence))
     issues.extend(_check_claim_support(claims))
     issues.extend(_check_unknown_evidence(claims, evidence_by_id))
+    issues.extend(_check_non_verified_evidence(claims, evidence_by_id))
     issues.extend(_check_unsourced_numbers(claims, evidence_by_id))
     issues.extend(_check_locators(claims, evidence_by_id))
     issues.extend(_check_management_plan_as_fact(claims))
-    issues.extend(_check_required_metrics(claims, config))
+    issues.extend(_check_required_metrics(claims, config, evidence_by_id))
     issues.extend(_check_conflicting_evidence(claims, evidence_by_id))
     issues.extend(_check_unparsed_model_output(claims))
     return issues

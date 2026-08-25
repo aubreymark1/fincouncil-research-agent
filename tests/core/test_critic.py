@@ -57,9 +57,25 @@ def make_unresolved_claim() -> Claim:
 
 def test_valid_pass_claim_produces_no_issues() -> None:
     request = make_request()
-    evidence = [make_evidence()]
+    revenue_evidence = make_evidence()
+    inventory_evidence = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-001",
+        fact_text="公司披露存货余额保持稳定。",
+        quote="存货余额保持稳定。",
+        evidence_type="financial",
+    )
+    evidence = [revenue_evidence, inventory_evidence]
     config = IndustryConfig.model_validate(load_fixture("food_config.json"))
-    claims = [make_claim(), make_unresolved_claim()]
+    revenue_claim = make_claim()
+    inventory_claim = make_claim(
+        claim_id="CL-CRITIC-INVENTORY",
+        text="公司披露存货余额保持稳定。",
+        claim_type="fact",
+        evidence_ids=[inventory_evidence.evidence_id],
+        industry_metric_ids=["inventory"],
+        status="pass",
+    )
+    claims = [revenue_claim, inventory_claim]
 
     issues = run_critic(request, claims, evidence, config)
 
@@ -194,6 +210,83 @@ def test_required_metric_missing_is_reported() -> None:
     ]
     assert len(missing) == 1
     assert missing[0].severity == "error"
+
+
+def test_unresolved_claim_does_not_cover_required_metric() -> None:
+    request = make_request()
+    evidence = [make_evidence()]
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    revenue_claim = make_claim()
+    inventory_unresolved = make_unresolved_claim()
+
+    issues = run_critic(request, [revenue_claim, inventory_unresolved], evidence, config)
+
+    inventory_missing = [
+        issue
+        for issue in issues
+        if issue.issue_type == "required_metric_missing"
+        and "inventory" in issue.message
+    ]
+    assert len(inventory_missing) == 1
+    assert inventory_missing[0].severity == "warning"
+
+
+def test_pending_evidence_is_blocked() -> None:
+    request = make_request()
+    pending = make_evidence(evidence_id="EV-PENDING-001", review_status="pending")
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    claim = make_claim(
+        evidence_ids=[pending.evidence_id],
+        industry_metric_ids=["revenue_growth"],
+    )
+
+    issues = run_critic(request, [claim], [pending], config)
+
+    blocked = [issue for issue in issues if issue.issue_type == "non_verified_evidence"]
+    assert len(blocked) == 1
+    assert blocked[0].severity == "critical"
+    assert blocked[0].evidence_id == "EV-PENDING-001"
+    assert blocked[0].claim_id == claim.claim_id
+
+
+def test_rejected_evidence_is_blocked() -> None:
+    request = make_request()
+    rejected = make_evidence(evidence_id="EV-REJECTED-001", review_status="rejected")
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    claim = make_claim(
+        evidence_ids=[rejected.evidence_id],
+        industry_metric_ids=["revenue_growth"],
+    )
+
+    issues = run_critic(request, [claim], [rejected], config)
+
+    blocked = [issue for issue in issues if issue.issue_type == "non_verified_evidence"]
+    assert len(blocked) == 1
+    assert blocked[0].severity == "critical"
+    assert blocked[0].evidence_id == "EV-REJECTED-001"
+
+
+def test_issue_ids_are_unique_for_multiple_missing_metrics() -> None:
+    request = make_request()
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+
+    issues = run_critic(request, [], [], config)
+
+    missing = [issue for issue in issues if issue.issue_type == "required_metric_missing"]
+    assert len(missing) == 2
+    assert len({issue.issue_id for issue in missing}) == 2
+
+
+def test_issue_ids_are_unique_for_multiple_unknown_evidence_ids() -> None:
+    request = make_request()
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    claim = make_claim(evidence_ids=["EV-MISSING-001", "EV-MISSING-002"])
+
+    issues = run_critic(request, [claim], [], config)
+
+    unknown = [issue for issue in issues if issue.issue_type == "unknown_evidence_id"]
+    assert len(unknown) == 2
+    assert len({issue.issue_id for issue in unknown}) == 2
 
 
 def test_conflicting_evidence_inside_claim_is_reported() -> None:

@@ -149,3 +149,31 @@ def test_extra_public_fields_are_rejected() -> None:
     payload["invented_field"] = "must not silently pass"
     with pytest.raises(ValidationError):
         Evidence.model_validate(payload)
+
+def test_risk_claim_requires_severity() -> None:
+    with pytest.raises(ValidationError, match="risk_severity"):
+        Claim(
+            claim_id="CL-RISK-MISSING-SEVERITY",
+            text="风险结论。",
+            claim_type="risk",
+            evidence_ids=["EV-FOOD-001"],
+            calculation=None,
+            confidence=0.5,
+            industry_metric_ids=["inventory"],
+            status="review",
+        )
+
+
+def test_risk_rule_metric_ids_must_reference_known_metrics() -> None:
+    payload = load_fixture("food_config.json")
+    payload["risk_rules"][0]["metric_ids"] = ["missing_metric"]
+    with pytest.raises(ValidationError, match="unknown metric_ids"):
+        IndustryConfig.model_validate(payload)
+
+
+def test_risk_ids_must_be_unique() -> None:
+    payload = load_fixture("food_config.json")
+    payload["risk_rules"].append(dict(payload["risk_rules"][0]))
+    with pytest.raises(ValidationError, match="risk_id must be unique"):
+        IndustryConfig.model_validate(payload)
+

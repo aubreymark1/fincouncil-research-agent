@@ -95,8 +95,17 @@ def extract_pdf(document: SourceDocument) -> list[TextChunk]:
                 "PDF is encrypted and cannot be read without a password",
             )
 
+    try:
+        pages = list(reader.pages)
+    except PyPdfError as exc:
+        raise PdfExtractionError(
+            "E100",
+            document.local_path,
+            f"failed to read pages: {exc}",
+        ) from exc
+
     chunks: list[TextChunk] = []
-    for page_index, page in enumerate(reader.pages, start=1):
+    for page_index, page in enumerate(pages, start=1):
         try:
             text = (page.extract_text() or "").strip()
         except PyPdfError as exc:

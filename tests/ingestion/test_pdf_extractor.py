@@ -166,3 +166,32 @@ def test_single_page_failure_raises_with_page_index(
 
     assert exc_info.value.code == "E100"
     assert "page 2" in exc_info.value.message
+
+
+def test_page_tree_iteration_failure_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FailingPages:
+        def __iter__(self) -> object:
+            raise PyPdfError("simulated page tree failure")
+
+    class FakeReader:
+        is_encrypted = False
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        @property
+        def pages(self) -> FailingPages:
+            return FailingPages()
+
+    monkeypatch.setattr("app.ingestion.pdf_extractor.PdfReader", FakeReader)
+
+    path = tmp_path / "any.pdf"
+    path.write_bytes(b"%PDF-1.4 placeholder")
+
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extract_pdf(_document(str(path)))
+
+    assert exc_info.value.code == "E100"
+    assert "failed to read pages" in exc_info.value.message

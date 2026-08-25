@@ -150,7 +150,28 @@ def test_risk_requires_trigger_content_not_only_evidence_types() -> None:
     claims = analyze_risks([financial, operating], config)
 
     assert claims[0].claim_type == "unresolved"
-    assert "未发现支持触发条件" in claims[0].text
+    assert "financial" in claims[0].text
+
+
+def test_risk_requires_trigger_content_for_each_evidence_type() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    financial = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-004",
+        fact_text="报告披露存货增速高于收入增速。",
+        quote="存货增速高于收入增速。",
+        evidence_type="financial",
+    )
+    unrelated_operating = make_evidence(
+        evidence_id="EV-FOOD-OPERATING-004",
+        fact_text="公司完成员工培训。",
+        quote="完成员工培训。",
+        evidence_type="operating",
+    )
+
+    claims = analyze_risks([financial, unrelated_operating], config)
+
+    assert claims[0].claim_type == "unresolved"
+    assert "operating" in claims[0].text
 
 
 def test_claim_ids_are_legal_for_unicode_and_special_metric_ids() -> None:

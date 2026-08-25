@@ -49,17 +49,20 @@ def analyze_risks(
             )
             continue
 
-        supporting = [
-            item
+        supporting_by_type = {
+            evidence_type: [
+                item
+                for item in verified
+                if item.evidence_type.casefold() == evidence_type.casefold()
+            ]
             for evidence_type in rule.required_evidence_types
-            for item in verified
-            if item.evidence_type.casefold() == evidence_type.casefold()
-        ]
+        }
+        supporting = [item for items in supporting_by_type.values() for item in items]
         evidence_ids = list(dict.fromkeys(item.evidence_id for item in supporting))
         missing_types = [
             evidence_type
             for evidence_type in rule.required_evidence_types
-            if not any(item.evidence_type.casefold() == evidence_type.casefold() for item in verified)
+            if not supporting_by_type[evidence_type]
         ]
         if missing_types:
             claims.append(
@@ -74,18 +77,30 @@ def analyze_risks(
             continue
 
         trigger_terms = risk_trigger_terms(rule, config)
-        relevant = [item for item in supporting if evidence_mentions(item, trigger_terms)]
-        if not relevant:
+        relevant_by_type = {
+            evidence_type: [
+                item for item in items if evidence_mentions(item, trigger_terms)
+            ]
+            for evidence_type, items in supporting_by_type.items()
+        }
+        unrelated_types = [
+            evidence_type
+            for evidence_type, items in relevant_by_type.items()
+            if not items
+        ]
+        if unrelated_types:
             claims.append(
                 _risk_claim(
                     rule,
                     evidence_ids,
-                    f"风险规则“{rule.display_name}”虽有对应证据类型，但未发现支持触发条件的内容。",
+                    f"风险规则“{rule.display_name}”的证据类型未分别支持触发条件：{', '.join(unrelated_types)}。",
                     0.0,
                     "unresolved",
                 )
             )
             continue
+
+        relevant = [item for items in relevant_by_type.values() for item in items]
 
         claims.append(
             _risk_claim(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.schemas import Claim, Evidence, IndustryConfig, MetricRule
+from app.schemas import Claim, Evidence, IndustryConfig, MetricRule, SourceDocument
 
 from ._helpers import scoped_verified_evidence, stable_claim_id
 
@@ -25,15 +25,36 @@ def _unresolved_claim(metric: MetricRule, evidence_ids: list[str], reason: str) 
     )
 
 
+def _has_independent_sources(
+    matches: list[Evidence],
+    documents: list[SourceDocument] | None,
+) -> bool:
+    """Require distinct publishers and distinct content hashes for independence."""
+
+    if documents is None:
+        return False
+    doc_by_id = {document.doc_id: document for document in documents}
+    matched_documents = [
+        doc_by_id[item.doc_id]
+        for item in matches
+        if item.doc_id in doc_by_id
+    ]
+    publishers = {document.publisher.strip().casefold() for document in matched_documents}
+    content_hashes = {document.content_hash for document in matched_documents}
+    return len(publishers) >= 2 and len(content_hashes) >= 2
+
+
 def analyze_fundamentals(
     evidence: list[Evidence],
     config: IndustryConfig,
+    *,
+    documents: list[SourceDocument] | None = None,
 ) -> list[Claim]:
     """Create direct fact Claims for evidence-backed industry metrics.
 
-    ``multiple`` metrics remain unresolved unless an upstream component has
-    confirmed source independence. Evidence currently has no publisher or
-    independence field, so different ``doc_id`` values alone are insufficient.
+    ``multiple`` metrics require SourceDocument metadata and pass only when at
+    least two distinct publishers and two distinct content hashes support the
+    metric. Different ``doc_id`` values alone are insufficient.
     Pending, rejected, cross-industry, and industry-unknown evidence is
     excluded; cutoff filtering remains the caller's responsibility because this
     node has no cutoff input.
@@ -54,12 +75,14 @@ def analyze_fundamentals(
             )
             continue
 
-        if metric.evidence_requirement == "multiple":
+        if metric.evidence_requirement == "multiple" and not _has_independent_sources(
+            matches, documents
+        ):
             claims.append(
                 _unresolved_claim(
                     metric,
                     evidence_ids,
-                    f"{metric.display_name}要求上游确认独立来源；当前 Evidence 缺少 publisher 或独立性标记。",
+                    f"{metric.display_name}要求至少两个独立发布主体和不同内容哈希的来源。",
                 )
             )
             continue

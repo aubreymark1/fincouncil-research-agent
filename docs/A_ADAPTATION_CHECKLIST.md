@@ -15,7 +15,7 @@
 | A-002 | 时间锁 | 已完成并合并 | PR #2 |
 | A-003 | ModelProvider、Cache | 已完成并合并 | PR #5 |
 | A-004 | 最小编排和 CLI | fixture/stub 版本已完成并合并；真实适配未完成 | PR #3 |
-| A-005 | 基本面、新闻政策、风险分析节点 | 未完成 | — |
+| A-005 | 基本面、新闻政策、风险分析节点 | 已实现，待 PR 合并 | PR #7 |
 | A-006 | Critic | 未完成 | — |
 | A-007 | 报告生成 | 未完成 | — |
 | A-008 | 第一次 B/C 集成 | 未完成 | — |
@@ -73,7 +73,7 @@ A-004 只有在下面的适配项完成后，才能称为真实 B/C 集成，而
 
 这些任务不必等待 B/C，可以用公共 Schema 和共享 fixture 先完成：
 
-1. **A-005 分析节点**：`app/agents/fundamental.py`、`news_policy.py`、`risk.py`；只接收 Evidence 和 IndustryConfig，输出 Claim。
+1. **A-005 分析节点**：已实现于 PR #7；合并后需由 D/A 复核 Claim 类型、证据绑定和 unresolved 行为。
 2. **A-006 Critic**：`app/agents/critic.py`；检查截止日期、证据缺失、数字冲突、定位缺失和必查指标遗漏。
 3. **A-007 报告生成**：`app/agents/report.py`；区分 pass、review、reject Claim，输出 JSON 和 Markdown。
 4. **A-008 集成**：先合并 B，再合并 C，再运行 core、ingestion、industry 和 integration 测试。

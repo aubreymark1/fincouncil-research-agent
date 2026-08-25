@@ -37,9 +37,11 @@ def _split_text(text: str, max_chars: int) -> list[tuple[str, int, int]]:
         end = min(start + max_chars, total)
         if end < total:
             window = text[start:end]
+            # Prefer a sentence boundary, then a word boundary, in the back
+            # half of the window; otherwise cut at max_chars.
             boundary = _last_boundary(window)
-            # Only cut at a boundary that sits in the back half of the window;
-            # otherwise fall back to the hard max_chars cut.
+            if boundary < max_chars // 2:
+                boundary = window.rfind(" ")
             if boundary >= max_chars // 2:
                 end = start + boundary + 1
         piece = text[start:end].strip()
@@ -66,6 +68,7 @@ def chunk_text(chunks: list[TextChunk], max_chars: int) -> list[TextChunk]:
             continue
 
         for index, (piece, start, end) in enumerate(_split_text(chunk.text, max_chars)):
+            offset = chunk.char_start or 0
             result.append(
                 TextChunk(
                     chunk_id=f"{chunk.chunk_id}-{index}",
@@ -74,8 +77,8 @@ def chunk_text(chunks: list[TextChunk], max_chars: int) -> list[TextChunk]:
                     page=chunk.page,
                     section=chunk.section,
                     paragraph_index=chunk.paragraph_index,
-                    char_start=start,
-                    char_end=end,
+                    char_start=offset + start,
+                    char_end=offset + end,
                 )
             )
     return result

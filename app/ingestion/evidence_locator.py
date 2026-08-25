@@ -68,6 +68,10 @@ def locate_evidence(
             "locate_evidence requires documents to resolve Evidence.published_at"
         )
 
+    # Drop empty keywords (which would match every chunk) and deduplicate
+    # while preserving order.
+    keywords = [keyword for keyword in dict.fromkeys(keywords) if keyword]
+
     doc_by_id = {document.doc_id: document for document in documents}
     evidence_list: list[Evidence] = []
     seen_ids: set[str] = set()

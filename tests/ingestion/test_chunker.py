@@ -70,3 +70,21 @@ def test_chunks_are_not_merged_across_pages() -> None:
     assert {chunk.page for chunk in chunks} == {1, 2}
     # 没有跨页合并：每个 chunk 只来自一页
     assert all(chunk.page in (1, 2) for chunk in chunks)
+
+
+def test_split_preserves_char_offset() -> None:
+    chunk = TextChunk(
+        chunk_id="CHUNK-DOC-001-P1-0",
+        doc_id="DOC-001",
+        text="第一句。第二句。第三句。",
+        page=1,
+        section=None,
+        paragraph_index=None,
+        char_start=100,
+        char_end=112,
+    )
+
+    chunks = chunk_text([chunk], max_chars=6)
+
+    assert chunks
+    assert all(chunk.char_start is not None and chunk.char_start >= 100 for chunk in chunks)

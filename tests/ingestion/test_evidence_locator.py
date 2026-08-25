@@ -109,3 +109,19 @@ def test_document_without_published_at_is_skipped() -> None:
     )
 
     assert evidence == []
+
+
+def test_empty_keyword_is_ignored() -> None:
+    evidence = locate_evidence(
+        [_chunk("本期利润稳定。")], ["", "不存在词"], documents=[_document()]
+    )
+
+    assert evidence == []
+
+
+def test_duplicate_keywords_are_deduplicated() -> None:
+    evidence = locate_evidence(
+        [_chunk("本期利润稳定增长。")], ["利润", "利润"], documents=[_document()]
+    )
+
+    assert len(evidence) == 1

@@ -1,0 +1,6 @@
+B-001 占位资料文件。
+
+本文件仅用于 manifest 读取/校验测试，让 manifest_valid.csv 的 local_path
+指向一个真实存在的文件（load_manifest 需要计算 content_hash）。
+
+B-006（资料包）会用真实的食品饮料资料替换本文件。

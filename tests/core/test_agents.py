@@ -61,7 +61,7 @@ def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> N
 
     inventory_claim = next(claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-"))
     assert inventory_claim.claim_type == "unresolved"
-    assert "独立来源" in inventory_claim.text
+    assert "独立发布主体" in inventory_claim.text
 
 
 def test_multiple_metric_passes_with_independent_source_documents() -> None:
@@ -221,8 +221,14 @@ def test_risk_requires_trigger_content_for_each_evidence_type() -> None:
 
 def test_claim_ids_are_legal_for_unicode_and_special_metric_ids() -> None:
     payload = load_fixture("food_config.json")
-    payload["required_metrics"][0]["metric_id"] = "收入 增速/同比"
+    old_metric_id = payload["required_metrics"][0]["metric_id"]
+    new_metric_id = "收入 增速/同比"
+    payload["required_metrics"][0]["metric_id"] = new_metric_id
     payload["required_metrics"][0]["keywords"] = ["营业收入"]
+    payload["risk_rules"][0]["metric_ids"] = [
+        new_metric_id if metric_id == old_metric_id else metric_id
+        for metric_id in payload["risk_rules"][0]["metric_ids"]
+    ]
     config = IndustryConfig.model_validate(payload)
 
     claims = analyze_fundamentals([make_evidence()], config)

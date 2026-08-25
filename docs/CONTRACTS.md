@@ -134,7 +134,11 @@ class Evidence(BaseModel):
 - quote 不得由模型改写；
 - locator 必须能让人工找到原文；
 - cutoff_date 之后的 Evidence 直接 rejected；
-- pending 和 rejected Evidence 不得支撑正文关键结论。
+- pending 和 rejected Evidence 不得支撑正文关键结论；
+- `published_at`、`company_name`、`industry_id` 必须从对应 `SourceDocument` 复制，不得从文本猜测；
+- 关键词定位产生的 Evidence 默认 `review_status="pending"`，只能经人工或明确规则确认后改为 `verified`；
+- `evidence_type` 由调用方按分析通道显式提供，推荐值为 `financial`、`operating`、`policy`、`news`、`company_release`、`market_data`、`other`；不得使用含义模糊的 `keyword_match` 作为正式类型；
+- `confidence` 表示定位匹配置信度，不代表事实真实性；第一版关键词精确命中的默认值为 0.5。
 
 ## 六、IndustryConfig
 
@@ -151,6 +155,7 @@ class RiskRule(BaseModel):
     risk_id: str
     display_name: str
     trigger_description: str
+    metric_ids: list[str]
     required_evidence_types: list[str]
     severity: Literal["low", "medium", "high"]
 
@@ -169,7 +174,10 @@ class IndustryConfig(BaseModel):
 - required_metrics 不为空；
 - metric_id 在单个配置中唯一；
 - report_sections 不为空；
-- 食品饮料和银行配置必须有实质差异。
+- 食品饮料和银行配置必须有实质差异；
+- risk_id 在单个配置中唯一；
+- 每个 RiskRule.metric_ids 不为空，且必须引用同一 IndustryConfig.required_metrics 中存在的 metric_id；
+- RiskRule.required_evidence_types 与 Evidence.evidence_type 使用同一套类型词表。
 
 ## 七、Claim
 
@@ -184,6 +192,7 @@ class Claim(BaseModel):
         "risk",
         "unresolved"
     ]
+    risk_severity: Literal["low", "medium", "high"] | None
     evidence_ids: list[str]
     calculation: str | None
     confidence: float
@@ -197,7 +206,10 @@ class Claim(BaseModel):
 - 精确数字必须有 evidence 或 calculation；
 - unresolved 可以没有证据，但必须说明缺失内容；
 - report 只能直接使用 pass Claim；
-- review Claim 进入待人工确认章节。
+- review Claim 进入待人工确认章节；
+- claim_type=risk 时 risk_severity 必填，并从 RiskRule.severity 复制；
+- 风险 Claim 的 industry_metric_ids 必须来自 RiskRule.metric_ids；
+- fact、change、analysis Claim 不得设置 risk_severity。
 
 ## 八、ValidationIssue
 
@@ -249,6 +261,13 @@ outputs/reports/{run_id}/report.md
 outputs/logs/{run_id}/run_metadata.json
 ~~~
 
+JSON/Markdown 分流约定：
+
+- `claims` 和 `risks` 可以保留 status=review 的 Claim，供 UI 与 Markdown 放入“待人工确认”；
+- 只有 status=pass 的 Claim 可以进入正式正文和正式风险章节；
+- `unresolved_items` 只放 claim_type=unresolved；
+- evidence_index 只收录报告内 Claim 实际引用且 review_status=verified 的 Evidence。
+
 ## 十、RunMetadata
 
 ~~~python
@@ -284,9 +303,17 @@ extract_html(
     document: SourceDocument
 ) -> list[TextChunk]
 
+chunk_text(
+    chunks: list[TextChunk],
+    max_chars: int
+) -> list[TextChunk]
+
 locate_evidence(
     chunks: list[TextChunk],
-    keywords: list[str]
+    keywords: list[str],
+    *,
+    documents: list[SourceDocument],
+    evidence_type: str
 ) -> list[Evidence]
 ~~~
 
@@ -303,7 +330,9 @@ build_industry_checklist(
 
 check_required_metrics(
     evidence: list[Evidence],
-    config: IndustryConfig
+    config: IndustryConfig,
+    *,
+    documents: list[SourceDocument]
 ) -> list[ValidationIssue]
 
 apply_risk_rules(
@@ -323,7 +352,9 @@ apply_time_lock(
 run_analysis(
     request: ResearchRequest,
     evidence: list[Evidence],
-    config: IndustryConfig
+    config: IndustryConfig,
+    *,
+    documents: list[SourceDocument]
 ) -> list[Claim]
 
 run_critic(
@@ -372,7 +403,29 @@ show_report(
 ) -> None
 ~~~
 
-## 十二、错误处理
+## 十二、跨模块数据依赖约定
+
+### Evidence 定位
+
+- `documents` 是必填 keyword-only 参数；按 `doc_id` 为 TextChunk 补齐 SourceDocument 元数据；
+- chunk 找不到对应文档、文档缺少 published_at 或 evidence_type 为空时必须明确失败，不得跳过或编造；
+- evidence_type 由调用方按本轮检索/分析通道显式传入；
+- 自动关键词匹配的 review_status 固定为 pending。
+
+### multiple 独立来源
+
+- 仅不同 doc_id 不足以证明独立；
+- check_required_metrics 与 run_analysis 必须接收 documents；
+- 第一版独立来源要求至少两个不同 publisher，且 content_hash 也不同；
+- 无法确认独立性时输出 ValidationIssue 或 unresolved Claim，不得标记 pass。
+
+### RiskRule 到 Claim
+
+- RiskRule.metric_ids 负责声明观察指标；
+- Claim.industry_metric_ids 从 RiskRule.metric_ids 复制；
+- Claim.risk_severity 从 RiskRule.severity 复制。
+
+## 十三、错误处理
 
 统一错误代码：
 
@@ -395,7 +448,7 @@ E600 实验输入不一致
 
 模块不得只抛出模糊的 Exception。CLI 层需要输出错误代码、模块、文件和建议动作。
 
-## 十三、接口变更流程
+## 十四、接口变更流程
 
 1. 提出人在 task_board 新建 CONTRACT-CHANGE 任务；
 2. 说明原因、字段变化和受影响模块；
@@ -407,10 +460,11 @@ E600 实验输入不一致
 
 没有完成以上流程，不得私自改公共字段。
 
-## 十四、已记录的 CONTRACT-CHANGE
+## 十五、已记录的 CONTRACT-CHANGE
 
 | 变更 ID | 日期 | 变更内容 | 原因 | 受影响模块 | 实施说明 |
 |---|---|---|---|---|---|
 | CONTRACT-CHANGE-001 | 2026-08-25 | 扩大 E100 语义，覆盖资料不可用的完整错误集合 | 与 B-002 PDF 提取的统一错误处理对齐 | B ingestion 错误解释和下游调用方 | 本次只更新契约；详细失败原因继续写入错误消息，不修改 `app/ingestion/` |
+| CONTRACT-CHANGE-002 | 2026-08-25 | 补齐 Evidence 元数据来源、multiple 独立来源、RiskRule→Claim 字段和报告 review 语义 | 系统复检发现多个输出字段无法由原函数输入可靠构造 | A/B/C、公共 Schema、fixture、集成 | documents/evidence_type 改为显式输入；新增 RiskRule.metric_ids 与 Claim.risk_severity |
 
 

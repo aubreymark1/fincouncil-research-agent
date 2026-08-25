@@ -38,6 +38,8 @@ def make_claim(**updates: object) -> Claim:
         "status": "pass",
     }
     payload.update(updates)
+    if payload["claim_type"] == "risk" and payload.get("risk_severity") is None:
+        payload["risk_severity"] = "medium"
     return Claim.model_validate(payload)
 
 

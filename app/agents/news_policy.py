@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from app.schemas import Claim, Evidence, IndustryConfig
 
+from ._helpers import scoped_verified_evidence, stable_claim_id
+
 
 _NEWS_POLICY_TYPES = {"news", "policy", "company_release"}
 
@@ -14,11 +16,10 @@ def analyze_news_policy(
 ) -> list[Claim]:
     """Create reviewable change Claims from verified news or policy evidence."""
 
-    del config
     relevant = [
         item
-        for item in evidence
-        if item.review_status == "verified" and item.evidence_type.casefold() in _NEWS_POLICY_TYPES
+        for item in scoped_verified_evidence(evidence, config)
+        if item.evidence_type.casefold() in _NEWS_POLICY_TYPES
     ]
     if not relevant:
         return [
@@ -36,7 +37,7 @@ def analyze_news_policy(
 
     return [
         Claim(
-            claim_id=f"CL-NEWS-POLICY-{item.evidence_id.removeprefix('EV-')}",
+            claim_id=stable_claim_id("NEWS-POLICY", item.evidence_id),
             text=item.fact_text,
             claim_type="change",
             evidence_ids=[item.evidence_id],

@@ -6,6 +6,8 @@ from typing import Literal
 
 from app.schemas import Claim, Evidence, IndustryConfig, RiskRule
 
+from ._helpers import evidence_mentions, risk_trigger_terms, scoped_verified_evidence, stable_claim_id
+
 
 def _risk_claim(
     rule: RiskRule,
@@ -15,7 +17,7 @@ def _risk_claim(
     claim_type: Literal["risk", "unresolved"],
 ) -> Claim:
     return Claim(
-        claim_id=f"CL-RISK-{rule.risk_id}",
+        claim_id=stable_claim_id("RISK", rule.risk_id),
         text=text,
         claim_type=claim_type,
         evidence_ids=evidence_ids,
@@ -32,7 +34,7 @@ def analyze_risks(
 ) -> list[Claim]:
     """Create reviewable risk Claims only when configured evidence types exist."""
 
-    verified = [item for item in evidence if item.review_status == "verified"]
+    verified = scoped_verified_evidence(evidence, config)
     claims: list[Claim] = []
     for rule in config.risk_rules:
         if not rule.required_evidence_types:
@@ -71,12 +73,26 @@ def analyze_risks(
             )
             continue
 
+        trigger_terms = risk_trigger_terms(rule, config)
+        relevant = [item for item in supporting if evidence_mentions(item, trigger_terms)]
+        if not relevant:
+            claims.append(
+                _risk_claim(
+                    rule,
+                    evidence_ids,
+                    f"风险规则“{rule.display_name}”虽有对应证据类型，但未发现支持触发条件的内容。",
+                    0.0,
+                    "unresolved",
+                )
+            )
+            continue
+
         claims.append(
             _risk_claim(
                 rule,
-                evidence_ids,
+                list(dict.fromkeys(item.evidence_id for item in relevant)),
                 f"风险规则“{rule.display_name}”已获得所需证据，需人工确认：{rule.trigger_description}",
-                min(item.confidence for item in supporting),
+                min(item.confidence for item in relevant),
                 "risk",
             )
         )

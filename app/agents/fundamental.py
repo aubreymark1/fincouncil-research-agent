@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from app.schemas import Claim, Evidence, IndustryConfig, MetricRule
 
-
-def _verified(evidence: list[Evidence]) -> list[Evidence]:
-    return [item for item in evidence if item.review_status == "verified"]
+from ._helpers import scoped_verified_evidence, stable_claim_id
 
 
 def _matches_metric(item: Evidence, metric: MetricRule) -> bool:
@@ -16,7 +14,7 @@ def _matches_metric(item: Evidence, metric: MetricRule) -> bool:
 
 def _unresolved_claim(metric: MetricRule, evidence_ids: list[str], reason: str) -> Claim:
     return Claim(
-        claim_id=f"CL-FUND-{metric.metric_id}",
+        claim_id=stable_claim_id("FUND", metric.metric_id),
         text=reason,
         claim_type="unresolved",
         evidence_ids=evidence_ids,
@@ -33,12 +31,15 @@ def analyze_fundamentals(
 ) -> list[Claim]:
     """Create direct fact Claims for evidence-backed industry metrics.
 
-    ``multiple`` metrics require evidence from at least two distinct documents.
-    Pending and rejected evidence is intentionally excluded; cutoff filtering
-    remains the caller's responsibility because this node has no cutoff input.
+    ``multiple`` metrics remain unresolved unless an upstream component has
+    confirmed source independence. Evidence currently has no publisher or
+    independence field, so different ``doc_id`` values alone are insufficient.
+    Pending, rejected, cross-industry, and industry-unknown evidence is
+    excluded; cutoff filtering remains the caller's responsibility because this
+    node has no cutoff input.
     """
 
-    verified = _verified(evidence)
+    verified = scoped_verified_evidence(evidence, config)
     claims: list[Claim] = []
     for metric in config.required_metrics:
         matches = [item for item in verified if _matches_metric(item, metric)]
@@ -53,13 +54,12 @@ def analyze_fundamentals(
             )
             continue
 
-        distinct_documents = {item.doc_id for item in matches}
-        if metric.evidence_requirement == "multiple" and len(distinct_documents) < 2:
+        if metric.evidence_requirement == "multiple":
             claims.append(
                 _unresolved_claim(
                     metric,
                     evidence_ids,
-                    f"{metric.display_name}要求至少两个独立来源，当前仅找到一个来源。",
+                    f"{metric.display_name}要求上游确认独立来源；当前 Evidence 缺少 publisher 或独立性标记。",
                 )
             )
             continue
@@ -67,7 +67,7 @@ def analyze_fundamentals(
         primary = matches[0]
         claims.append(
             Claim(
-                claim_id=f"CL-FUND-{metric.metric_id}",
+                claim_id=stable_claim_id("FUND", metric.metric_id),
                 text=primary.fact_text,
                 claim_type="fact",
                 evidence_ids=evidence_ids,

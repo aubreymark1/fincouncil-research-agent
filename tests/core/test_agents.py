@@ -27,8 +27,8 @@ def test_fundamentals_only_pass_when_metric_evidence_is_sufficient() -> None:
 
     claims = analyze_fundamentals(evidence, config)
 
-    revenue_claim = next(claim for claim in claims if claim.claim_id == "CL-FUND-revenue_growth")
-    inventory_claim = next(claim for claim in claims if claim.claim_id == "CL-FUND-inventory")
+    revenue_claim = next(claim for claim in claims if claim.claim_id.startswith("CL-FUND-REVENUE-GROWTH-"))
+    inventory_claim = next(claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-"))
     assert revenue_claim.claim_type == "fact"
     assert revenue_claim.status == "pass"
     assert revenue_claim.evidence_ids == ["EV-FOOD-001"]
@@ -46,6 +46,7 @@ def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> N
     )
     same_document = make_evidence(
         evidence_id="EV-FOOD-INVENTORY-002",
+        doc_id="DOC-FOOD-002",
         fact_text="公司披露库存周转情况。",
         quote="库存周转情况。",
         evidence_type="operating",
@@ -53,9 +54,26 @@ def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> N
 
     claims = analyze_fundamentals([first, same_document], config)
 
-    inventory_claim = next(claim for claim in claims if claim.claim_id == "CL-FUND-inventory")
+    inventory_claim = next(claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-"))
     assert inventory_claim.claim_type == "unresolved"
-    assert "两个独立来源" in inventory_claim.text
+    assert "独立来源" in inventory_claim.text
+
+
+def test_cross_industry_and_unknown_industry_evidence_are_excluded() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    cross_industry = make_evidence(evidence_id="EV-BANK-001", industry_id="banking")
+    unknown_industry = make_evidence(evidence_id="EV-GENERIC-001", industry_id=None)
+
+    fundamental_claims = analyze_fundamentals([cross_industry, unknown_industry], config)
+    news_claims = analyze_news_policy(
+        [cross_industry.model_copy(update={"evidence_type": "policy"}), unknown_industry],
+        config,
+    )
+    risk_claims = analyze_risks([cross_industry, unknown_industry], config)
+
+    assert all(claim.claim_type == "unresolved" for claim in fundamental_claims)
+    assert news_claims[0].claim_type == "unresolved"
+    assert risk_claims[0].claim_type == "unresolved"
 
 
 def test_news_policy_excludes_pending_and_rejected_evidence() -> None:
@@ -99,11 +117,16 @@ def test_risk_requires_all_configured_evidence_types() -> None:
 
 def test_risk_returns_review_claim_when_all_evidence_types_exist() -> None:
     config = IndustryConfig.model_validate(load_fixture("food_config.json"))
-    financial = make_evidence(evidence_type="financial")
+    financial = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-001",
+        fact_text="报告披露存货增速高于收入增速。",
+        quote="存货增速高于收入增速。",
+        evidence_type="financial",
+    )
     operating = make_evidence(
         evidence_id="EV-FOOD-OPERATING-001",
-        fact_text="公司披露渠道动销情况。",
-        quote="渠道动销情况。",
+        fact_text="公司披露渠道库存压力上升。",
+        quote="渠道库存压力上升。",
         evidence_type="operating",
     )
 
@@ -111,4 +134,32 @@ def test_risk_returns_review_claim_when_all_evidence_types_exist() -> None:
 
     assert claims[0].claim_type == "risk"
     assert claims[0].status == "review"
-    assert set(claims[0].evidence_ids) == {"EV-FOOD-001", "EV-FOOD-OPERATING-001"}
+    assert set(claims[0].evidence_ids) == {"EV-FOOD-INVENTORY-001", "EV-FOOD-OPERATING-001"}
+
+
+def test_risk_requires_trigger_content_not_only_evidence_types() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    financial = make_evidence(evidence_type="financial")
+    operating = make_evidence(
+        evidence_id="EV-FOOD-OPERATING-002",
+        fact_text="公司披露渠道动销情况。",
+        quote="渠道动销情况。",
+        evidence_type="operating",
+    )
+
+    claims = analyze_risks([financial, operating], config)
+
+    assert claims[0].claim_type == "unresolved"
+    assert "未发现支持触发条件" in claims[0].text
+
+
+def test_claim_ids_are_legal_for_unicode_and_special_metric_ids() -> None:
+    payload = load_fixture("food_config.json")
+    payload["required_metrics"][0]["metric_id"] = "收入 增速/同比"
+    payload["required_metrics"][0]["keywords"] = ["营业收入"]
+    config = IndustryConfig.model_validate(payload)
+
+    claims = analyze_fundamentals([make_evidence()], config)
+
+    assert claims[0].claim_id.startswith("CL-FUND-")
+    assert claims[0].claim_id.replace("-", "").isalnum()

@@ -1,8 +1,8 @@
 # A 核心适配工作记录
 
-> 维护人：A  
-> 更新时间：2026-08-25  
-> 范围基线：`docs/MASTER_PLAN.md`、`docs/CONTRACTS.md`、`docs/roles/A.md`  
+> 维护人：A
+> 更新时间：2026-08-25
+> 范围基线：`docs/MASTER_PLAN.md`、`docs/CONTRACTS.md`、`docs/roles/A.md`
 > 本文件记录 A 已提前完成但仍需接入 B/C 的适配工作，避免把 fixture/stub 误当成真实集成。
 
 ## 一、编号映射

@@ -174,9 +174,14 @@ def render_report(
 
 def _format_claim_line(claim: Claim) -> str:
     evidence = "、".join(claim.evidence_ids) if claim.evidence_ids else "无"
+    severity = (
+        f"，风险等级 {claim.risk_severity}"
+        if claim.risk_severity is not None
+        else ""
+    )
     return (
         f"- {claim.text} "
-        f"（{claim.claim_id}，置信度 {claim.confidence}，证据：{evidence}）"
+        f"（{claim.claim_id}，置信度 {claim.confidence}{severity}，证据：{evidence}）"
     )
 
 

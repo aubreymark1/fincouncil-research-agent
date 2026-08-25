@@ -169,3 +169,73 @@ def test_duplicate_keywords_are_deduplicated() -> None:
     )
 
     assert len(evidence) == 1
+
+
+def test_whitespace_evidence_type_raises() -> None:
+    with pytest.raises(ValueError, match="evidence_type"):
+        locate_evidence(
+            [_chunk("本期营业收入同比增长 12.0%。")],
+            ["营业收入"],
+            documents=[_document()],
+            evidence_type="   ",
+        )
+
+
+def test_keyword_match_evidence_type_raises() -> None:
+    with pytest.raises(ValueError, match="not allowed"):
+        locate_evidence(
+            [_chunk("本期营业收入同比增长 12.0%。")],
+            ["营业收入"],
+            documents=[_document()],
+            evidence_type="keyword_match",
+        )
+
+
+def test_whitespace_keyword_is_ignored() -> None:
+    evidence = locate_evidence(
+        [_chunk("本期利润稳定。")],
+        [" "],
+        documents=[_document()],
+        evidence_type="financial",
+    )
+
+    assert evidence == []
+
+
+def test_keywords_are_normalized_and_deduplicated() -> None:
+    evidence = locate_evidence(
+        [_chunk("本期营业收入同比增长。")],
+        [" 营业收入 ", "营业收入"],
+        documents=[_document()],
+        evidence_type="financial",
+    )
+
+    assert len(evidence) == 1
+
+
+def test_evidence_id_does_not_collide_across_evidence_types() -> None:
+    chunk = _chunk("本期营业收入同比增长 12.0%。")
+
+    financial = locate_evidence(
+        [chunk], ["营业收入"], documents=[_document()], evidence_type="financial"
+    )
+    policy = locate_evidence(
+        [chunk], ["营业收入"], documents=[_document()], evidence_type="policy"
+    )
+
+    assert financial[0].evidence_id != policy[0].evidence_id
+
+
+def test_evidence_id_is_stable_across_keyword_order() -> None:
+    chunk = _chunk("本期营业收入同比增长。政策利好频出。")
+
+    first = locate_evidence(
+        [chunk], ["营业收入", "政策"], documents=[_document()], evidence_type="financial"
+    )
+    second = locate_evidence(
+        [chunk], ["政策", "营业收入"], documents=[_document()], evidence_type="financial"
+    )
+
+    ids_first = {evidence.quote: evidence.evidence_id for evidence in first}
+    ids_second = {evidence.quote: evidence.evidence_id for evidence in second}
+    assert ids_first == ids_second

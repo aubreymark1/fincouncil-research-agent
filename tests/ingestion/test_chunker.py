@@ -88,3 +88,25 @@ def test_split_preserves_char_offset() -> None:
 
     assert chunks
     assert all(chunk.char_start is not None and chunk.char_start >= 100 for chunk in chunks)
+
+
+def test_split_char_offsets_align_with_text() -> None:
+    text = "第一句 内容。 第二句 内容。 第三句 内容。"
+    chunk = TextChunk(
+        chunk_id="CHUNK-DOC-001-P1",
+        doc_id="DOC-001",
+        text=text,
+        page=1,
+        section=None,
+        paragraph_index=None,
+        char_start=0,
+        char_end=len(text),
+    )
+
+    chunks = chunk_text([chunk], max_chars=8)
+
+    assert len(chunks) > 1
+    for piece in chunks:
+        assert piece.char_start is not None
+        assert piece.char_end is not None
+        assert text[piece.char_start : piece.char_end] == piece.text

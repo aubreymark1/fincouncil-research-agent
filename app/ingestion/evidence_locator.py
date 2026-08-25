@@ -12,11 +12,18 @@ evidence".
 
 from __future__ import annotations
 
+import hashlib
+
 from app.schemas import Evidence, SourceDocument, TextChunk
 
 
 #: Separators used to trim a keyword-bearing sentence from the surrounding text.
 _BOUNDARIES = "。！？；\n"
+
+#: Evidence types recommended by CONTRACT-CHANGE-002.
+_RECOMMENDED_EVIDENCE_TYPES = frozenset(
+    {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
+)
 
 
 def _extract_sentence(text: str, keyword: str) -> str:
@@ -46,6 +53,23 @@ def _build_locator(chunk: TextChunk) -> str:
     return ", ".join(parts)
 
 
+def _make_evidence_id(
+    chunk_id: str,
+    evidence_type: str,
+    keyword: str,
+    match_start: int,
+) -> str:
+    """Build a stable, collision-free Evidence ID.
+
+    The ID embeds the chunk, the evidence type, a hash of the keyword content,
+    and the hit position — not a call-local keyword index — so separate calls
+    with different types or keyword order never collide.
+    """
+    suffix = chunk_id.removeprefix("CHUNK-")
+    keyword_hash = hashlib.sha1(keyword.encode("utf-8")).hexdigest()[:8]
+    return f"EV-{suffix}-{evidence_type}-{keyword_hash}-{match_start}"
+
+
 def locate_evidence(
     chunks: list[TextChunk],
     keywords: list[str],
@@ -57,15 +81,22 @@ def locate_evidence(
 
     ``documents`` supplies ``published_at``, ``company_name`` and
     ``industry_id`` per chunk. ``evidence_type`` labels the retrieval channel
-    (e.g. ``financial``, ``policy``, ``news``). Both are required; a chunk
-    whose document is missing or lacks ``published_at``, or an empty
-    ``evidence_type``, raises instead of silently dropping evidence.
+    and must be one of the recommended types. Both are required; a chunk whose
+    document is missing or lacks ``published_at`` raises instead of silently
+    dropping evidence.
     """
+    evidence_type = evidence_type.strip()
     if not evidence_type:
         raise ValueError("evidence_type must not be empty")
+    if evidence_type not in _RECOMMENDED_EVIDENCE_TYPES:
+        raise ValueError(
+            f"evidence_type {evidence_type!r} is not allowed; "
+            f"use one of {sorted(_RECOMMENDED_EVIDENCE_TYPES)}"
+        )
 
-    # Drop empty keywords (which would match every chunk) and deduplicate
-    # while preserving order.
+    # Normalize, deduplicate, then drop blank keywords (a bare space would
+    # otherwise match every chunk).
+    keywords = [keyword.strip() for keyword in keywords]
     keywords = [keyword for keyword in dict.fromkeys(keywords) if keyword]
 
     doc_by_id = {document.doc_id: document for document in documents}
@@ -84,16 +115,17 @@ def locate_evidence(
                 "cannot build Evidence without a publication date"
             )
 
-        for keyword_index, keyword in enumerate(keywords):
-            if keyword not in chunk.text:
+        for keyword in keywords:
+            match_start = chunk.text.find(keyword)
+            if match_start == -1:
                 continue
 
             sentence = _extract_sentence(chunk.text, keyword)
             if not sentence:
                 continue
 
-            evidence_id = (
-                f"EV-{chunk.chunk_id.removeprefix('CHUNK-')}-K{keyword_index}"
+            evidence_id = _make_evidence_id(
+                chunk.chunk_id, evidence_type, keyword, match_start
             )
             if evidence_id in seen_ids:
                 continue

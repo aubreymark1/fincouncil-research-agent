@@ -26,9 +26,18 @@ def _last_boundary(window: str) -> int:
 
 
 def _split_text(text: str, max_chars: int) -> list[tuple[str, int, int]]:
-    """Split ``text`` into (piece, start, end) entries no longer than max_chars."""
+    """Split ``text`` into (piece, start, end) entries no longer than max_chars.
+
+    ``start`` and ``end`` point at the piece's exact span in ``text`` after
+    stripping surrounding whitespace, so ``text[start:end] == piece`` always
+    holds.
+    """
     if len(text) <= max_chars:
-        return [(text, 0, len(text))]
+        stripped = text.strip()
+        if not stripped:
+            return []
+        lead = len(text) - len(text.lstrip())
+        return [(stripped, lead, lead + len(stripped))]
 
     pieces: list[tuple[str, int, int]] = []
     start = 0
@@ -44,9 +53,12 @@ def _split_text(text: str, max_chars: int) -> list[tuple[str, int, int]]:
                 boundary = window.rfind(" ")
             if boundary >= max_chars // 2:
                 end = start + boundary + 1
-        piece = text[start:end].strip()
-        if piece:
-            pieces.append((piece, start, end))
+        raw = text[start:end]
+        stripped = raw.strip()
+        if stripped:
+            lead = len(raw) - len(raw.lstrip())
+            piece_start = start + lead
+            pieces.append((stripped, piece_start, piece_start + len(stripped)))
         start = end
     return pieces
 

@@ -14,11 +14,12 @@ def _chunk(
     text: str,
     *,
     chunk_id: str = "CHUNK-DOC-001-P1",
+    doc_id: str = "DOC-001",
     page: int = 3,
 ) -> TextChunk:
     return TextChunk(
         chunk_id=chunk_id,
-        doc_id="DOC-001",
+        doc_id=doc_id,
         text=text,
         page=page,
         section="经营情况",
@@ -48,9 +49,12 @@ def _document(published_at: str | None = "2026-03-30") -> SourceDocument:
 
 
 def test_keyword_hit_generates_evidence() -> None:
-    chunks = [_chunk("本期营业收入同比增长 12.0%。这是其他内容。")]
-
-    evidence = locate_evidence(chunks, ["营业收入"], documents=[_document()])
+    evidence = locate_evidence(
+        [_chunk("本期营业收入同比增长 12.0%。这是其他内容。")],
+        ["营业收入"],
+        documents=[_document()],
+        evidence_type="financial",
+    )
 
     assert len(evidence) == 1
     assert evidence[0].doc_id == "DOC-001"
@@ -60,7 +64,10 @@ def test_keyword_hit_generates_evidence() -> None:
 def test_quote_is_verbatim_from_source() -> None:
     source_text = "本期营业收入同比增长 12.0%。这是其他内容。"
     evidence = locate_evidence(
-        [_chunk(source_text)], ["营业收入"], documents=[_document()]
+        [_chunk(source_text)],
+        ["营业收入"],
+        documents=[_document()],
+        evidence_type="financial",
     )
 
     assert "营业收入" in evidence[0].quote
@@ -72,6 +79,7 @@ def test_published_at_comes_from_document() -> None:
         [_chunk("本期营业收入同比增长 12.0%。")],
         ["营业收入"],
         documents=[_document()],
+        evidence_type="financial",
     )
 
     assert evidence[0].published_at == date(2026, 3, 30)
@@ -82,38 +90,71 @@ def test_locator_includes_page_and_chunk() -> None:
         [_chunk("本期营业收入同比增长 12.0%。", page=3)],
         ["营业收入"],
         documents=[_document()],
+        evidence_type="financial",
     )
 
     assert "page 3" in evidence[0].locator
     assert "CHUNK-DOC-001-P1" in evidence[0].locator
 
 
-def test_no_keyword_hit_returns_empty() -> None:
-    evidence = locate_evidence(
-        [_chunk("本期利润保持稳定。")], ["营业收入"], documents=[_document()]
-    )
-
-    assert evidence == []
-
-
-def test_requires_documents() -> None:
-    with pytest.raises(ValueError, match="documents"):
-        locate_evidence([_chunk("本期营业收入同比增长 12.0%。")], ["营业收入"])
-
-
-def test_document_without_published_at_is_skipped() -> None:
+def test_evidence_type_is_propagated() -> None:
     evidence = locate_evidence(
         [_chunk("本期营业收入同比增长 12.0%。")],
         ["营业收入"],
-        documents=[_document(published_at=None)],
+        documents=[_document()],
+        evidence_type="policy",
+    )
+
+    assert evidence[0].evidence_type == "policy"
+
+
+def test_no_keyword_hit_returns_empty() -> None:
+    evidence = locate_evidence(
+        [_chunk("本期利润保持稳定。")],
+        ["营业收入"],
+        documents=[_document()],
+        evidence_type="financial",
     )
 
     assert evidence == []
+
+
+def test_empty_evidence_type_raises() -> None:
+    with pytest.raises(ValueError, match="evidence_type"):
+        locate_evidence(
+            [_chunk("本期营业收入同比增长 12.0%。")],
+            ["营业收入"],
+            documents=[_document()],
+            evidence_type="",
+        )
+
+
+def test_document_without_published_at_raises() -> None:
+    with pytest.raises(ValueError, match="published_at"):
+        locate_evidence(
+            [_chunk("本期营业收入同比增长 12.0%。")],
+            ["营业收入"],
+            documents=[_document(published_at=None)],
+            evidence_type="financial",
+        )
+
+
+def test_missing_document_raises() -> None:
+    with pytest.raises(ValueError, match="DOC-UNKNOWN"):
+        locate_evidence(
+            [_chunk("本期营业收入同比增长 12.0%。", doc_id="DOC-UNKNOWN")],
+            ["营业收入"],
+            documents=[_document()],
+            evidence_type="financial",
+        )
 
 
 def test_empty_keyword_is_ignored() -> None:
     evidence = locate_evidence(
-        [_chunk("本期利润稳定。")], ["", "不存在词"], documents=[_document()]
+        [_chunk("本期利润稳定。")],
+        ["", "不存在词"],
+        documents=[_document()],
+        evidence_type="financial",
     )
 
     assert evidence == []
@@ -121,7 +162,10 @@ def test_empty_keyword_is_ignored() -> None:
 
 def test_duplicate_keywords_are_deduplicated() -> None:
     evidence = locate_evidence(
-        [_chunk("本期利润稳定增长。")], ["利润", "利润"], documents=[_document()]
+        [_chunk("本期利润稳定增长。")],
+        ["利润", "利润"],
+        documents=[_document()],
+        evidence_type="financial",
     )
 
     assert len(evidence) == 1

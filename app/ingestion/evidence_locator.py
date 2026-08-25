@@ -4,21 +4,16 @@ B-003: scan text chunks for industry keywords and produce verbatim, locatable
 :class:`Evidence` objects. The first version is plain keyword matching — no
 vector database.
 
-Note on ``published_at``: :class:`Evidence` requires a publication date, which
-only lives on :class:`SourceDocument`. The frozen CONTRACTS signature
-``locate_evidence(chunks, keywords)`` has no document argument, so this module
-adds an optional keyword-only ``documents`` parameter to resolve it. This is a
-contract gap to confirm with role A (see handoff note).
+Aligned with CONTRACT-CHANGE-002: ``documents`` and ``evidence_type`` are
+required keyword-only inputs. Missing metadata is a hard failure, never a
+silent skip, so downstream modules cannot mistake absent evidence for "no
+evidence".
 """
 
 from __future__ import annotations
 
-import logging
-
 from app.schemas import Evidence, SourceDocument, TextChunk
 
-
-logger = logging.getLogger(__name__)
 
 #: Separators used to trim a keyword-bearing sentence from the surrounding text.
 _BOUNDARIES = "。！？；\n"
@@ -55,18 +50,19 @@ def locate_evidence(
     chunks: list[TextChunk],
     keywords: list[str],
     *,
-    documents: list[SourceDocument] | None = None,
+    documents: list[SourceDocument],
+    evidence_type: str,
 ) -> list[Evidence]:
     """Return Evidence for every (chunk, keyword) hit, with verbatim quotes.
 
-    ``documents`` resolves ``published_at`` (and company/industry metadata) per
-    chunk. It is required because :class:`Evidence.published_at` is mandatory
-    and cannot be derived from :class:`TextChunk` alone.
+    ``documents`` supplies ``published_at``, ``company_name`` and
+    ``industry_id`` per chunk. ``evidence_type`` labels the retrieval channel
+    (e.g. ``financial``, ``policy``, ``news``). Both are required; a chunk
+    whose document is missing or lacks ``published_at``, or an empty
+    ``evidence_type``, raises instead of silently dropping evidence.
     """
-    if documents is None:
-        raise ValueError(
-            "locate_evidence requires documents to resolve Evidence.published_at"
-        )
+    if not evidence_type:
+        raise ValueError("evidence_type must not be empty")
 
     # Drop empty keywords (which would match every chunk) and deduplicate
     # while preserving order.
@@ -83,12 +79,10 @@ def locate_evidence(
                 f"no SourceDocument registered for chunk doc_id {chunk.doc_id}"
             )
         if document.published_at is None:
-            logger.info(
-                "skipped chunk %s: document %s has no published_at",
-                chunk.chunk_id,
-                document.doc_id,
+            raise ValueError(
+                f"document {document.doc_id} has no published_at; "
+                "cannot build Evidence without a publication date"
             )
-            continue
 
         for keyword_index, keyword in enumerate(keywords):
             if keyword not in chunk.text:
@@ -118,7 +112,7 @@ def locate_evidence(
                     locator=_build_locator(chunk),
                     company_name=document.company_name,
                     industry_id=document.industry_id,
-                    evidence_type="keyword_match",
+                    evidence_type=evidence_type,
                     confidence=0.5,
                     review_status="pending",
                 )

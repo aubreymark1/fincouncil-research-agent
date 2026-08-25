@@ -23,6 +23,11 @@ from app.schemas import SourceDocument, TextChunk
 
 logger = logging.getLogger(__name__)
 
+#: pypdf emits noisy warnings (e.g. "invalid pdf header") that duplicate the
+#: E100 error already raised below; quiet them so failures surface only through
+#: :class:`PdfExtractionError`.
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+
 #: Absolute project root, used to resolve manifest-relative ``local_path``.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

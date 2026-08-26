@@ -70,7 +70,7 @@
 | D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #19 只有合成 `metrics_gold_sample.json`；`food_gold.json`/`bank_gold.json` 及 B/C 签收仍缺 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
 | D-003 | 实验运行器 | 待开始 | `evaluation/experiment_runner.py`、`scripts/evaluate.py` 尚未提交 |
-| D-004 | 红蓝测试 | 待开始 | `evaluation/red_team.py` 和对应测试尚未提交；B 的红蓝资料已具备 |
+| D-004 | 红蓝测试 | 进行中 | `evaluation/red_team.py` + `tests/evaluation/test_red_team.py` + `fixtures/evaluation/red_team/scenarios.json` 已实现，11 测试通过；待提交 PR |
 | D-005 | 图表 | 待开始 | `evaluation/charts.py` 尚未提交 |
 | D-006 | Streamlit 页面 | 待开始 | `app/ui/` 尚未提交 |
 | D-007 | 报告模板 | 待开始 | `reports/` 和提交清单尚未提交 |
@@ -91,7 +91,7 @@
 | P0 | 主编排仍使用 fixture/stub | A | 开始 A-008/INT-001，接入 B/C 正式函数并新增 integration tests |
 | P1 | 真实 Gold Standard 缺失 | B/C/D | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果 |
 | P1 | C-006/C-007 尚未提交 | C | 添加提示词要求和人工复核清单 |
-| P2 | 实验、红蓝、UI、图表、模板未开始 | D | 在真实集成稳定后按 D-003～D-007 顺序推进 |
+| P2 | 实验、UI、图表、模板未开始；红蓝测试已实现待审查 | D | 按 D-003、D-005～D-007 顺序推进 |
 
 ## 五、接口变更记录
 

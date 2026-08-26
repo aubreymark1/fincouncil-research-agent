@@ -1,0 +1,10 @@
+{
+  "scenarios": [
+    "post_cutoff",
+    "undated",
+    "wrong_number",
+    "irrelevant",
+    "conflicting_sources",
+    "unsupported_claim"
+  ]
+}

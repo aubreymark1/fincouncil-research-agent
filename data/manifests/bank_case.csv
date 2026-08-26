@@ -1,2 +1,8 @@
 doc_id,title,source_type,publisher,source_url,local_path,published_at,event_date,retrieved_at,company_name,industry_id,trust_level,review_status
-DOC-BANK-006,示例银行经营动态（日期待核）,news,示例财经媒体,,data/raw/banking/news_undated.pdf,,,2026-08-20T10:00:00+08:00,示例银行,banking,2,pending_date
+DOC-BANK-001,工商银行2025年度报告,annual_report,中国工商银行股份有限公司,http://static.cninfo.com.cn/finalpage/2026-03-28/1225047240.PDF,data/raw/banking/601398_工商银行_工商银行2025年度报告_1225047240.pdf,2026-03-28,2025-12-31,2026-08-26T12:00:00+08:00,中国工商银行股份有限公司,banking,5,formal
+DOC-BANK-002,招商银行股份有限公司2025年度报告,annual_report,招商银行股份有限公司,http://static.cninfo.com.cn/finalpage/2026-03-28/1225047590.PDF,data/raw/banking/600036_招商银行_招商银行股份有限公司2025年度报告_1225047590.pdf,2026-03-28,2025-12-31,2026-08-26T12:00:00+08:00,招商银行股份有限公司,banking,5,formal
+DOC-BANK-003,平安银行2025年年度报告,annual_report,平安银行股份有限公司,http://static.cninfo.com.cn/finalpage/2026-03-21/1225022887.PDF,data/raw/banking/000001_平安银行_2025年年度报告_1225022887.pdf,2026-03-21,2025-12-31,2026-08-26T12:00:00+08:00,平安银行股份有限公司,banking,5,formal
+DOC-BANK-004,兴业银行2025年年度报告,annual_report,兴业银行股份有限公司,http://static.cninfo.com.cn/finalpage/2026-03-27/1225039240.PDF,data/raw/banking/601166_兴业银行_兴业银行2025年年度报告_1225039240.pdf,2026-03-27,2025-12-31,2026-08-26T12:00:00+08:00,兴业银行股份有限公司,banking,5,formal
+DOC-BANK-005,建设银行2025年度报告,annual_report,中国建设银行股份有限公司,http://static.cninfo.com.cn/finalpage/2026-03-28/1225046718.PDF,data/raw/banking/601939_建设银行_建设银行2025年度报告_1225046718.pdf,2026-03-28,2025-12-31,2026-08-26T12:00:00+08:00,中国建设银行股份有限公司,banking,5,formal
+DOC-BANK-006,农业银行2025年度报告,annual_report,中国农业银行股份有限公司,http://static.cninfo.com.cn/finalpage/2026-03-31/1225056196.PDF,data/raw/banking/601288_农业银行_农业银行2025年度报告_1225056196.pdf,2026-03-31,2025-12-31,2026-08-26T12:00:00+08:00,中国农业银行股份有限公司,banking,5,formal
+DOC-BANK-101,示例银行经营动态（日期待核）,news,示例财经媒体,,data/raw/banking/news_undated.pdf,,,2026-08-20T10:00:00+08:00,示例银行,banking,2,pending_date

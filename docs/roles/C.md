@@ -97,9 +97,10 @@ fixtures/industry/bank_config_expected.json
 - revenue_growth；
 - gross_margin；
 - sales_expense_rate；
-- inventory；
+- inventory（财务存货，仅 financial/single）；
+- inventory_volume（实物库存量，仅 operating/optional）；
 - volume；
-- channel；
+- channel（渠道库存/经销商库存/动销，operating/company_release/news）；
 - raw_material_cost；
 - food_safety。
 

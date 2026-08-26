@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "case_id": "synthetic_metrics_case",
+  "fixture_notice": "合成测试数据，仅用于确定性单元测试，不代表真实实验或公司事实。",
+  "items": [
+    {
+      "item_id": "GOLD-SYN-001",
+      "item_type": "key_factor",
+      "expected_text": "营业收入同比增长",
+      "expected_value": 12.0,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-SYN-001",
+      "source_page": 42,
+      "industry_metric_id": "revenue_growth",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-SYN-002",
+      "item_type": "key_factor",
+      "expected_text": "毛利率为",
+      "expected_value": 32.0,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-SYN-002",
+      "source_page": 10,
+      "industry_metric_id": "gross_margin",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-SYN-003",
+      "item_type": "key_factor",
+      "expected_text": "销量同比增长",
+      "expected_value": 5.0,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-SYN-003",
+      "source_page": 5,
+      "industry_metric_id": "sales_volume",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-SYN-004",
+      "item_type": "key_factor",
+      "expected_text": "渠道库存下降",
+      "expected_value": null,
+      "unit": null,
+      "required": true,
+      "source_doc_id": "DOC-SYN-004",
+      "source_page": 18,
+      "industry_metric_id": "inventory",
+      "evidence_requirement": "single"
+    }
+  ]
+}

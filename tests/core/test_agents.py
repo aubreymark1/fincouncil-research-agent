@@ -185,6 +185,29 @@ def test_contract_change_006_routes_inventory_terms_to_correct_metrics() -> None
             assert claim_type_for(claims, metric_id) == expected_type
 
 
+def test_channel_accepts_operating_company_release_and_news_but_not_inventory_metrics() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+
+    def claim_type_for(claims: list, metric_id: str) -> str:
+        return next(
+            claim for claim in claims if metric_id in claim.industry_metric_ids
+        ).claim_type
+
+    for evidence_type in ["operating", "company_release", "news"]:
+        evidence = make_evidence(
+            evidence_id=f"EV-FOOD-CHANNEL-{evidence_type.upper()}",
+            fact_text="公司披露渠道库存上升、动销放缓。",
+            quote="渠道库存上升、动销放缓。",
+            evidence_type=evidence_type,
+        )
+
+        claims = analyze_fundamentals([evidence], config)
+
+        assert claim_type_for(claims, "channel") == "fact"
+        assert claim_type_for(claims, "inventory") == "unresolved"
+        assert claim_type_for(claims, "inventory_volume") == "unresolved"
+
+
 def test_cross_industry_and_unknown_industry_evidence_are_excluded() -> None:
     config = IndustryConfig.model_validate(load_fixture("food_config.json"))
     cross_industry = make_evidence(evidence_id="EV-BANK-001", industry_id="banking")

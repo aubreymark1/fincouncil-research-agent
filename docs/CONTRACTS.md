@@ -190,7 +190,7 @@ class IndustryConfig(BaseModel):
 - `inventory` 专指财务存货（资产负债表存货科目），`evidence_types` 只允许 `["financial"]`，`evidence_requirement="single"`；
 - `inventory` 的 `keywords` 不得包含裸关键词 `库存` 或 `动销`，避免把 `库存量`、`库存股`、`动销` 等经营/渠道口径子串混入财务存货口径；
 - 新增 optional 指标 `inventory_volume`，专指实物库存量（如产销量表中的期末库存量、产成品库存量，单位吨/件等），`evidence_types` 只允许 `["operating"]`，`required=false`；关键词至少包含 `库存量`、`期末库存量`、`产成品库存量`；
-- 新增 optional 指标 `channel`，专指渠道库存、经销商库存、动销等渠道流转状态，`evidence_types` 只允许 `["operating"]`，`required=false`；
+- 新增 optional 指标 `channel`，专指渠道库存、经销商库存、动销等渠道流转状态，`evidence_types` 允许 `["operating", "company_release", "news"]`，`required=false`；
 - `动销`、`渠道库存`、`经销商库存` 明确归入 `channel`，不得归入 `inventory` 或 `inventory_volume`；
 - 任何模块不得用裸关键词 `库存`/`动销` 同时覆盖多个指标；关键词匹配必须与 `evidence_types` 同时生效。
 

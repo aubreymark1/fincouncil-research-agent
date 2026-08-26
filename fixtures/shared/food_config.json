@@ -54,7 +54,9 @@
         "动销"
       ],
       "evidence_types": [
-        "operating"
+        "operating",
+        "company_release",
+        "news"
       ],
       "required": false,
       "evidence_requirement": "single",

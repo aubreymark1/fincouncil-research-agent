@@ -223,7 +223,7 @@ def test_contract_change_006_inventory_metric_semantics() -> None:
 
     channel = metrics["channel"]
     assert channel.required is False
-    assert channel.evidence_types == ["operating"]
+    assert channel.evidence_types == ["operating", "company_release", "news"]
     assert channel.evidence_requirement == "single"
     assert "动销" in channel.keywords
     assert "渠道库存" in channel.keywords

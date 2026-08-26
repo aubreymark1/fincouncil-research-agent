@@ -8,6 +8,7 @@
       "keywords": [
         "营业收入",
         "收入增长",
+        "收入增速",
         "营收"
       ],
       "evidence_types": [
@@ -145,6 +146,13 @@
       "risk_id": "inventory_pressure",
       "display_name": "库存压力",
       "trigger_description": "库存变化需要结合收入和动销证据判断，不能仅凭库存绝对值下结论。",
+      "trigger_terms": [
+        "存货增速高于收入增速",
+        "库存压力",
+        "库存积压",
+        "库存高企",
+        "动销放缓"
+      ],
       "metric_ids": [
         "inventory",
         "revenue_growth"
@@ -159,6 +167,13 @@
       "risk_id": "margin_deterioration",
       "display_name": "毛利率下滑风险",
       "trigger_description": "毛利率变化必须说明比较期间，并区分价格、成本和产品结构影响。",
+      "trigger_terms": [
+        "毛利率下滑",
+        "毛利率下降",
+        "毛利率降低",
+        "毛利率恶化",
+        "毛利率压力"
+      ],
       "metric_ids": [
         "gross_margin",
         "revenue_growth"
@@ -172,6 +187,13 @@
       "risk_id": "food_safety_incident",
       "display_name": "食品安全事件风险",
       "trigger_description": "食品安全信息必须确认是否适用于目标公司，行业事件不能直接推导到目标公司。",
+      "trigger_terms": [
+        "食品安全事故",
+        "抽检不合格",
+        "召回",
+        "质量风险",
+        "食品安全风险"
+      ],
       "metric_ids": [
         "food_safety"
       ],
@@ -185,6 +207,13 @@
       "risk_id": "channel_disruption",
       "display_name": "渠道波动风险",
       "trigger_description": "渠道库存或经销商变化需要公司或渠道层面证据，单一行业新闻不能直接作为目标公司事实。",
+      "trigger_terms": [
+        "渠道库存压力",
+        "经销商库存高企",
+        "渠道动销放缓",
+        "渠道风险",
+        "渠道压货"
+      ],
       "metric_ids": [
         "channel",
         "inventory"

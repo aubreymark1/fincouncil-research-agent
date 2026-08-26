@@ -172,6 +172,20 @@ def test_industry_config_rejects_invalid_risk_evidence_types() -> None:
         IndustryConfig.model_validate(payload)
 
 
+def test_industry_config_rejects_empty_trigger_terms() -> None:
+    payload = load_fixture("food_config.json")
+    payload["risk_rules"][0]["trigger_terms"] = []
+    with pytest.raises(ValidationError):
+        IndustryConfig.model_validate(payload)
+
+
+def test_industry_config_rejects_blank_trigger_terms() -> None:
+    payload = load_fixture("food_config.json")
+    payload["risk_rules"][0]["trigger_terms"] = ["   "]
+    with pytest.raises(ValidationError):
+        IndustryConfig.model_validate(payload)
+
+
 def test_industry_config_rejects_empty_keywords() -> None:
     payload = load_fixture("food_config.json")
     payload["required_metrics"][0]["keywords"] = []

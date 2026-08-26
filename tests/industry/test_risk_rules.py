@@ -39,6 +39,7 @@ def make_risk_rule(
     risk_id: str = "inventory_pressure",
     display_name: str = "库存压力",
     trigger_description: str = "库存变化需要结合收入和动销证据判断。",
+    trigger_terms: list[str] | None = None,
     metric_ids: list[str] | None = None,
     required_evidence_types: list[str] | None = None,
     severity: str = "medium",
@@ -47,6 +48,8 @@ def make_risk_rule(
         risk_id=risk_id,
         display_name=display_name,
         trigger_description=trigger_description,
+        trigger_terms=trigger_terms
+        or ["存货增速高于收入增速", "库存压力", "库存积压", "库存高企", "动销放缓"],
         metric_ids=metric_ids or ["inventory", "revenue_growth"],
         required_evidence_types=required_evidence_types or ["financial", "operating"],
         severity=severity,  # type: ignore[arg-type]
@@ -176,6 +179,85 @@ def test_risk_claim_excludes_pending_and_cross_industry_evidence() -> None:
     assert len(claims) == 1
     assert claims[0].claim_type == "unresolved"
     assert "operating" in claims[0].text
+
+
+def test_positive_improvement_does_not_trigger_negative_risk() -> None:
+    metrics = (
+        make_metric(metric_id="gross_margin", display_name="毛利率", keywords=["毛利率"]),
+        make_metric(metric_id="revenue_growth", display_name="收入增速", keywords=["营业收入"]),
+    )
+    rule = make_risk_rule(
+        risk_id="margin_deterioration",
+        display_name="毛利率下滑风险",
+        trigger_description="毛利率变化需说明比较期间。",
+        trigger_terms=["毛利率下滑", "毛利率下降"],
+        metric_ids=["gross_margin", "revenue_growth"],
+        required_evidence_types=["financial"],
+        severity="medium",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence(
+            "E1",
+            text="本期毛利率同比上升 2 个百分点，盈利能力改善。",
+            evidence_type="financial",
+        )
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert "毛利率" in claims[0].text
+
+
+def test_joint_risk_rule_requires_each_metric_covered() -> None:
+    metrics = (
+        make_metric(
+            metric_id="non_performing_loan_ratio",
+            display_name="不良贷款率",
+            keywords=["不良率"],
+        ),
+        make_metric(
+            metric_id="provision_coverage",
+            display_name="拨备覆盖率",
+            keywords=["拨备覆盖率"],
+        ),
+    )
+    rule = make_risk_rule(
+        risk_id="credit_risk_deterioration",
+        display_name="信用风险恶化",
+        trigger_description="不良率和拨备覆盖率需联合检查。",
+        trigger_terms=["不良率上升", "拨备覆盖率下降"],
+        metric_ids=["non_performing_loan_ratio", "provision_coverage"],
+        required_evidence_types=["financial", "policy"],
+        severity="high",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence("E1", text="拨备覆盖率下降至 150%。", evidence_type="financial"),
+        make_evidence("E2", text="监管提示拨备覆盖率下降风险。", evidence_type="policy"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert "non_performing_loan_ratio" in claims[0].text
+
+
+def test_inventory_rule_requires_revenue_metric_coverage() -> None:
+    config = make_config()
+    evidence = [
+        make_evidence("E1", text="公司库存高企。", evidence_type="financial"),
+        make_evidence("E2", text="经销商库存压力上升。", evidence_type="operating"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert "revenue_growth" in claims[0].text
 
 
 def test_risk_claim_does_not_include_stock_price_judgment() -> None:

@@ -42,6 +42,13 @@
       "risk_id": "inventory_pressure",
       "display_name": "库存压力",
       "trigger_description": "库存变化需要结合收入和动销证据判断。",
+      "trigger_terms": [
+        "存货增速高于收入增速",
+        "库存压力",
+        "库存积压",
+        "库存高企",
+        "动销放缓"
+      ],
       "required_evidence_types": [
         "financial",
         "operating"

@@ -41,6 +41,25 @@ def test_fundamentals_only_pass_when_metric_evidence_is_sufficient() -> None:
     assert inventory_claim.status == "review"
 
 
+def test_fundamentals_reject_disallowed_evidence_type_even_with_keyword() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    policy_evidence = make_evidence(
+        evidence_id="EV-POLICY-REVENUE-001",
+        fact_text="监管部门报告营业收入增长 12%。",
+        quote="营业收入增长 12%。",
+        evidence_type="policy",
+    )
+
+    claims = analyze_fundamentals([policy_evidence], config)
+
+    revenue_claim = next(
+        claim for claim in claims if claim.claim_id.startswith("CL-FUND-REVENUE-GROWTH-")
+    )
+    assert revenue_claim.claim_type == "unresolved"
+    assert revenue_claim.status == "review"
+    assert revenue_claim.evidence_ids == []
+
+
 def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> None:
     config = IndustryConfig.model_validate(load_fixture("food_config.json"))
     first = make_evidence(

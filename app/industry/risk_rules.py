@@ -172,6 +172,31 @@ def apply_risk_rules(
             )
             continue
 
+        exclusion_evidence = [
+            item
+            for item in verified
+            if _evidence_mentions_any(item, rule.exclude_terms)
+        ]
+        if supporting and exclusion_evidence:
+            conflict_evidence_ids = list(
+                dict.fromkeys(
+                    evidence_ids + [item.evidence_id for item in exclusion_evidence]
+                )
+            )
+            claims.append(
+                _risk_claim(
+                    rule,
+                    conflict_evidence_ids,
+                    (
+                        f"风险规则“{rule.display_name}”同时存在触发与排除/缓解信号，"
+                        f"需人工确认后才能判断风险是否成立。"
+                    ),
+                    0.0,
+                    "unresolved",
+                )
+            )
+            continue
+
         claims.append(
             _risk_claim(
                 rule,

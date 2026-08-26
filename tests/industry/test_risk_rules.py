@@ -84,11 +84,12 @@ def make_evidence(
     evidence_type: str = "financial",
     review_status: str = "verified",
     industry_id: str = "food_beverage",
+    doc_id: str = "A",
 ) -> Evidence:
     return Evidence(
         evidence_id=f"EV-{evidence_id}",
-        doc_id="DOC-A",
-        chunk_id="CHUNK-A-001",
+        doc_id=f"DOC-{doc_id}",
+        chunk_id=f"CHUNK-{doc_id}-001",
         fact_text=text,
         quote=text,
         published_at=date(2026, 1, 1),
@@ -261,6 +262,82 @@ def test_resolved_risk_statement_does_not_trigger() -> None:
 
     assert len(claims) == 1
     assert claims[0].claim_type == "unresolved"
+
+
+def test_conflicting_exclusion_and_trigger_evidence_returns_unresolved() -> None:
+    metrics = (
+        make_metric(metric_id="gross_margin", display_name="毛利率", keywords=["毛利率"]),
+        make_metric(metric_id="revenue_growth", display_name="收入增速", keywords=["营业收入"]),
+    )
+    rule = make_risk_rule(
+        risk_id="margin_deterioration",
+        display_name="毛利率下滑风险",
+        trigger_description="毛利率变化需说明比较期间。",
+        trigger_terms=["毛利率下降"],
+        exclude_terms=["毛利率上升"],
+        metric_ids=["gross_margin"],
+        required_evidence_types=["financial"],
+        severity="medium",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence("E1", text="本期毛利率下降 2 个百分点。", evidence_type="financial"),
+        make_evidence("E2", text="本期毛利率上升 2 个百分点。", evidence_type="financial"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert set(claims[0].evidence_ids) == {"EV-E1", "EV-E2"}
+
+
+def test_cross_source_conflict_returns_unresolved_and_binds_both() -> None:
+    metrics = (
+        make_metric(metric_id="gross_margin", display_name="毛利率", keywords=["毛利率"]),
+        make_metric(metric_id="revenue_growth", display_name="收入增速", keywords=["营业收入"]),
+    )
+    rule = make_risk_rule(
+        risk_id="margin_deterioration",
+        display_name="毛利率下滑风险",
+        trigger_description="毛利率变化需说明比较期间。",
+        trigger_terms=["毛利率下降"],
+        exclude_terms=["毛利率上升"],
+        metric_ids=["gross_margin"],
+        required_evidence_types=["financial"],
+        severity="medium",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence("E1", text="本期毛利率下降 2 个百分点。", evidence_type="financial", doc_id="A"),
+        make_evidence("E2", text="本期毛利率上升 2 个百分点。", evidence_type="financial", doc_id="B"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert set(claims[0].evidence_ids) == {"EV-E1", "EV-E2"}
+
+
+def test_resolved_historical_risk_conflict_returns_unresolved() -> None:
+    rule = make_risk_rule(
+        trigger_terms=["库存压力"],
+        exclude_terms=["库存压力已缓解"],
+        metric_ids=["inventory"],
+        required_evidence_types=["financial"],
+    )
+    config = make_config(risk_rules=[rule])
+    evidence = [
+        make_evidence("E1", text="公司库存压力上升。", evidence_type="financial"),
+        make_evidence("E2", text="库存压力已缓解，动销恢复正常。", evidence_type="financial"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert set(claims[0].evidence_ids) == {"EV-E1", "EV-E2"}
 
 
 def test_metric_coverage_respects_metric_evidence_types() -> None:

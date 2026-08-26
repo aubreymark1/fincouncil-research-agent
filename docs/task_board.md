@@ -40,7 +40,7 @@
 | C-001 | C | 行业配置加载 | app/industry/loader.py、configs、tests/industry | A-001 | 两份 YAML 均通过校验 | 8/24 | 待开始 | |
 | C-002 | C | 必查指标检查 | app/industry/checklist.py、tests/industry | C-001 | 缺失必查项返回问题 | 8/25 | 待开始 | |
 | C-003 | C | 风险规则 | app/industry/risk_rules.py、tests/industry | C-001 | 两行业风险规则不同 | 8/25 | 待开始 | |
-| D-001 | D | 评测指标 | evaluation/metrics.py、tests/evaluation | A-001 | 固定 fixture 可计算指标 | 8/24 | 待审查 | |
+| D-001 | D | 评测指标 | evaluation/metrics.py、tests/evaluation | A-001 | 固定 fixture 可计算指标 | 8/24 | 待审查 | #19 |
 | D-002 | D | 红蓝测试运行器 | evaluation/red_team.py、tests/evaluation | A-002 | 覆盖四类错误输入 | 8/25 | 待开始 | |
 | D-003 | D | Streamlit 页面 | app/ui、tests/evaluation | A-003 | 能读取 report.json 并展示证据 | 8/26 | 待开始 | |
 | INT-001 | A | 第一次集成 B/C | integration tests | B-003、C-003 | ingestion、industry、core 全通过 | 8/25 | 待开始 | |

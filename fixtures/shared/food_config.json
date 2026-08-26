@@ -32,7 +32,22 @@
     },
     {
       "metric_id": "inventory_volume",
-      "display_name": "经营库存量",
+      "display_name": "实物库存量",
+      "keywords": [
+        "库存量",
+        "期末库存量",
+        "产成品库存量"
+      ],
+      "evidence_types": [
+        "operating"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "channel",
+      "display_name": "渠道库存与动销",
       "keywords": [
         "渠道库存",
         "经销商库存",

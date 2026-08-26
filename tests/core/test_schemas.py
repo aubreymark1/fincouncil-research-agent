@@ -214,9 +214,20 @@ def test_contract_change_006_inventory_metric_semantics() -> None:
     assert volume.required is False
     assert volume.evidence_types == ["operating"]
     assert volume.evidence_requirement == "single"
-    assert "动销" in volume.keywords
-    assert "渠道库存" in volume.keywords
-    assert "经销商库存" in volume.keywords
+    assert "库存量" in volume.keywords
+    assert "期末库存量" in volume.keywords
+    assert "产成品库存量" in volume.keywords
+    assert "动销" not in volume.keywords
+    assert "渠道库存" not in volume.keywords
+    assert "经销商库存" not in volume.keywords
+
+    channel = metrics["channel"]
+    assert channel.required is False
+    assert channel.evidence_types == ["operating"]
+    assert channel.evidence_requirement == "single"
+    assert "动销" in channel.keywords
+    assert "渠道库存" in channel.keywords
+    assert "经销商库存" in channel.keywords
 
 
 def test_risk_claim_requires_severity() -> None:

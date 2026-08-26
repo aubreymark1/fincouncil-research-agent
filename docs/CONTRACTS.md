@@ -147,6 +147,7 @@ class MetricRule(BaseModel):
     metric_id: str
     display_name: str
     keywords: list[str]
+    evidence_types: list[str]
     required: bool
     evidence_requirement: Literal["single", "multiple"]
     missing_action: Literal["warn", "review", "reject"]
@@ -176,6 +177,7 @@ class IndustryConfig(BaseModel):
 - report_sections 不为空；
 - 食品饮料和银行配置必须有实质差异；
 - risk_id 在单个配置中唯一；
+- 每个 MetricRule.evidence_types 非空，且值属于 Evidence.evidence_type 词表；
 - 每个 RiskRule.metric_ids 不为空，且必须引用同一 IndustryConfig.required_metrics 中存在的 metric_id；
 - RiskRule.required_evidence_types 与 Evidence.evidence_type 使用同一套类型词表。
 
@@ -466,5 +468,6 @@ E600 实验输入不一致
 |---|---|---|---|---|---|
 | CONTRACT-CHANGE-001 | 2026-08-25 | 扩大 E100 语义，覆盖资料不可用的完整错误集合 | 与 B-002 PDF 提取的统一错误处理对齐 | B ingestion 错误解释和下游调用方 | 本次只更新契约；详细失败原因继续写入错误消息，不修改 `app/ingestion/` |
 | CONTRACT-CHANGE-002 | 2026-08-25 | 补齐 Evidence 元数据来源、multiple 独立来源、RiskRule→Claim 字段和报告 review 语义 | 系统复检发现多个输出字段无法由原函数输入可靠构造 | A/B/C、公共 Schema、fixture、集成 | documents/evidence_type 改为显式输入；新增 RiskRule.metric_ids 与 Claim.risk_severity |
+| CONTRACT-CHANGE-003 | 2026-08-26 | MetricRule 新增非空 `evidence_types`，指标级证据类型由配置驱动；公共 Schema 共享 EvidenceType 词表并校验关键词非空 | C-002 复审发现硬编码类型映射会随行业迁移失效、直接构造可绕过 loader | A/B/C、Evidence/IndustryConfig、configs、fixtures、tests | 新增 `app/schemas/evidence_types.py`；Evidence/RiskRule/MetricRule 共用 EvidenceType；Schema 拒绝空/空白关键词与非法 evidence_type |
 
 

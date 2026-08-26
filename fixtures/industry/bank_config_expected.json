@@ -10,6 +10,9 @@
         "净利息收益率",
         "息差"
       ],
+      "evidence_types": [
+        "financial"
+      ],
       "required": true,
       "evidence_requirement": "single",
       "missing_action": "review"
@@ -21,6 +24,9 @@
         "贷款增长",
         "贷款余额",
         "信贷投放"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -35,6 +41,10 @@
         "定期存款",
         "存款成本"
       ],
+      "evidence_types": [
+        "financial",
+        "company_release"
+      ],
       "required": false,
       "evidence_requirement": "single",
       "missing_action": "warn"
@@ -46,6 +56,9 @@
         "不良率",
         "不良贷款率",
         "不良贷款余额"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -59,6 +72,9 @@
         "拨备",
         "贷款损失准备"
       ],
+      "evidence_types": [
+        "financial"
+      ],
       "required": true,
       "evidence_requirement": "single",
       "missing_action": "review"
@@ -70,6 +86,10 @@
         "资本充足率",
         "核心一级资本充足率",
         "一级资本充足率"
+      ],
+      "evidence_types": [
+        "financial",
+        "policy"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -83,6 +103,10 @@
         "流动性覆盖率",
         "存贷比"
       ],
+      "evidence_types": [
+        "financial",
+        "policy"
+      ],
       "required": false,
       "evidence_requirement": "single",
       "missing_action": "warn"
@@ -95,6 +119,11 @@
         "房地产风险",
         "按揭贷款",
         "开发贷"
+      ],
+      "evidence_types": [
+        "financial",
+        "news",
+        "policy"
       ],
       "required": false,
       "evidence_requirement": "single",

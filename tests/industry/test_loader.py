@@ -103,12 +103,14 @@ def test_duplicate_metric_id_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_pa
       - metric_id: duplicate
         display_name: 指标一
         keywords: [收入]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: warn
       - metric_id: duplicate
         display_name: 指标二
         keywords: [利润]
+        evidence_types: [financial]
         required: false
         evidence_requirement: single
         missing_action: warn
@@ -134,6 +136,7 @@ def test_empty_report_sections_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_
       - metric_id: revenue_growth
         display_name: 收入增速
         keywords: [收入]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: warn
@@ -159,9 +162,90 @@ def test_invalid_missing_action_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp
       - metric_id: revenue_growth
         display_name: 收入增速
         keywords: [收入]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: invalid
+    event_taxonomy: [业绩]
+    risk_rules: []
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_empty_keywords_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: []
+        evidence_types: [financial]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules: []
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_blank_keywords_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: ["   "]
+        evidence_types: [financial]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules: []
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_invalid_evidence_type_raises_e201(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: [收入]
+        evidence_types: [not_a_type]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
     event_taxonomy: [业绩]
     risk_rules: []
     report_sections: [summary]
@@ -208,6 +292,7 @@ def test_risk_rule_missing_metric_ids_raises_e201(
       - metric_id: revenue_growth
         display_name: 收入增速
         keywords: [收入]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: warn
@@ -240,6 +325,7 @@ def test_risk_rule_unknown_metric_ids_raises_e201(
       - metric_id: revenue_growth
         display_name: 收入增速
         keywords: [收入]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: warn
@@ -273,6 +359,7 @@ def test_duplicate_risk_id_raises_e201(
       - metric_id: revenue_growth
         display_name: 收入增速
         keywords: [收入]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: warn
@@ -336,6 +423,7 @@ def test_industry_id_mismatch_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_p
       - metric_id: net_interest_margin
         display_name: 净息差
         keywords: [净息差]
+        evidence_types: [financial]
         required: true
         evidence_requirement: single
         missing_action: warn

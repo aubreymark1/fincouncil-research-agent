@@ -120,6 +120,7 @@ fixtures/industry/bank_config_expected.json
 metric_id
 display_name
 keywords
+evidence_types
 required
 evidence_requirement
 missing_action

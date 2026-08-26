@@ -8,6 +8,8 @@ from ._helpers import scoped_verified_evidence, stable_claim_id
 
 
 def _matches_metric(item: Evidence, metric: MetricRule) -> bool:
+    if item.evidence_type not in metric.evidence_types:
+        return False
     searchable = f"{item.fact_text}\n{item.quote}".casefold()
     return any(keyword.casefold() in searchable for keyword in metric.keywords)
 

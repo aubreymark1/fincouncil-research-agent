@@ -138,7 +138,24 @@ _FOOD_INVENTORY_GROWTH_TERMS = [
     "存货增长快于收入",
     "存货增速超过收入增速",
 ]
-_FOOD_INVENTORY_TERMS = ["存货增速", "存货增长", "存货余额增长", "存货上升"]
+# Bare change-direction terms: the "inventory without revenue" branch first
+# filters Evidence through the ``inventory`` metric (config keywords 存货 /
+# 存货余额 / 存货账面价值 / 存货净额 + evidence_types), then checks for these
+# change words. This reuses the config keywords so phrasings like "存货余额
+# 同比增长" (keyword + 同比 + 增长) are recognised without hardcoding every
+# synonym, and stays in sync with ``configs/food_beverage.yaml``.
+_FOOD_INVENTORY_CHANGE_TERMS = [
+    "增长",
+    "增速",
+    "上升",
+    "提高",
+    "提升",
+    "增加",
+    "下降",
+    "下滑",
+    "同比",
+    "环比",
+]
 
 # Food beverage: gross margin change must state a comparison period.
 _FOOD_MARGIN_CHANGE_TERMS = [
@@ -264,12 +281,12 @@ def _food_inventory_growth_vs_revenue(
     config: IndustryConfig,
     documents: list[SourceDocument],  # noqa: ARG003 - reserved for parity
 ) -> ValidationIssue | None:
-    """Flag inventory-growth evidence that lacks a revenue-growth comparison.
+    """Flag inventory-change evidence that lacks a revenue-growth comparison.
 
     Two distinct signals:
     - Explicit "inventory grew faster than revenue" phrasing -> ask a human to
       confirm the comparison period and absolute figures.
-    - Inventory growth mentioned but no ``revenue_growth`` metric evidence -> the
+    - Inventory change mentioned but no ``revenue_growth`` metric evidence -> the
       comparison cannot be made at all.
     """
 
@@ -283,14 +300,21 @@ def _food_inventory_growth_vs_revenue(
                 "absolute figures against source documents."
             ),
         )
-    if _pool_mentions_any(evidence, _FOOD_INVENTORY_TERMS):
+
+    inventory_evidence = _evidence_for_metric(evidence, config, "inventory")
+    inventory_change_items = [
+        item
+        for item in inventory_evidence
+        if _mentions_any(item, _FOOD_INVENTORY_CHANGE_TERMS)
+    ]
+    if inventory_change_items:
         revenue_evidence = _evidence_for_metric(evidence, config, "revenue_growth")
         if not revenue_evidence:
             return _make_issue(
                 "inventory_growth_vs_revenue",
                 "inventory_growth_without_revenue",
                 (
-                    f"{_ERROR_CODE} module=industry.metric_rules: inventory growth "
+                    f"{_ERROR_CODE} module=industry.metric_rules: inventory change "
                     "is mentioned, but no revenue_growth evidence is available "
                     "to confirm the comparison."
                 ),

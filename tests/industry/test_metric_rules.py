@@ -323,6 +323,30 @@ def test_food_inventory_growth_without_revenue_evidence_flagged() -> None:
     assert "revenue_growth" in issues[0].message
 
 
+def test_food_inventory_balance_yoy_growth_without_revenue_flagged() -> None:
+    """Regression for PR #24 inline review: "存货余额同比增长" must be
+    recognised as an inventory change even though the phrase has 同比 between
+    the keyword and 增长. The rule derives change detection from the config
+    inventory keywords plus bare change terms, so it must fire when revenue
+    evidence is absent.
+    """
+
+    config = make_food_config()
+    evidence = [
+        make_evidence(
+            "E1",
+            text="本期存货余额同比增长 20%。",
+            evidence_type="financial",
+        ),
+    ]
+
+    issues = apply_metric_rules(evidence, config, documents=[])
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "inventory_growth_without_revenue"
+    assert "revenue_growth" in issues[0].message
+
+
 def test_food_inventory_change_without_comparison_phrase_not_flagged() -> None:
     config = make_food_config()
     evidence = [

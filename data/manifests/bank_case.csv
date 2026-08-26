@@ -1,7 +1,2 @@
 doc_id,title,source_type,publisher,source_url,local_path,published_at,event_date,retrieved_at,company_name,industry_id,trust_level,review_status
-DOC-BANK-001,示例银行2025年年度报告,annual_report,示例银行,,data/raw/banking/annual_report_2025.pdf,2026-03-30,2025-12-31,2026-08-20T10:00:00+08:00,示例银行,banking,5,formal
-DOC-BANK-002,示例银行2025年半年度报告,interim_report,示例银行,,data/raw/banking/interim_report_2025.pdf,2025-08-29,2025-06-30,2026-08-20T10:00:00+08:00,示例银行,banking,5,formal
-DOC-BANK-003,示例银行不良率与拨备公告,announcement,示例银行,,data/raw/banking/credit_quality_notice.pdf,2026-01-20,,2026-08-20T10:00:00+08:00,示例银行,banking,5,formal
-DOC-BANK-004,示例银行资本充足率公告,announcement,示例银行,,data/raw/banking/capital_notice.pdf,2026-02-15,,2026-08-20T10:00:00+08:00,示例银行,banking,5,formal
-DOC-BANK-005,银行业房地产风险监管政策,policy,示例监管机构,,data/raw/banking/real_estate_policy.pdf,2026-04-10,,2026-08-20T10:00:00+08:00,,banking,4,background
 DOC-BANK-006,示例银行经营动态（日期待核）,news,示例财经媒体,,data/raw/banking/news_undated.pdf,,,2026-08-20T10:00:00+08:00,示例银行,banking,2,pending_date

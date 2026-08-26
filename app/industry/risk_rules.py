@@ -36,13 +36,18 @@ def _evidence_mentions_any(item: Evidence, terms: list[str]) -> bool:
 
 
 def _covered_metric_ids(item: Evidence, config: IndustryConfig) -> set[str]:
-    """Return metric IDs whose keywords appear in this Evidence item."""
+    """Return metric IDs this Evidence can cover.
+
+    A metric is covered only when the Evidence type is allowed by that
+    metric's ``evidence_types`` and at least one keyword appears.
+    """
 
     searchable = f"{item.fact_text}\n{item.quote}".casefold()
     return {
         metric.metric_id
         for metric in config.required_metrics
-        if any(keyword.casefold() in searchable for keyword in metric.keywords)
+        if item.evidence_type in metric.evidence_types
+        and any(keyword.casefold() in searchable for keyword in metric.keywords)
     }
 
 
@@ -74,14 +79,15 @@ def apply_risk_rules(
 
     A risk Claim is produced only when:
     - every ``required_evidence_type`` has at least one supporting Evidence;
-    - every ``metric_ids`` entry is covered by at least one supporting Evidence;
-    - supporting Evidence mentions one of the rule's explicit ``trigger_terms``.
+    - supporting Evidence mentions one of the rule's explicit ``trigger_terms``
+      and does not mention any ``exclude_terms``;
+    - every ``metric_ids`` entry is covered by Evidence whose type is allowed
+      by that metric's ``evidence_types``.
 
     Otherwise an unresolved Claim keeps the gap visible.
     """
 
     verified = _scoped_verified_evidence(evidence, config)
-    metric_by_id = {metric.metric_id: metric for metric in config.required_metrics}
     claims: list[Claim] = []
 
     for rule in config.risk_rules:
@@ -100,6 +106,7 @@ def apply_risk_rules(
         required_type_set = {item.casefold() for item in rule.required_evidence_types}
         required_metric_set = set(rule.metric_ids)
         supporting: list[Evidence] = []
+        metric_supporting: list[Evidence] = []
         covered_metrics_by_evidence: dict[str, set[str]] = {}
 
         for item in verified:
@@ -107,11 +114,14 @@ def apply_risk_rules(
                 continue
             if not _evidence_mentions_any(item, rule.trigger_terms):
                 continue
-            covered = _covered_metric_ids(item, config)
-            if not (covered & required_metric_set):
+            if _evidence_mentions_any(item, rule.exclude_terms):
                 continue
-            covered_metrics_by_evidence[item.evidence_id] = covered
             supporting.append(item)
+
+            covered = _covered_metric_ids(item, config)
+            if covered & required_metric_set:
+                covered_metrics_by_evidence[item.evidence_id] = covered
+                metric_supporting.append(item)
 
         supporting_by_type: dict[str, list[Evidence]] = {}
         for item in supporting:
@@ -139,9 +149,11 @@ def apply_risk_rules(
             )
             continue
 
-        covered_metric_ids = set().union(
-            *[covered_metrics_by_evidence[item.evidence_id] for item in supporting]
-        ) if supporting else set()
+        covered_metric_ids = (
+            set().union(*covered_metrics_by_evidence.values())
+            if covered_metrics_by_evidence
+            else set()
+        )
         missing_metrics = [
             metric_id for metric_id in rule.metric_ids if metric_id not in covered_metric_ids
         ]
@@ -168,7 +180,7 @@ def apply_risk_rules(
                     f"风险规则“{rule.display_name}”已获得所需证据，"
                     f"需人工确认：{rule.trigger_description}"
                 ),
-                min(item.confidence for item in supporting),
+                min(item.confidence for item in metric_supporting),
                 "risk",
             )
         )

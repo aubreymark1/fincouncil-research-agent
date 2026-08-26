@@ -129,7 +129,7 @@ missing_action
 每个配置还包含：
 
 - event_taxonomy；
-- risk_rules（每条必须包含 trigger_terms、metric_ids、required_evidence_types、severity）；
+- risk_rules（每条必须包含 trigger_terms、exclude_terms、metric_ids、required_evidence_types、severity）；
 - report_sections；
 - retrieval_keywords。
 

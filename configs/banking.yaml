@@ -117,6 +117,13 @@ risk_rules:
       - 拨备覆盖率下降
       - 关注类贷款上升
       - 信用风险恶化
+    exclude_terms:
+      - 不良率下降
+      - 不良贷款率下降
+      - 拨备覆盖率上升
+      - 信用风险已缓解
+      - 未出现不良率上升
+      - 信用风险已消除
     metric_ids:
       - non_performing_loan_ratio
       - provision_coverage
@@ -132,6 +139,13 @@ risk_rules:
       - 净息差下滑
       - 息差收窄
       - 净息差压力
+    exclude_terms:
+      - 净息差上升
+      - 净息差改善
+      - 息差扩大
+      - 净息差压力已缓解
+      - 未出现净息差下降
+      - 净息差下降风险已消除
     metric_ids:
       - net_interest_margin
     required_evidence_types:
@@ -145,6 +159,12 @@ risk_rules:
       - 资本充足率下滑
       - 资本充足率低于
       - 资本充足率压力
+    exclude_terms:
+      - 资本充足率上升
+      - 资本充足率改善
+      - 资本充足率压力已缓解
+      - 未出现资本充足率下降
+      - 资本充足率下降风险已消除
     metric_ids:
       - capital_adequacy
     required_evidence_types:
@@ -159,6 +179,11 @@ risk_rules:
       - 房地产贷款不良
       - 房地产集中度风险
       - 房地产风险上升
+    exclude_terms:
+      - 房地产风险敞口下降
+      - 房地产风险已缓解
+      - 未出现房地产风险上升
+      - 房地产风险已消除
     metric_ids:
       - real_estate_exposure
       - loan_growth

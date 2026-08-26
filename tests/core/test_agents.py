@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from app.agents import analyze_fundamentals, analyze_news_policy, analyze_risks
-from app.industry import check_required_metrics
+from app.industry import apply_risk_rules, check_required_metrics
 from app.schemas import Evidence, IndustryConfig, SourceDocument
 
 
@@ -255,6 +255,35 @@ def test_risk_requires_trigger_content_for_each_evidence_type() -> None:
 
     assert claims[0].claim_type == "unresolved"
     assert "operating" in claims[0].text
+
+
+def test_analyze_risks_matches_apply_risk_rules() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FOOD-INVENTORY-001",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+            evidence_type="financial",
+        ),
+        make_evidence(
+            evidence_id="EV-FOOD-OPERATING-001",
+            fact_text="公司披露渠道库存压力上升。",
+            quote="渠道库存压力上升。",
+            evidence_type="operating",
+        ),
+    ]
+
+    from_agent = analyze_risks(evidence, config)
+    from_c = apply_risk_rules(evidence, config)
+
+    assert [
+        (claim.claim_type, claim.status, sorted(claim.evidence_ids))
+        for claim in from_agent
+    ] == [
+        (claim.claim_type, claim.status, sorted(claim.evidence_ids))
+        for claim in from_c
+    ]
 
 
 def test_claim_ids_are_legal_for_unicode_and_special_metric_ids() -> None:

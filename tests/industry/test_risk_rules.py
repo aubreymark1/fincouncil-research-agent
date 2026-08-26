@@ -40,6 +40,7 @@ def make_risk_rule(
     display_name: str = "库存压力",
     trigger_description: str = "库存变化需要结合收入和动销证据判断。",
     trigger_terms: list[str] | None = None,
+    exclude_terms: list[str] | None = None,
     metric_ids: list[str] | None = None,
     required_evidence_types: list[str] | None = None,
     severity: str = "medium",
@@ -50,6 +51,7 @@ def make_risk_rule(
         trigger_description=trigger_description,
         trigger_terms=trigger_terms
         or ["存货增速高于收入增速", "库存压力", "库存积压", "库存高企", "动销放缓"],
+        exclude_terms=exclude_terms if exclude_terms is not None else [],
         metric_ids=metric_ids or ["inventory", "revenue_growth"],
         required_evidence_types=required_evidence_types or ["financial", "operating"],
         severity=severity,  # type: ignore[arg-type]
@@ -209,6 +211,124 @@ def test_positive_improvement_does_not_trigger_negative_risk() -> None:
     assert len(claims) == 1
     assert claims[0].claim_type == "unresolved"
     assert "毛利率" in claims[0].text
+
+
+def test_negated_trigger_does_not_trigger_risk() -> None:
+    metrics = (
+        make_metric(metric_id="gross_margin", display_name="毛利率", keywords=["毛利率"]),
+        make_metric(metric_id="revenue_growth", display_name="收入增速", keywords=["营业收入"]),
+    )
+    rule = make_risk_rule(
+        risk_id="margin_deterioration",
+        display_name="毛利率下滑风险",
+        trigger_description="毛利率变化需说明比较期间。",
+        trigger_terms=["毛利率下降"],
+        exclude_terms=["未出现毛利率下降"],
+        metric_ids=["gross_margin", "revenue_growth"],
+        required_evidence_types=["financial"],
+        severity="medium",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence(
+            "E1",
+            text="公司未出现毛利率下降，毛利率反而上升。",
+            evidence_type="financial",
+        )
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+
+
+def test_resolved_risk_statement_does_not_trigger() -> None:
+    rule = make_risk_rule(
+        trigger_terms=["库存压力"],
+        exclude_terms=["库存压力已缓解"],
+    )
+    config = make_config(risk_rules=[rule])
+    evidence = [
+        make_evidence(
+            "E1",
+            text="库存压力已缓解，动销恢复正常。",
+            evidence_type="financial",
+        )
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+
+
+def test_metric_coverage_respects_metric_evidence_types() -> None:
+    metrics = (
+        make_metric(
+            metric_id="non_performing_loan_ratio",
+            display_name="不良贷款率",
+            keywords=["不良率"],
+        ),
+        make_metric(
+            metric_id="provision_coverage",
+            display_name="拨备覆盖率",
+            keywords=["拨备覆盖率"],
+            evidence_types=["financial"],
+        ),
+    )
+    rule = make_risk_rule(
+        risk_id="credit_risk_deterioration",
+        display_name="信用风险恶化",
+        trigger_description="不良率和拨备覆盖率需联合检查。",
+        trigger_terms=["不良率上升", "拨备覆盖率下降"],
+        exclude_terms=[],
+        metric_ids=["non_performing_loan_ratio", "provision_coverage"],
+        required_evidence_types=["financial", "policy"],
+        severity="high",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence("E1", text="不良率上升。", evidence_type="financial"),
+        make_evidence("E2", text="监管提示拨备覆盖率下降。", evidence_type="policy"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert "provision_coverage" in claims[0].text
+
+
+def test_news_cannot_cover_financial_only_loan_growth() -> None:
+    metrics = (
+        make_metric(
+            metric_id="loan_growth",
+            display_name="贷款增长",
+            keywords=["贷款增长"],
+            evidence_types=["financial"],
+        ),
+    )
+    rule = make_risk_rule(
+        risk_id="loan_growth_risk",
+        display_name="贷款增长风险",
+        trigger_description="贷款增长出现异常。",
+        trigger_terms=["贷款增长放缓"],
+        exclude_terms=[],
+        metric_ids=["loan_growth"],
+        required_evidence_types=["news"],
+        severity="medium",
+    )
+    config = make_config(*metrics, risk_rules=[rule])
+    evidence = [
+        make_evidence("E1", text="新闻报道贷款增长放缓。", evidence_type="news"),
+    ]
+
+    claims = apply_risk_rules(evidence, config)
+
+    assert len(claims) == 1
+    assert claims[0].claim_type == "unresolved"
+    assert "loan_growth" in claims[0].text
 
 
 def test_joint_risk_rule_requires_each_metric_covered() -> None:

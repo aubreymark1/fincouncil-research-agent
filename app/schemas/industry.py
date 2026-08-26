@@ -40,6 +40,7 @@ class RiskRule(BaseModel):
     display_name: str = Field(min_length=1)
     trigger_description: str = Field(min_length=1)
     trigger_terms: list[str] = Field(min_length=1)
+    exclude_terms: list[str] = Field(default_factory=list)
     metric_ids: list[str] = Field(min_length=1)
     required_evidence_types: list[EvidenceType]
     severity: Literal["low", "medium", "high"]
@@ -50,6 +51,12 @@ class RiskRule(BaseModel):
         normalized = [term.strip() for term in values]
         if not normalized or any(not term for term in normalized):
             raise ValueError("trigger_terms must not be empty or contain blank entries")
+        return list(dict.fromkeys(normalized))
+
+    @field_validator("exclude_terms")
+    @classmethod
+    def validate_exclude_terms(cls, values: list[str]) -> list[str]:
+        normalized = [term.strip() for term in values if term.strip()]
         return list(dict.fromkeys(normalized))
 
 

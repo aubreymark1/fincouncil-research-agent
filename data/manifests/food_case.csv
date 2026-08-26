@@ -1,0 +1,12 @@
+doc_id,title,source_type,publisher,source_url,local_path,published_at,event_date,retrieved_at,company_name,industry_id,trust_level,review_status
+DOC-FOOD-001,示例食品公司2025年年度报告,annual_report,示例食品公司,,data/raw/food_beverage/annual_report_2025.pdf,2026-03-30,2025-12-31,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,5,formal
+DOC-FOOD-002,示例食品公司2025年半年度报告,interim_report,示例食品公司,,data/raw/food_beverage/interim_report_2025.pdf,2025-08-29,2025-06-30,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,5,formal
+DOC-FOOD-003,示例食品公司业绩快报,announcement,示例食品公司,,data/raw/food_beverage/earnings_flash.pdf,2026-01-20,,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,5,formal
+DOC-FOOD-004,示例食品公司业绩修正公告,announcement,示例食品公司,,data/raw/food_beverage/earnings_revision.pdf,2026-02-15,,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,5,formal
+DOC-FOOD-005,示例食品公司渠道与经销商公告,company_release,示例食品公司,,data/raw/food_beverage/channel_notice.pdf,2026-04-10,,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,4,formal
+DOC-FOOD-006,示例食品公司食品安全抽检公告,company_release,示例食品公司,,data/raw/food_beverage/food_safety_notice.pdf,2026-05-15,,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,5,formal
+DOC-FOOD-007,食品安全监管政策文件,policy,示例监管机构,,data/raw/food_beverage/food_safety_policy.pdf,2025-06-01,,2026-08-20T10:00:00+08:00,,food_beverage,4,background
+DOC-FOOD-008,食品饮料行业消费趋势报道,news,示例财经媒体,,data/raw/food_beverage/industry_news.pdf,2026-04-20,,2026-08-20T10:00:00+08:00,,food_beverage,3,background
+DOC-FOOD-009,示例食品公司经营动态报道（日期待核）,news,示例财经媒体,,data/raw/food_beverage/news_undated.pdf,,,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,2,pending_date
+DOC-FOOD-010,示例食品公司最新业绩新闻（cutoff后）,news,示例财经媒体,,data/raw/food_beverage/news_after_cutoff.pdf,2026-08-25,,2026-08-20T10:00:00+08:00,示例食品公司,food_beverage,2,red_team
+DOC-FOOD-011,某科技公司季度业绩新闻（无关）,news,示例财经媒体,,data/raw/food_beverage/irrelevant_news.pdf,2026-03-15,,2026-08-20T10:00:00+08:00,某科技公司,food_beverage,1,rejected

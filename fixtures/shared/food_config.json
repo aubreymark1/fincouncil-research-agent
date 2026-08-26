@@ -7,7 +7,8 @@
       "display_name": "收入增速",
       "keywords": [
         "营业收入",
-        "收入增长"
+        "收入增长",
+        "收入增速"
       ],
       "evidence_types": [
         "financial"
@@ -18,17 +19,47 @@
     },
     {
       "metric_id": "inventory",
-      "display_name": "存货与库存",
+      "display_name": "财务存货",
       "keywords": [
-        "存货",
-        "库存"
+        "存货"
       ],
       "evidence_types": [
-        "financial",
-        "operating"
+        "financial"
       ],
       "required": true,
-      "evidence_requirement": "multiple",
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "inventory_volume",
+      "display_name": "实物库存量",
+      "keywords": [
+        "库存量",
+        "期末库存量",
+        "产成品库存量"
+      ],
+      "evidence_types": [
+        "operating"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "channel",
+      "display_name": "渠道库存与动销",
+      "keywords": [
+        "渠道库存",
+        "经销商库存",
+        "动销"
+      ],
+      "evidence_types": [
+        "operating",
+        "company_release",
+        "news"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
       "missing_action": "warn"
     }
   ],
@@ -42,6 +73,21 @@
       "risk_id": "inventory_pressure",
       "display_name": "库存压力",
       "trigger_description": "库存变化需要结合收入和动销证据判断。",
+      "trigger_terms": [
+        "存货增速高于收入增速",
+        "库存压力",
+        "库存积压",
+        "库存高企",
+        "动销放缓"
+      ],
+      "exclude_terms": [
+        "库存压力已缓解",
+        "库存压力缓解",
+        "库存下降",
+        "库存改善",
+        "动销加快",
+        "未出现库存风险"
+      ],
       "required_evidence_types": [
         "financial",
         "operating"
@@ -62,6 +108,9 @@
     "收入",
     "毛利率",
     "存货",
+    "库存量",
+    "渠道库存",
+    "经销商库存",
     "动销"
   ]
 }

@@ -216,6 +216,33 @@ def test_cli_exits_2_on_invalid_doc_id(tmp_path: Path) -> None:
     assert "E101" in result.stderr
 
 
+def test_retrieved_before_published_is_reported(tmp_path: Path) -> None:
+    path = _write_manifest(
+        tmp_path,
+        _row(published_at="2026-08-25", retrieved_at="2026-08-20T09:30:00+08:00"),
+    )
+    documents = load_manifest(path)
+    issues = validate_manifest(documents)
+
+    retrieved_issues = [
+        i for i in issues if i.issue_type == "retrieved_before_published"
+    ]
+    assert len(retrieved_issues) == 1
+    assert "DOC-TEST-001" in retrieved_issues[0].message
+    assert retrieved_issues[0].human_confirmation_required is True
+
+
+def test_pending_date_document_skips_retrieved_check(tmp_path: Path) -> None:
+    path = _write_manifest(
+        tmp_path,
+        _row(published_at="", review_status="pending_date"),
+    )
+    documents = load_manifest(path)
+    issues = validate_manifest(documents)
+
+    assert all(i.issue_type != "retrieved_before_published" for i in issues)
+
+
 def test_json_non_object_record_raises_e101(tmp_path: Path) -> None:
     path = tmp_path / "manifest.json"
     path.write_text(

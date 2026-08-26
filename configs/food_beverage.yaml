@@ -7,6 +7,7 @@ required_metrics:
     keywords:
       - 营业收入
       - 收入增长
+      - 收入增速
       - 营收
     evidence_types:
       - financial
@@ -36,17 +37,28 @@ required_metrics:
     evidence_requirement: single
     missing_action: review
   - metric_id: inventory
-    display_name: 存货与库存
+    display_name: 财务存货
     keywords:
       - 存货
-      - 库存
-      - 动销
+      - 存货余额
+      - 存货账面价值
+      - 存货净额
     evidence_types:
       - financial
-      - operating
     required: true
-    evidence_requirement: multiple
+    evidence_requirement: single
     missing_action: review
+  - metric_id: inventory_volume
+    display_name: 实物库存量
+    keywords:
+      - 库存量
+      - 期末库存量
+      - 产成品库存量
+    evidence_types:
+      - operating
+    required: false
+    evidence_requirement: single
+    missing_action: warn
   - metric_id: volume
     display_name: 销量
     keywords:
@@ -60,12 +72,12 @@ required_metrics:
     evidence_requirement: single
     missing_action: warn
   - metric_id: channel
-    display_name: 渠道结构
+    display_name: 渠道库存与动销
     keywords:
-      - 渠道
-      - 经销商
-      - 电商
-      - 直营
+      - 渠道库存
+      - 经销商库存
+      - 动销
+      - 渠道动销
     evidence_types:
       - operating
       - company_release
@@ -110,18 +122,41 @@ event_taxonomy:
 
 risk_rules:
   - risk_id: inventory_pressure
-    display_name: 库存压力
-    trigger_description: 库存变化需要结合收入和动销证据判断，不能仅凭库存绝对值下结论。
+    display_name: 财务存货压力
+    trigger_description: 财务存货变化需结合收入增速判断，不能仅凭库存量或渠道库存下结论。
+    trigger_terms:
+      - 存货增速高于收入增速
+      - 存货余额上升
+      - 存货周转放缓
+      - 存货积压
+      - 存货高企
+    exclude_terms:
+      - 存货下降
+      - 存货改善
+      - 存货周转加快
+      - 未出现存货风险
+      - 存货风险已消除
     metric_ids:
       - inventory
       - revenue_growth
     required_evidence_types:
       - financial
-      - operating
     severity: medium
   - risk_id: margin_deterioration
     display_name: 毛利率下滑风险
     trigger_description: 毛利率变化必须说明比较期间，并区分价格、成本和产品结构影响。
+    trigger_terms:
+      - 毛利率下滑
+      - 毛利率下降
+      - 毛利率降低
+      - 毛利率恶化
+      - 毛利率压力
+    exclude_terms:
+      - 未出现毛利率下降
+      - 毛利率上升
+      - 毛利率提高
+      - 毛利率改善
+      - 毛利率下降风险已消除
     metric_ids:
       - gross_margin
       - revenue_growth
@@ -131,6 +166,17 @@ risk_rules:
   - risk_id: food_safety_incident
     display_name: 食品安全事件风险
     trigger_description: 食品安全信息必须确认是否适用于目标公司，行业事件不能直接推导到目标公司。
+    trigger_terms:
+      - 食品安全事故
+      - 抽检不合格
+      - 召回
+      - 质量风险
+      - 食品安全风险
+    exclude_terms:
+      - 未发现食品安全问题
+      - 抽检合格
+      - 无召回
+      - 食品安全风险已消除
     metric_ids:
       - food_safety
     required_evidence_types:
@@ -139,10 +185,20 @@ risk_rules:
     severity: high
   - risk_id: channel_disruption
     display_name: 渠道波动风险
-    trigger_description: 渠道库存或经销商变化需要公司或渠道层面证据，单一行业新闻不能直接作为目标公司事实。
+    trigger_description: 渠道库存、经销商库存或动销变化需要渠道层面证据，不能用财务存货替代。
+    trigger_terms:
+      - 渠道库存压力
+      - 经销商库存高企
+      - 渠道动销放缓
+      - 渠道风险
+      - 渠道压货
+    exclude_terms:
+      - 渠道库存压力缓解
+      - 渠道动销加快
+      - 渠道风险已消除
+      - 未出现渠道风险
     metric_ids:
       - channel
-      - inventory
     required_evidence_types:
       - operating
       - news
@@ -162,7 +218,9 @@ retrieval_keywords:
   - 毛利率
   - 销售费用率
   - 存货
-  - 库存
+  - 库存量
+  - 渠道库存
+  - 经销商库存
   - 动销
   - 销量
   - 渠道

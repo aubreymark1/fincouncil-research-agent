@@ -59,6 +59,7 @@
 |---|---|---|---|---|---|
 | 2026-08-25 | A | E100 扩展为“资料文件不可用” | 对齐 B-002 PDF 读取失败语义 | ingestion、下游错误处理 | 是；PR #10 已验证 |
 | 2026-08-25 | A | Evidence 来源、multiple 独立性、RiskRule→Claim 字段 | 修复公共函数输入不足以构造输出的契约缺口 | A/B/C、Schema、fixture、集成 | 是；CONTRACT-CHANGE-002 |
+| 2026-08-26 | A | 拆分库存口径：inventory 仅 financial/single；新增 optional inventory_volume（实物库存量，operating）；新增 optional channel（渠道库存/动销，operating）；禁止裸关键词“库存/动销”跨指标匹配 | 避免“库存量、存货、库存股”被子串匹配混为同一口径 | C configs/风险规则、B evidence locator、D Gold、共享 fixtures、集成测试 | 是；CONTRACT-CHANGE-006 |
 
 ## 六、每日汇报模板
 

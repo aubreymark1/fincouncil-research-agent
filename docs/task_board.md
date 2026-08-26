@@ -70,7 +70,7 @@
 | D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #19 只有合成 `metrics_gold_sample.json`；`food_gold.json`/`bank_gold.json` 及 B/C 签收仍缺 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
 | D-003 | 实验运行器 | 待开始 | `evaluation/experiment_runner.py`、`scripts/evaluate.py` 尚未提交 |
-| D-004 | 红蓝测试 | 进行中 | `evaluation/red_team.py` + `tests/evaluation/test_red_team.py` + `fixtures/evaluation/red_team/scenarios.json` 已实现，11 测试通过；待提交 PR |
+| D-004 | 红蓝测试 | 待审查 | PR #27；`evaluation/red_team.py` + `tests/evaluation/test_red_team.py` + `fixtures/evaluation/red_team/scenarios.json` 已实现，11 测试通过 |
 | D-005 | 图表 | 待开始 | `evaluation/charts.py` 尚未提交 |
 | D-006 | Streamlit 页面 | 待开始 | `app/ui/` 尚未提交 |
 | D-007 | 报告模板 | 待开始 | `reports/` 和提交清单尚未提交 |

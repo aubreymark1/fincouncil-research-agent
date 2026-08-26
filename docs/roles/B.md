@@ -247,7 +247,10 @@ tests/ingestion/test_evidence_locator.py
 ~~~python
 locate_evidence(
     chunks: list[TextChunk],
-    keywords: list[str]
+    keywords: list[str],
+    *,
+    documents: list[SourceDocument],
+    evidence_type: str
 ) -> list[Evidence]
 ~~~
 
@@ -260,7 +263,11 @@ locate_evidence(
 - 保留 page、section、locator；
 - published_at 来自 SourceDocument；
 - 不自行生成来源 URL；
-- 结果能通过 Evidence Schema。
+- 结果能通过 Evidence Schema；
+- documents 必填，用于按 doc_id 提供 published_at、company_name、industry_id；
+- evidence_type 由调用方显式提供，不使用 keyword_match 作为正式类型；
+- 自动匹配结果固定 review_status=pending、confidence=0.5；
+- 文档缺失、published_at 为空或 evidence_type 为空时明确失败，不得静默跳过或编造。
 
 ### B-006：资料包
 

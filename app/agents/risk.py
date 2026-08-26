@@ -20,10 +20,11 @@ def _risk_claim(
         claim_id=stable_claim_id("RISK", rule.risk_id),
         text=text,
         claim_type=claim_type,
+        risk_severity=rule.severity,
         evidence_ids=evidence_ids,
         calculation=None,
         confidence=confidence,
-        industry_metric_ids=[],
+        industry_metric_ids=rule.metric_ids,
         status="review",
     )
 

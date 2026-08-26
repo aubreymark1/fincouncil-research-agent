@@ -230,6 +230,17 @@ def test_contract_change_006_inventory_metric_semantics() -> None:
     assert "经销商库存" in channel.keywords
 
 
+def test_contract_change_006_retrieval_keywords_include_new_metric_entries() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    retrieval = config.retrieval_keywords
+
+    assert "库存" not in retrieval
+    assert "库存量" in retrieval
+    assert "渠道库存" in retrieval
+    assert "经销商库存" in retrieval
+    assert "动销" in retrieval
+
+
 def test_risk_claim_requires_severity() -> None:
     with pytest.raises(ValidationError, match="risk_severity"):
         Claim(

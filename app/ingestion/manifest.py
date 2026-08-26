@@ -285,7 +285,9 @@ def validate_manifest(documents: list[SourceDocument]) -> list[ValidationIssue]:
     Checks covered by B-001:
 
     - duplicate ``doc_id`` (E101);
-    - ``review_status == "formal"`` without a ``published_at`` (E102).
+    - ``review_status == "formal"`` without a ``published_at`` (E102);
+    - ``retrieved_at`` earlier than ``published_at`` (E102); documents without
+      a ``published_at`` (e.g. ``pending_date``) are skipped for this check.
     """
     issues: list[ValidationIssue] = []
     seen: dict[str, int] = {}
@@ -320,6 +322,25 @@ def validate_manifest(documents: list[SourceDocument]) -> list[ValidationIssue]:
                     message=(
                         f"E102 {document.doc_id} is review_status=formal but has no "
                         "published_at."
+                    ),
+                    human_confirmation_required=True,
+                )
+            )
+
+        if (
+            document.published_at is not None
+            and document.retrieved_at.date() < document.published_at
+        ):
+            issues.append(
+                _manifest_issue(
+                    document=document,
+                    suffix="RETRIEVED-BEFORE-PUBLISHED",
+                    severity="error",
+                    issue_type="retrieved_before_published",
+                    message=(
+                        f"E102 {document.doc_id} retrieved_at "
+                        f"({document.retrieved_at.date().isoformat()}) is earlier than "
+                        f"published_at ({document.published_at.isoformat()})."
                     ),
                     human_confirmation_required=True,
                 )

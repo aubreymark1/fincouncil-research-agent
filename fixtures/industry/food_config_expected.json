@@ -1,0 +1,173 @@
+{
+  "industry_id": "food_beverage",
+  "display_name": "食品饮料",
+  "required_metrics": [
+    {
+      "metric_id": "revenue_growth",
+      "display_name": "收入增速",
+      "keywords": [
+        "营业收入",
+        "收入增长",
+        "营收"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "gross_margin",
+      "display_name": "毛利率",
+      "keywords": [
+        "毛利率",
+        "毛利",
+        "营业成本"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "sales_expense_rate",
+      "display_name": "销售费用率",
+      "keywords": [
+        "销售费用率",
+        "销售费用",
+        "费用率"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "inventory",
+      "display_name": "存货与库存",
+      "keywords": [
+        "存货",
+        "库存",
+        "动销"
+      ],
+      "required": true,
+      "evidence_requirement": "multiple",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "volume",
+      "display_name": "销量",
+      "keywords": [
+        "销量",
+        "销售量",
+        "出货量"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "channel",
+      "display_name": "渠道结构",
+      "keywords": [
+        "渠道",
+        "经销商",
+        "电商",
+        "直营"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "raw_material_cost",
+      "display_name": "原材料成本",
+      "keywords": [
+        "原材料",
+        "原料成本",
+        "采购成本"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "food_safety",
+      "display_name": "食品安全",
+      "keywords": [
+        "食品安全",
+        "抽检",
+        "质量",
+        "召回"
+      ],
+      "required": true,
+      "evidence_requirement": "multiple",
+      "missing_action": "review"
+    }
+  ],
+  "event_taxonomy": [
+    "业绩",
+    "渠道",
+    "食品安全",
+    "原材料",
+    "消费"
+  ],
+  "risk_rules": [
+    {
+      "risk_id": "inventory_pressure",
+      "display_name": "库存压力",
+      "trigger_description": "库存变化需要结合收入和动销证据判断，不能仅凭库存绝对值下结论。",
+      "required_evidence_types": [
+        "financial",
+        "operating"
+      ],
+      "severity": "medium"
+    },
+    {
+      "risk_id": "margin_deterioration",
+      "display_name": "毛利率下滑风险",
+      "trigger_description": "毛利率变化必须说明比较期间，并区分价格、成本和产品结构影响。",
+      "required_evidence_types": [
+        "financial"
+      ],
+      "severity": "medium"
+    },
+    {
+      "risk_id": "food_safety_incident",
+      "display_name": "食品安全事件风险",
+      "trigger_description": "食品安全信息必须确认是否适用于目标公司，行业事件不能直接推导到目标公司。",
+      "required_evidence_types": [
+        "news",
+        "regulatory"
+      ],
+      "severity": "high"
+    },
+    {
+      "risk_id": "channel_disruption",
+      "display_name": "渠道波动风险",
+      "trigger_description": "渠道库存或经销商变化需要公司或渠道层面证据，单一行业新闻不能直接作为目标公司事实。",
+      "required_evidence_types": [
+        "operating",
+        "news"
+      ],
+      "severity": "medium"
+    }
+  ],
+  "report_sections": [
+    "summary",
+    "fundamentals",
+    "channel_inventory",
+    "food_safety",
+    "risks",
+    "unresolved"
+  ],
+  "retrieval_keywords": [
+    "营业收入",
+    "收入增长",
+    "毛利率",
+    "销售费用率",
+    "存货",
+    "库存",
+    "动销",
+    "销量",
+    "渠道",
+    "原材料成本",
+    "食品安全"
+  ]
+}

@@ -42,13 +42,13 @@
   "unresolved_items": [
     {
       "claim_id": "CL-FOOD-003",
-      "text": "尚缺少可核验的渠道库存证据。",
+      "text": "尚缺少可核验的经营库存/渠道库存证据。",
       "claim_type": "unresolved",
       "evidence_ids": [],
       "calculation": null,
       "confidence": 0,
       "industry_metric_ids": [
-        "inventory"
+        "inventory_volume"
       ],
       "status": "review"
     }

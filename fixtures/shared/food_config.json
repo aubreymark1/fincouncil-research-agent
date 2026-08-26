@@ -19,17 +19,30 @@
     },
     {
       "metric_id": "inventory",
-      "display_name": "存货与库存",
+      "display_name": "财务存货",
       "keywords": [
-        "存货",
-        "库存"
+        "存货"
       ],
       "evidence_types": [
-        "financial",
-        "operating"
+        "financial"
       ],
       "required": true,
-      "evidence_requirement": "multiple",
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "inventory_volume",
+      "display_name": "经营库存量",
+      "keywords": [
+        "渠道库存",
+        "经销商库存",
+        "动销"
+      ],
+      "evidence_types": [
+        "operating"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
       "missing_action": "warn"
     }
   ],

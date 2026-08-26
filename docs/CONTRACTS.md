@@ -185,6 +185,14 @@ class IndustryConfig(BaseModel):
 - 每个 RiskRule.metric_ids 不为空，且必须引用同一 IndustryConfig.required_metrics 中存在的 metric_id；
 - RiskRule.required_evidence_types 与 Evidence.evidence_type 使用同一套类型词表。
 
+### 指标口径约定（食品饮料）
+
+- `inventory` 专指财务存货（资产负债表存货科目），`evidence_types` 只允许 `["financial"]`，`evidence_requirement="single"`；
+- `inventory` 的 `keywords` 不得包含裸关键词 `库存` 或 `动销`，避免把 `库存量`、`库存股`、`动销` 等经营口径子串混入财务存货口径；
+- 新增 optional 指标 `inventory_volume`，专指经营库存量/渠道库存量，`evidence_types` 只允许 `["operating"]`，`required=false`；
+- `动销`、`渠道库存`、`经销商库存` 属于渠道/经营口径，应归入 `inventory_volume`（或渠道分析），不得用于匹配 `inventory`；
+- 任何模块不得用裸关键词 `库存`/`动销` 同时覆盖 `inventory` 与 `inventory_volume`；关键词匹配必须与 `evidence_types` 同时生效。
+
 ## 七、Claim
 
 ~~~python
@@ -475,5 +483,6 @@ E600 实验输入不一致
 | CONTRACT-CHANGE-003 | 2026-08-26 | MetricRule 新增非空 `evidence_types`，指标级证据类型由配置驱动；公共 Schema 共享 EvidenceType 词表并校验关键词非空 | C-002 复审发现硬编码类型映射会随行业迁移失效、直接构造可绕过 loader | A/B/C、Evidence/IndustryConfig、configs、fixtures、tests | 新增 `app/schemas/evidence_types.py`；Evidence/RiskRule/MetricRule 共用 EvidenceType；Schema 拒绝空/空白关键词与非法 evidence_type |
 | CONTRACT-CHANGE-004 | 2026-08-26 | RiskRule 新增非空 `trigger_terms`，用明确方向/比较/信号词触发风险 | C-003 复审发现无方向关键词会误触发正面改善风险、联合指标覆盖不完整 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 改为按 trigger_terms 判断方向，并按 metric_ids 建立覆盖矩阵 |
 | CONTRACT-CHANGE-005 | 2026-08-26 | RiskRule 新增 `exclude_terms`，命中否定/已解除/已缓解语句时不触发风险 | C-003 复审发现子串命中会把“未出现/风险已消除/压力缓解”误判为风险 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 增加排除词判断；metric 覆盖同时执行 MetricRule.evidence_types |
+| CONTRACT-CHANGE-006 | 2026-08-26 | 拆分库存口径：`inventory` 仅指财务存货（financial/single），新增 optional `inventory_volume` 仅指经营库存量（operating）；禁止 `inventory` 使用裸关键词“库存/动销”；“动销、渠道库存、经销商库存”归入 channel/`inventory_volume` | 避免“库存量、存货、库存股”等被子串匹配混为同一口径 | C configs/风险规则、B evidence locator、D Gold、共享 fixtures、集成测试 | A 更新公共契约与共享 fixture；C YAML 与 B 真实资料暂不改动 |
 
 

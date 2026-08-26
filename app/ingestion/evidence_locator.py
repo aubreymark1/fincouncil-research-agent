@@ -14,16 +14,11 @@ from __future__ import annotations
 
 import hashlib
 
-from app.schemas import Evidence, SourceDocument, TextChunk
+from app.schemas import ALLOWED_EVIDENCE_TYPES, Evidence, SourceDocument, TextChunk
 
 
 #: Separators used to trim a keyword-bearing sentence from the surrounding text.
 _BOUNDARIES = "。！？；\n"
-
-#: Evidence types recommended by CONTRACT-CHANGE-002.
-_RECOMMENDED_EVIDENCE_TYPES = frozenset(
-    {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
-)
 
 
 def _extract_sentence(text: str, keyword: str) -> str:
@@ -88,10 +83,10 @@ def locate_evidence(
     evidence_type = evidence_type.strip()
     if not evidence_type:
         raise ValueError("evidence_type must not be empty")
-    if evidence_type not in _RECOMMENDED_EVIDENCE_TYPES:
+    if evidence_type not in ALLOWED_EVIDENCE_TYPES:
         raise ValueError(
             f"evidence_type {evidence_type!r} is not allowed; "
-            f"use one of {sorted(_RECOMMENDED_EVIDENCE_TYPES)}"
+            f"use one of {sorted(ALLOWED_EVIDENCE_TYPES)}"
         )
 
     # Normalize, deduplicate, then drop blank keywords (a bare space would

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 import pytest
+from pydantic import ValidationError
 
 from app.industry import (
     build_industry_checklist,
@@ -203,15 +204,9 @@ def test_pending_evidence_does_not_count() -> None:
     assert issues[0].issue_type == "missing_metric"
 
 
-def test_unknown_evidence_type_does_not_count() -> None:
-    config = make_config(make_metric(required=True))
-    evidence = [make_evidence(evidence_type="keyword_match")]
-    documents = [make_document("A")]
-
-    issues = check_required_metrics(evidence, config, documents=documents)
-
-    assert len(issues) == 1
-    assert issues[0].issue_type == "missing_metric"
+def test_invalid_evidence_type_is_rejected_by_schema() -> None:
+    with pytest.raises(ValidationError):
+        make_evidence(evidence_type="keyword_match")
 
 
 def test_wrong_industry_evidence_does_not_count() -> None:
@@ -294,26 +289,14 @@ def test_evidence_company_name_must_match_source_document() -> None:
     assert issues[0].issue_type == "missing_metric"
 
 
-def test_empty_keywords_do_not_match_all_evidence() -> None:
-    config = make_config(make_metric(keywords=[]))
-    evidence = [make_evidence()]
-    documents = [make_document("A")]
-
-    issues = check_required_metrics(evidence, config, documents=documents)
-
-    assert len(issues) == 1
-    assert issues[0].issue_type == "missing_metric"
+def test_empty_keywords_are_rejected_by_schema() -> None:
+    with pytest.raises(ValidationError):
+        make_metric(keywords=[])
 
 
-def test_blank_keywords_do_not_match_all_evidence() -> None:
-    config = make_config(make_metric(keywords=["   "]))
-    evidence = [make_evidence()]
-    documents = [make_document("A")]
-
-    issues = check_required_metrics(evidence, config, documents=documents)
-
-    assert len(issues) == 1
-    assert issues[0].issue_type == "missing_metric"
+def test_blank_keywords_are_rejected_by_schema() -> None:
+    with pytest.raises(ValidationError):
+        make_metric(keywords=["   "])
 
 
 def test_duplicate_and_whitespace_keywords_are_normalized() -> None:

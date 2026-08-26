@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 import re
 
-from app.schemas import Evidence, IndustryConfig, SourceDocument, ValidationIssue
-
-#: Evidence types accepted by B's locator and recommended in CONTRACTS.
-_ALLOWED_EVIDENCE_TYPES = frozenset(
-    {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
+from app.schemas import (
+    ALLOWED_EVIDENCE_TYPES,
+    Evidence,
+    IndustryConfig,
+    SourceDocument,
+    ValidationIssue,
 )
 
 #: Map MetricRule.missing_action to ValidationIssue.severity, consistent with A's Critic.
@@ -82,7 +83,7 @@ def _evidence_matches_metric(
         return False
     if item.industry_id != config.industry_id:
         return False
-    if item.evidence_type not in _ALLOWED_EVIDENCE_TYPES:
+    if item.evidence_type not in ALLOWED_EVIDENCE_TYPES:
         return False
     if item.evidence_type not in metric.evidence_types:
         return False

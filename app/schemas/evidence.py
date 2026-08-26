@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .evidence_types import EvidenceType
+
 
 class Evidence(BaseModel):
     """A verbatim, locatable excerpt with normalized provenance."""
@@ -24,6 +26,9 @@ class Evidence(BaseModel):
     locator: str = Field(min_length=1)
     company_name: str | None = Field(default=None, min_length=1)
     industry_id: str | None = Field(default=None, min_length=1)
-    evidence_type: str = Field(min_length=1)
+    evidence_type: EvidenceType
     confidence: float = Field(ge=0, le=1)
     review_status: Literal["verified", "pending", "rejected"]
+
+
+Evidence.model_rebuild()

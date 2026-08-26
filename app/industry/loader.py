@@ -13,13 +13,10 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from app.schemas import IndustryConfig
+from app.schemas import ALLOWED_EVIDENCE_TYPES, IndustryConfig
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
 INDUSTRY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
-_ALLOWED_EVIDENCE_TYPES = frozenset(
-    {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
-)
 
 
 class IndustryConfigError(RuntimeError):
@@ -160,7 +157,7 @@ def _validate_metric_keywords(config: IndustryConfig, path: Path) -> None:
         invalid_evidence_types = [
             evidence_type
             for evidence_type in metric.evidence_types
-            if evidence_type not in _ALLOWED_EVIDENCE_TYPES
+            if evidence_type not in ALLOWED_EVIDENCE_TYPES
         ]
         if invalid_evidence_types:
             raise IndustryConfigError(

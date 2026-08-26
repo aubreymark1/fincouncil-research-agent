@@ -468,6 +468,6 @@ E600 实验输入不一致
 |---|---|---|---|---|---|
 | CONTRACT-CHANGE-001 | 2026-08-25 | 扩大 E100 语义，覆盖资料不可用的完整错误集合 | 与 B-002 PDF 提取的统一错误处理对齐 | B ingestion 错误解释和下游调用方 | 本次只更新契约；详细失败原因继续写入错误消息，不修改 `app/ingestion/` |
 | CONTRACT-CHANGE-002 | 2026-08-25 | 补齐 Evidence 元数据来源、multiple 独立来源、RiskRule→Claim 字段和报告 review 语义 | 系统复检发现多个输出字段无法由原函数输入可靠构造 | A/B/C、公共 Schema、fixture、集成 | documents/evidence_type 改为显式输入；新增 RiskRule.metric_ids 与 Claim.risk_severity |
-| CONTRACT-CHANGE-003 | 2026-08-26 | MetricRule 新增非空 `evidence_types`，指标级证据类型由配置驱动 | C-002 复审发现硬编码类型映射会随行业迁移失效 | A/C、IndustryConfig、configs、fixtures、tests/industry | checklist 改为读取 `metric.evidence_types`，删除 Python 临时映射 |
+| CONTRACT-CHANGE-003 | 2026-08-26 | MetricRule 新增非空 `evidence_types`，指标级证据类型由配置驱动；公共 Schema 共享 EvidenceType 词表并校验关键词非空 | C-002 复审发现硬编码类型映射会随行业迁移失效、直接构造可绕过 loader | A/B/C、Evidence/IndustryConfig、configs、fixtures、tests | 新增 `app/schemas/evidence_types.py`；Evidence/RiskRule/MetricRule 共用 EvidenceType；Schema 拒绝空/空白关键词与非法 evidence_type |
 
 

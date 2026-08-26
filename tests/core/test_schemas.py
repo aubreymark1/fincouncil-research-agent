@@ -150,6 +150,42 @@ def test_extra_public_fields_are_rejected() -> None:
     with pytest.raises(ValidationError):
         Evidence.model_validate(payload)
 
+
+def test_evidence_rejects_invalid_evidence_type() -> None:
+    payload = load_fixture("evidence.json")
+    payload["evidence_type"] = "bogus"
+    with pytest.raises(ValidationError):
+        Evidence.model_validate(payload)
+
+
+def test_industry_config_rejects_invalid_metric_evidence_types() -> None:
+    payload = load_fixture("food_config.json")
+    payload["required_metrics"][0]["evidence_types"] = ["bogus"]
+    with pytest.raises(ValidationError):
+        IndustryConfig.model_validate(payload)
+
+
+def test_industry_config_rejects_invalid_risk_evidence_types() -> None:
+    payload = load_fixture("food_config.json")
+    payload["risk_rules"][0]["required_evidence_types"] = ["bogus"]
+    with pytest.raises(ValidationError):
+        IndustryConfig.model_validate(payload)
+
+
+def test_industry_config_rejects_empty_keywords() -> None:
+    payload = load_fixture("food_config.json")
+    payload["required_metrics"][0]["keywords"] = []
+    with pytest.raises(ValidationError):
+        IndustryConfig.model_validate(payload)
+
+
+def test_industry_config_rejects_blank_keywords() -> None:
+    payload = load_fixture("food_config.json")
+    payload["required_metrics"][0]["keywords"] = ["   "]
+    with pytest.raises(ValidationError):
+        IndustryConfig.model_validate(payload)
+
+
 def test_risk_claim_requires_severity() -> None:
     with pytest.raises(ValidationError, match="risk_severity"):
         Claim(

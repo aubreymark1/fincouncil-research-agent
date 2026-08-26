@@ -200,6 +200,47 @@ def test_industry_config_rejects_blank_keywords() -> None:
         IndustryConfig.model_validate(payload)
 
 
+def test_contract_change_006_inventory_metric_semantics() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    metrics = {metric.metric_id: metric for metric in config.required_metrics}
+
+    inventory = metrics["inventory"]
+    assert "库存" not in inventory.keywords
+    assert "动销" not in inventory.keywords
+    assert inventory.evidence_types == ["financial"]
+    assert inventory.evidence_requirement == "single"
+
+    volume = metrics["inventory_volume"]
+    assert volume.required is False
+    assert volume.evidence_types == ["operating"]
+    assert volume.evidence_requirement == "single"
+    assert "库存量" in volume.keywords
+    assert "期末库存量" in volume.keywords
+    assert "产成品库存量" in volume.keywords
+    assert "动销" not in volume.keywords
+    assert "渠道库存" not in volume.keywords
+    assert "经销商库存" not in volume.keywords
+
+    channel = metrics["channel"]
+    assert channel.required is False
+    assert channel.evidence_types == ["operating", "company_release", "news"]
+    assert channel.evidence_requirement == "single"
+    assert "动销" in channel.keywords
+    assert "渠道库存" in channel.keywords
+    assert "经销商库存" in channel.keywords
+
+
+def test_contract_change_006_retrieval_keywords_include_new_metric_entries() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    retrieval = config.retrieval_keywords
+
+    assert "库存" not in retrieval
+    assert "库存量" in retrieval
+    assert "渠道库存" in retrieval
+    assert "经销商库存" in retrieval
+    assert "动销" in retrieval
+
+
 def test_risk_claim_requires_severity() -> None:
     with pytest.raises(ValidationError, match="risk_severity"):
         Claim(

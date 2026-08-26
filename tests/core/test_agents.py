@@ -79,65 +79,133 @@ def test_checklist_and_fundamentals_agree_on_whitespace_keywords() -> None:
     assert not any("revenue_growth" in issue.message for issue in checklist_issues)
 
 
-def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> None:
+def test_inventory_passes_with_single_financial_evidence() -> None:
     config = IndustryConfig.model_validate(load_fixture("food_config.json"))
-    first = make_evidence(
-        evidence_id="EV-FOOD-INVENTORY-001",
-        fact_text="公司披露存货余额保持稳定。",
-        quote="存货余额保持稳定。",
+    financial = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-FIN-001",
+        fact_text="报告披露存货余额为 10 亿元。",
+        quote="存货余额为 10 亿元。",
         evidence_type="financial",
     )
-    same_document = make_evidence(
-        evidence_id="EV-FOOD-INVENTORY-002",
-        doc_id="DOC-FOOD-002",
-        fact_text="公司披露库存周转情况。",
-        quote="库存周转情况。",
-        evidence_type="operating",
-    )
 
-    claims = analyze_fundamentals([first, same_document], config)
-
-    inventory_claim = next(claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-"))
-    assert inventory_claim.claim_type == "unresolved"
-    assert "独立发布主体" in inventory_claim.text
-
-
-def test_multiple_metric_passes_with_independent_source_documents() -> None:
-    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
-    first = make_evidence(
-        evidence_id="EV-FOOD-INVENTORY-101",
-        doc_id="DOC-FOOD-001",
-        fact_text="公司披露存货余额保持稳定。",
-        quote="存货余额保持稳定。",
-        evidence_type="financial",
-    )
-    second = make_evidence(
-        evidence_id="EV-FOOD-INVENTORY-102",
-        doc_id="DOC-FOOD-002",
-        fact_text="独立机构跟踪库存周转改善。",
-        quote="库存周转改善。",
-        evidence_type="operating",
-    )
-    documents = [
-        make_document(),
-        make_document(
-            doc_id="DOC-FOOD-002",
-            publisher="独立研究机构",
-            content_hash="sha256:independent-source",
-        ),
-    ]
-
-    claims = analyze_fundamentals(
-        [first, second],
-        config,
-        documents=documents,
-    )
+    claims = analyze_fundamentals([financial], config)
 
     inventory_claim = next(
         claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-")
     )
     assert inventory_claim.claim_type == "fact"
     assert inventory_claim.status == "pass"
+    assert inventory_claim.evidence_ids == [financial.evidence_id]
+
+
+def test_operating_evidence_cannot_cover_inventory() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    operating = make_evidence(
+        evidence_id="EV-FOOD-INVENTORY-OP-001",
+        fact_text="公司披露渠道库存周转改善。",
+        quote="渠道库存周转改善。",
+        evidence_type="operating",
+    )
+
+    claims = analyze_fundamentals([operating], config)
+
+    inventory_claim = next(
+        claim for claim in claims if claim.claim_id.startswith("CL-FUND-INVENTORY-")
+    )
+    assert inventory_claim.claim_type == "unresolved"
+    assert inventory_claim.evidence_ids == []
+
+
+def test_contract_change_006_routes_inventory_terms_to_correct_metrics() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+
+    def claim_type_for(claims: list, metric_id: str) -> str:
+        return next(
+            claim for claim in claims if metric_id in claim.industry_metric_ids
+        ).claim_type
+
+    cases = [
+        (
+            make_evidence(
+                evidence_id="EV-FOOD-STOCK-REPURCHASE-001",
+                fact_text="公司披露库存股回购计划。",
+                quote="库存股回购计划。",
+                evidence_type="financial",
+            ),
+            {
+                "inventory": "unresolved",
+                "inventory_volume": "unresolved",
+                "channel": "unresolved",
+            },
+        ),
+        (
+            make_evidence(
+                evidence_id="EV-FOOD-VOLUME-001",
+                fact_text="报告披露期末库存量为 100 吨。",
+                quote="期末库存量为 100 吨。",
+                evidence_type="operating",
+            ),
+            {
+                "inventory": "unresolved",
+                "inventory_volume": "fact",
+                "channel": "unresolved",
+            },
+        ),
+        (
+            make_evidence(
+                evidence_id="EV-FOOD-INVENTORY-001",
+                fact_text="报告披露存货余额为 614 亿元。",
+                quote="存货余额为 614 亿元。",
+                evidence_type="financial",
+            ),
+            {
+                "inventory": "fact",
+                "inventory_volume": "unresolved",
+                "channel": "unresolved",
+            },
+        ),
+        (
+            make_evidence(
+                evidence_id="EV-FOOD-CHANNEL-001",
+                fact_text="公司披露渠道库存上升、动销放缓。",
+                quote="渠道库存上升、动销放缓。",
+                evidence_type="operating",
+            ),
+            {
+                "inventory": "unresolved",
+                "inventory_volume": "unresolved",
+                "channel": "fact",
+            },
+        ),
+    ]
+
+    for evidence, expected in cases:
+        claims = analyze_fundamentals([evidence], config)
+        for metric_id, expected_type in expected.items():
+            assert claim_type_for(claims, metric_id) == expected_type
+
+
+def test_channel_accepts_operating_company_release_and_news_but_not_inventory_metrics() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+
+    def claim_type_for(claims: list, metric_id: str) -> str:
+        return next(
+            claim for claim in claims if metric_id in claim.industry_metric_ids
+        ).claim_type
+
+    for evidence_type in ["operating", "company_release", "news"]:
+        evidence = make_evidence(
+            evidence_id=f"EV-FOOD-CHANNEL-{evidence_type.upper()}",
+            fact_text="公司披露渠道库存上升、动销放缓。",
+            quote="渠道库存上升、动销放缓。",
+            evidence_type=evidence_type,
+        )
+
+        claims = analyze_fundamentals([evidence], config)
+
+        assert claim_type_for(claims, "channel") == "fact"
+        assert claim_type_for(claims, "inventory") == "unresolved"
+        assert claim_type_for(claims, "inventory_volume") == "unresolved"
 
 
 def test_cross_industry_and_unknown_industry_evidence_are_excluded() -> None:

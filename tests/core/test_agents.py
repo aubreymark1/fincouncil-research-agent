@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from app.agents import analyze_fundamentals, analyze_news_policy, analyze_risks
+from app.industry import apply_risk_rules, check_required_metrics
 from app.schemas import Evidence, IndustryConfig, SourceDocument
 
 
@@ -39,6 +40,43 @@ def test_fundamentals_only_pass_when_metric_evidence_is_sufficient() -> None:
     assert revenue_claim.evidence_ids == ["EV-FOOD-001"]
     assert inventory_claim.claim_type == "unresolved"
     assert inventory_claim.status == "review"
+
+
+def test_fundamentals_reject_disallowed_evidence_type_even_with_keyword() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    policy_evidence = make_evidence(
+        evidence_id="EV-POLICY-REVENUE-001",
+        fact_text="监管部门报告营业收入增长 12%。",
+        quote="营业收入增长 12%。",
+        evidence_type="policy",
+    )
+
+    claims = analyze_fundamentals([policy_evidence], config)
+
+    revenue_claim = next(
+        claim for claim in claims if claim.claim_id.startswith("CL-FUND-REVENUE-GROWTH-")
+    )
+    assert revenue_claim.claim_type == "unresolved"
+    assert revenue_claim.status == "review"
+    assert revenue_claim.evidence_ids == []
+
+
+def test_checklist_and_fundamentals_agree_on_whitespace_keywords() -> None:
+    payload = load_fixture("food_config.json")
+    payload["required_metrics"][0]["keywords"] = [" 营业收入 "]
+    config = IndustryConfig.model_validate(payload)
+    evidence = [make_evidence()]
+    documents = [make_document()]
+
+    checklist_issues = check_required_metrics(evidence, config, documents=documents)
+    claims = analyze_fundamentals(evidence, config, documents=documents)
+
+    revenue_claim = next(
+        claim for claim in claims if claim.claim_id.startswith("CL-FUND-REVENUE-GROWTH-")
+    )
+    assert revenue_claim.claim_type == "fact"
+    assert revenue_claim.status == "pass"
+    assert not any("revenue_growth" in issue.message for issue in checklist_issues)
 
 
 def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> None:
@@ -217,6 +255,35 @@ def test_risk_requires_trigger_content_for_each_evidence_type() -> None:
 
     assert claims[0].claim_type == "unresolved"
     assert "operating" in claims[0].text
+
+
+def test_analyze_risks_matches_apply_risk_rules() -> None:
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FOOD-INVENTORY-001",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+            evidence_type="financial",
+        ),
+        make_evidence(
+            evidence_id="EV-FOOD-OPERATING-001",
+            fact_text="公司披露渠道库存压力上升。",
+            quote="渠道库存压力上升。",
+            evidence_type="operating",
+        ),
+    ]
+
+    from_agent = analyze_risks(evidence, config)
+    from_c = apply_risk_rules(evidence, config)
+
+    assert [
+        (claim.claim_type, claim.status, sorted(claim.evidence_ids))
+        for claim in from_agent
+    ] == [
+        (claim.claim_type, claim.status, sorted(claim.evidence_ids))
+        for claim in from_c
+    ]
 
 
 def test_claim_ids_are_legal_for_unicode_and_special_metric_ids() -> None:

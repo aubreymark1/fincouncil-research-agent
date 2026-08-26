@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from .evidence_types import EvidenceType
 
 
 class MetricRule(BaseModel):
@@ -15,9 +17,18 @@ class MetricRule(BaseModel):
     metric_id: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     keywords: list[str]
+    evidence_types: list[EvidenceType] = Field(min_length=1)
     required: bool
     evidence_requirement: Literal["single", "multiple"]
     missing_action: Literal["warn", "review", "reject"]
+
+    @field_validator("keywords")
+    @classmethod
+    def validate_keywords(cls, values: list[str]) -> list[str]:
+        normalized = [keyword.strip() for keyword in values]
+        if not normalized or any(not keyword for keyword in normalized):
+            raise ValueError("keywords must not be empty or contain blank entries")
+        return list(dict.fromkeys(normalized))
 
 
 class RiskRule(BaseModel):
@@ -28,9 +39,25 @@ class RiskRule(BaseModel):
     risk_id: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     trigger_description: str = Field(min_length=1)
+    trigger_terms: list[str] = Field(min_length=1)
+    exclude_terms: list[str] = Field(default_factory=list)
     metric_ids: list[str] = Field(min_length=1)
-    required_evidence_types: list[str]
+    required_evidence_types: list[EvidenceType]
     severity: Literal["low", "medium", "high"]
+
+    @field_validator("trigger_terms")
+    @classmethod
+    def validate_trigger_terms(cls, values: list[str]) -> list[str]:
+        normalized = [term.strip() for term in values]
+        if not normalized or any(not term for term in normalized):
+            raise ValueError("trigger_terms must not be empty or contain blank entries")
+        return list(dict.fromkeys(normalized))
+
+    @field_validator("exclude_terms")
+    @classmethod
+    def validate_exclude_terms(cls, values: list[str]) -> list[str]:
+        normalized = [term.strip() for term in values if term.strip()]
+        return list(dict.fromkeys(normalized))
 
 
 class IndustryConfig(BaseModel):
@@ -64,3 +91,6 @@ class IndustryConfig(BaseModel):
                     f"risk rule {rule.risk_id} references unknown metric_ids: {unknown}"
                 )
         return self
+
+
+IndustryConfig.model_rebuild()

@@ -10,6 +10,9 @@
         "净利息收益率",
         "息差"
       ],
+      "evidence_types": [
+        "financial"
+      ],
       "required": true,
       "evidence_requirement": "single",
       "missing_action": "review"
@@ -21,6 +24,9 @@
         "贷款增长",
         "贷款余额",
         "信贷投放"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -35,6 +41,10 @@
         "定期存款",
         "存款成本"
       ],
+      "evidence_types": [
+        "financial",
+        "company_release"
+      ],
       "required": false,
       "evidence_requirement": "single",
       "missing_action": "warn"
@@ -46,6 +56,9 @@
         "不良率",
         "不良贷款率",
         "不良贷款余额"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -59,6 +72,9 @@
         "拨备",
         "贷款损失准备"
       ],
+      "evidence_types": [
+        "financial"
+      ],
       "required": true,
       "evidence_requirement": "single",
       "missing_action": "review"
@@ -70,6 +86,10 @@
         "资本充足率",
         "核心一级资本充足率",
         "一级资本充足率"
+      ],
+      "evidence_types": [
+        "financial",
+        "policy"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -83,6 +103,10 @@
         "流动性覆盖率",
         "存贷比"
       ],
+      "evidence_types": [
+        "financial",
+        "policy"
+      ],
       "required": false,
       "evidence_requirement": "single",
       "missing_action": "warn"
@@ -95,6 +119,11 @@
         "房地产风险",
         "按揭贷款",
         "开发贷"
+      ],
+      "evidence_types": [
+        "financial",
+        "news",
+        "policy"
       ],
       "required": false,
       "evidence_requirement": "single",
@@ -114,6 +143,22 @@
       "risk_id": "credit_risk_deterioration",
       "display_name": "信用风险恶化",
       "trigger_description": "不良率、关注类贷款和拨备覆盖率必须联合检查，不能只看单一指标。",
+      "trigger_terms": [
+        "不良率上升",
+        "不良贷款率上升",
+        "不良率恶化",
+        "拨备覆盖率下降",
+        "关注类贷款上升",
+        "信用风险恶化"
+      ],
+      "exclude_terms": [
+        "不良率下降",
+        "不良贷款率下降",
+        "拨备覆盖率上升",
+        "信用风险已缓解",
+        "未出现不良率上升",
+        "信用风险已消除"
+      ],
       "metric_ids": [
         "non_performing_loan_ratio",
         "provision_coverage"
@@ -128,6 +173,20 @@
       "risk_id": "nim_pressure",
       "display_name": "净息差压力",
       "trigger_description": "净息差变化必须说明比较期间和资产端、负债端驱动因素。",
+      "trigger_terms": [
+        "净息差下降",
+        "净息差下滑",
+        "息差收窄",
+        "净息差压力"
+      ],
+      "exclude_terms": [
+        "净息差上升",
+        "净息差改善",
+        "息差扩大",
+        "净息差压力已缓解",
+        "未出现净息差下降",
+        "净息差下降风险已消除"
+      ],
       "metric_ids": [
         "net_interest_margin"
       ],
@@ -140,6 +199,19 @@
       "risk_id": "capital_adequacy_concern",
       "display_name": "资本充足率风险",
       "trigger_description": "资本充足率必须保留原始口径，不同监管口径不能混用。",
+      "trigger_terms": [
+        "资本充足率下降",
+        "资本充足率下滑",
+        "资本充足率低于",
+        "资本充足率压力"
+      ],
+      "exclude_terms": [
+        "资本充足率上升",
+        "资本充足率改善",
+        "资本充足率压力已缓解",
+        "未出现资本充足率下降",
+        "资本充足率下降风险已消除"
+      ],
       "metric_ids": [
         "capital_adequacy"
       ],
@@ -153,6 +225,18 @@
       "risk_id": "real_estate_concentration_risk",
       "display_name": "房地产集中度风险",
       "trigger_description": "房地产或地方债风险不能由单一行业新闻直接推导到目标银行，需要目标银行敞口证据。",
+      "trigger_terms": [
+        "房地产风险敞口上升",
+        "房地产贷款不良",
+        "房地产集中度风险",
+        "房地产风险上升"
+      ],
+      "exclude_terms": [
+        "房地产风险敞口下降",
+        "房地产风险已缓解",
+        "未出现房地产风险上升",
+        "房地产风险已消除"
+      ],
       "metric_ids": [
         "real_estate_exposure",
         "loan_growth"

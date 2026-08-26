@@ -1,5 +1,13 @@
 """Industry configuration and rule modules (C role)."""
 
+from .checklist import build_industry_checklist, check_required_metrics
 from .loader import IndustryConfigError, load_industry_config
+from .risk_rules import apply_risk_rules
 
-__all__ = ["IndustryConfigError", "load_industry_config"]
+__all__ = [
+    "IndustryConfigError",
+    "apply_risk_rules",
+    "build_industry_checklist",
+    "check_required_metrics",
+    "load_industry_config",
+]

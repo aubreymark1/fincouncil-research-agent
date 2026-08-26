@@ -7,7 +7,11 @@
       "display_name": "收入增速",
       "keywords": [
         "营业收入",
-        "收入增长"
+        "收入增长",
+        "收入增速"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -19,6 +23,10 @@
       "keywords": [
         "存货",
         "库存"
+      ],
+      "evidence_types": [
+        "financial",
+        "operating"
       ],
       "required": true,
       "evidence_requirement": "multiple",
@@ -35,6 +43,21 @@
       "risk_id": "inventory_pressure",
       "display_name": "库存压力",
       "trigger_description": "库存变化需要结合收入和动销证据判断。",
+      "trigger_terms": [
+        "存货增速高于收入增速",
+        "库存压力",
+        "库存积压",
+        "库存高企",
+        "动销放缓"
+      ],
+      "exclude_terms": [
+        "库存压力已缓解",
+        "库存压力缓解",
+        "库存下降",
+        "库存改善",
+        "动销加快",
+        "未出现库存风险"
+      ],
       "required_evidence_types": [
         "financial",
         "operating"

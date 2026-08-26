@@ -8,7 +8,11 @@
       "keywords": [
         "营业收入",
         "收入增长",
+        "收入增速",
         "营收"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -22,6 +26,9 @@
         "毛利",
         "营业成本"
       ],
+      "evidence_types": [
+        "financial"
+      ],
       "required": true,
       "evidence_requirement": "single",
       "missing_action": "review"
@@ -33,6 +40,9 @@
         "销售费用率",
         "销售费用",
         "费用率"
+      ],
+      "evidence_types": [
+        "financial"
       ],
       "required": true,
       "evidence_requirement": "single",
@@ -46,6 +56,10 @@
         "库存",
         "动销"
       ],
+      "evidence_types": [
+        "financial",
+        "operating"
+      ],
       "required": true,
       "evidence_requirement": "multiple",
       "missing_action": "review"
@@ -57,6 +71,10 @@
         "销量",
         "销售量",
         "出货量"
+      ],
+      "evidence_types": [
+        "financial",
+        "operating"
       ],
       "required": false,
       "evidence_requirement": "single",
@@ -71,6 +89,11 @@
         "电商",
         "直营"
       ],
+      "evidence_types": [
+        "operating",
+        "company_release",
+        "news"
+      ],
       "required": false,
       "evidence_requirement": "single",
       "missing_action": "warn"
@@ -82,6 +105,11 @@
         "原材料",
         "原料成本",
         "采购成本"
+      ],
+      "evidence_types": [
+        "financial",
+        "news",
+        "policy"
       ],
       "required": false,
       "evidence_requirement": "single",
@@ -95,6 +123,11 @@
         "抽检",
         "质量",
         "召回"
+      ],
+      "evidence_types": [
+        "news",
+        "policy",
+        "company_release"
       ],
       "required": true,
       "evidence_requirement": "multiple",
@@ -113,6 +146,21 @@
       "risk_id": "inventory_pressure",
       "display_name": "库存压力",
       "trigger_description": "库存变化需要结合收入和动销证据判断，不能仅凭库存绝对值下结论。",
+      "trigger_terms": [
+        "存货增速高于收入增速",
+        "库存压力",
+        "库存积压",
+        "库存高企",
+        "动销放缓"
+      ],
+      "exclude_terms": [
+        "库存压力已缓解",
+        "库存压力缓解",
+        "库存下降",
+        "库存改善",
+        "动销加快",
+        "未出现库存风险"
+      ],
       "metric_ids": [
         "inventory",
         "revenue_growth"
@@ -127,6 +175,20 @@
       "risk_id": "margin_deterioration",
       "display_name": "毛利率下滑风险",
       "trigger_description": "毛利率变化必须说明比较期间，并区分价格、成本和产品结构影响。",
+      "trigger_terms": [
+        "毛利率下滑",
+        "毛利率下降",
+        "毛利率降低",
+        "毛利率恶化",
+        "毛利率压力"
+      ],
+      "exclude_terms": [
+        "未出现毛利率下降",
+        "毛利率上升",
+        "毛利率提高",
+        "毛利率改善",
+        "毛利率下降风险已消除"
+      ],
       "metric_ids": [
         "gross_margin",
         "revenue_growth"
@@ -140,6 +202,19 @@
       "risk_id": "food_safety_incident",
       "display_name": "食品安全事件风险",
       "trigger_description": "食品安全信息必须确认是否适用于目标公司，行业事件不能直接推导到目标公司。",
+      "trigger_terms": [
+        "食品安全事故",
+        "抽检不合格",
+        "召回",
+        "质量风险",
+        "食品安全风险"
+      ],
+      "exclude_terms": [
+        "未发现食品安全问题",
+        "抽检合格",
+        "无召回",
+        "食品安全风险已消除"
+      ],
       "metric_ids": [
         "food_safety"
       ],
@@ -153,6 +228,19 @@
       "risk_id": "channel_disruption",
       "display_name": "渠道波动风险",
       "trigger_description": "渠道库存或经销商变化需要公司或渠道层面证据，单一行业新闻不能直接作为目标公司事实。",
+      "trigger_terms": [
+        "渠道库存压力",
+        "经销商库存高企",
+        "渠道动销放缓",
+        "渠道风险",
+        "渠道压货"
+      ],
+      "exclude_terms": [
+        "渠道库存压力缓解",
+        "渠道动销加快",
+        "渠道风险已消除",
+        "未出现渠道风险"
+      ],
       "metric_ids": [
         "channel",
         "inventory"

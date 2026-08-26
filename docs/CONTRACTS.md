@@ -147,6 +147,7 @@ class MetricRule(BaseModel):
     metric_id: str
     display_name: str
     keywords: list[str]
+    evidence_types: list[str]
     required: bool
     evidence_requirement: Literal["single", "multiple"]
     missing_action: Literal["warn", "review", "reject"]
@@ -155,6 +156,8 @@ class RiskRule(BaseModel):
     risk_id: str
     display_name: str
     trigger_description: str
+    trigger_terms: list[str]
+    exclude_terms: list[str]
     metric_ids: list[str]
     required_evidence_types: list[str]
     severity: Literal["low", "medium", "high"]
@@ -176,6 +179,9 @@ class IndustryConfig(BaseModel):
 - report_sections 不为空；
 - 食品饮料和银行配置必须有实质差异；
 - risk_id 在单个配置中唯一；
+- 每个 MetricRule.evidence_types 非空，且值属于 Evidence.evidence_type 词表；
+- 每个 RiskRule.trigger_terms 非空，用于表达可触发该风险的方向/比较/明确信号，避免无方向关键词误触发；
+- RiskRule.exclude_terms 用于表达否定/已解除/已缓解信号，命中时不得触发该风险；
 - 每个 RiskRule.metric_ids 不为空，且必须引用同一 IndustryConfig.required_metrics 中存在的 metric_id；
 - RiskRule.required_evidence_types 与 Evidence.evidence_type 使用同一套类型词表。
 
@@ -466,5 +472,8 @@ E600 实验输入不一致
 |---|---|---|---|---|---|
 | CONTRACT-CHANGE-001 | 2026-08-25 | 扩大 E100 语义，覆盖资料不可用的完整错误集合 | 与 B-002 PDF 提取的统一错误处理对齐 | B ingestion 错误解释和下游调用方 | 本次只更新契约；详细失败原因继续写入错误消息，不修改 `app/ingestion/` |
 | CONTRACT-CHANGE-002 | 2026-08-25 | 补齐 Evidence 元数据来源、multiple 独立来源、RiskRule→Claim 字段和报告 review 语义 | 系统复检发现多个输出字段无法由原函数输入可靠构造 | A/B/C、公共 Schema、fixture、集成 | documents/evidence_type 改为显式输入；新增 RiskRule.metric_ids 与 Claim.risk_severity |
+| CONTRACT-CHANGE-003 | 2026-08-26 | MetricRule 新增非空 `evidence_types`，指标级证据类型由配置驱动；公共 Schema 共享 EvidenceType 词表并校验关键词非空 | C-002 复审发现硬编码类型映射会随行业迁移失效、直接构造可绕过 loader | A/B/C、Evidence/IndustryConfig、configs、fixtures、tests | 新增 `app/schemas/evidence_types.py`；Evidence/RiskRule/MetricRule 共用 EvidenceType；Schema 拒绝空/空白关键词与非法 evidence_type |
+| CONTRACT-CHANGE-004 | 2026-08-26 | RiskRule 新增非空 `trigger_terms`，用明确方向/比较/信号词触发风险 | C-003 复审发现无方向关键词会误触发正面改善风险、联合指标覆盖不完整 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 改为按 trigger_terms 判断方向，并按 metric_ids 建立覆盖矩阵 |
+| CONTRACT-CHANGE-005 | 2026-08-26 | RiskRule 新增 `exclude_terms`，命中否定/已解除/已缓解语句时不触发风险 | C-003 复审发现子串命中会把“未出现/风险已消除/压力缓解”误判为风险 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 增加排除词判断；metric 覆盖同时执行 MetricRule.evidence_types |
 
 

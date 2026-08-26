@@ -13,7 +13,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from app.schemas import IndustryConfig
+from app.schemas import ALLOWED_EVIDENCE_TYPES, IndustryConfig
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
 INDUSTRY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -113,4 +113,58 @@ def load_industry_config(industry_id: str) -> IndustryConfig:
             path=path,
         )
 
+    _validate_metric_keywords(config, path=path)
     return config
+
+
+def _validate_metric_keywords(config: IndustryConfig, path: Path) -> None:
+    """Reject MetricRule keywords that are empty or contain only whitespace.
+
+    The public schema still allows empty keyword lists, but empty keywords
+    would make coverage checks match every Evidence. The loader therefore
+    enforces the stricter requirement before returning a config.
+    """
+
+    for metric in config.required_metrics:
+        if not metric.keywords:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    "must define at least one keyword"
+                ),
+                path=path,
+            )
+        blank_keywords = [keyword for keyword in metric.keywords if not keyword.strip()]
+        if blank_keywords:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    f"has blank keyword entries: {blank_keywords!r}"
+                ),
+                path=path,
+            )
+        if not metric.evidence_types:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    "must define at least one evidence_type"
+                ),
+                path=path,
+            )
+        invalid_evidence_types = [
+            evidence_type
+            for evidence_type in metric.evidence_types
+            if evidence_type not in ALLOWED_EVIDENCE_TYPES
+        ]
+        if invalid_evidence_types:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    f"has invalid evidence_types: {invalid_evidence_types!r}"
+                ),
+                path=path,
+            )

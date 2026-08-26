@@ -55,7 +55,6 @@ def _write_multiple_gold(tmp_path: Path) -> Path:
     gold.update(
         {
             "required_metric_ids_source": "synthetic multiple-source test",
-            "required_metric_ids": ["revenue_growth"],
             "items": [revenue_item],
         }
     )
@@ -121,7 +120,13 @@ def test_empty_denominators_are_reported_as_zero(tmp_path: Path) -> None:
         json.dumps(
             {
                 "required_metric_ids_source": "synthetic empty-denominator test",
-                "required_metric_ids": ["food_safety"],
+                "required_metric_ids": [
+                    "revenue_growth",
+                    "gross_margin",
+                    "sales_expense_rate",
+                    "inventory",
+                    "food_safety",
+                ],
                 "items": [
                     {
                         "item_id": "GOLD-OPTIONAL",
@@ -170,7 +175,13 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
         json.dumps(
             {
                 "required_metric_ids_source": "synthetic duplicate-item test",
-                "required_metric_ids": ["revenue_growth"],
+                "required_metric_ids": [
+                    "revenue_growth",
+                    "gross_margin",
+                    "sales_expense_rate",
+                    "inventory",
+                    "food_safety",
+                ],
                 "items": [item, item],
             },
             ensure_ascii=False,
@@ -256,7 +267,13 @@ def test_publisher_variants_do_not_create_false_independence(tmp_path: Path) -> 
         json.dumps(
             {
                 "required_metric_ids_source": "synthetic publisher-normalization test",
-                "required_metric_ids": ["revenue_growth"],
+                "required_metric_ids": [
+                    "revenue_growth",
+                    "gross_margin",
+                    "sales_expense_rate",
+                    "inventory",
+                    "food_safety",
+                ],
                 "items": [
                     {
                         "item_id": "GOLD-PUBLISHER-VARIANTS",
@@ -295,17 +312,16 @@ def test_publisher_variants_do_not_create_false_independence(tmp_path: Path) -> 
         evaluate_report(_load_report(), str(gold_path))
 
 
-def test_required_metric_missing_from_gold_items_cannot_score_full(
+def test_required_metric_ids_missing_config_required_is_rejected(
     tmp_path: Path,
 ) -> None:
     gold = _load_gold_payload()
-    gold["required_metric_ids"].append("raw_material_cost")
-    gold_path = tmp_path / "complete_required_metrics.json"
+    gold["required_metric_ids"].remove("food_safety")
+    gold_path = tmp_path / "missing_required_metric.json"
     gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
 
-    metrics = evaluate_report(_load_report(), str(gold_path))
-
-    assert metrics["industry_metric_coverage_rate"] == pytest.approx(2 / 6)
+    with pytest.raises(ValueError, match="must exactly match"):
+        evaluate_report(_load_report(), str(gold_path))
 
 
 def test_unknown_gold_metric_id_is_rejected(tmp_path: Path) -> None:

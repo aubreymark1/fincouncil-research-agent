@@ -199,11 +199,17 @@ def _load_gold(gold_path: str, industry_id: str) -> _GoldStandard:
             f"Gold Standard cannot load industry config for {industry_id!r}: {exc}"
         ) from exc
     known_metric_ids = {metric.metric_id for metric in config.required_metrics}
-    unknown_required_metric_ids = sorted(set(required_metric_ids) - known_metric_ids)
-    if unknown_required_metric_ids:
+    config_required_metric_ids = {
+        metric.metric_id for metric in config.required_metrics if metric.required
+    }
+    gold_required_metric_ids = set(required_metric_ids)
+    missing_required_metric_ids = sorted(config_required_metric_ids - gold_required_metric_ids)
+    extra_required_metric_ids = sorted(gold_required_metric_ids - config_required_metric_ids)
+    if missing_required_metric_ids or extra_required_metric_ids:
         raise ValueError(
-            "Gold required_metric_ids contains unknown metric_id(s): "
-            + ", ".join(unknown_required_metric_ids)
+            "Gold required_metric_ids must exactly match the industry config's "
+            "required=true metrics; "
+            f"missing={missing_required_metric_ids}, extra={extra_required_metric_ids}"
         )
 
     items: list[_GoldItem] = []

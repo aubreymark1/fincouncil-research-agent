@@ -317,15 +317,25 @@ def _evidence_matches_report(evidence: Evidence, report: ResearchReport) -> bool
     return company_matches and industry_matches
 
 
+def _evidence_is_eligible(evidence: Evidence, report: ResearchReport) -> bool:
+    return (
+        evidence.review_status == "verified"
+        and evidence.published_at <= report.cutoff_date
+        and _evidence_matches_report(evidence, report)
+    )
+
+
 def _evidence_requirement_met(
     claim: Claim,
     item: _GoldItem,
     evidence_by_id: dict[str, Evidence],
+    report: ResearchReport,
 ) -> bool:
     supporting_doc_ids = {
         evidence.doc_id
         for evidence_id in claim.evidence_ids
         if (evidence := evidence_by_id.get(evidence_id)) is not None
+        and _evidence_is_eligible(evidence, report)
         and _location_matches(evidence, item)
         and _evidence_supports_item(evidence, item)
     }
@@ -413,7 +423,7 @@ def evaluate_report(report: ResearchReport, gold_path: str) -> dict[str, float]:
         adequately_supported_items = [
             item
             for item in matching_items
-            if _evidence_requirement_met(claim, item, evidence_by_id)
+            if _evidence_requirement_met(claim, item, evidence_by_id, report)
         ]
         for evidence_id in claim.evidence_ids:
             checked_references += 1
@@ -435,9 +445,7 @@ def evaluate_report(report: ResearchReport, gold_path: str) -> dict[str, float]:
                     and _evidence_supports_item(evidence, item)
                     for item in adequately_supported_items
                 )
-                and evidence.review_status == "verified"
-                and evidence.published_at <= report.cutoff_date
-                and _evidence_matches_report(evidence, report)
+                and _evidence_is_eligible(evidence, report)
             ):
                 valid_references += 1
 

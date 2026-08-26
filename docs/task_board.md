@@ -85,6 +85,6 @@
 | A-006 | A | `pytest tests/core -q` | 49 passed | PR #11 |
 | B-001 | A/B | `pytest tests/ingestion -q` | 通过 | PR #4 |
 | B-002 | A/B | `pytest tests/core tests/ingestion -q` | 54 passed | PR #9 |
-| D-001 | D | `pytest tests/evaluation/test_metrics.py -q`；`pytest tests -q` | 10 passed；180 passed | PR #19 四项 P1 反例已覆盖；合成 fixture，不是正式实验结果，待 A 复审 |
+| D-001 | D | `pytest tests/evaluation/test_metrics.py -q`；`pytest tests -q` | 15 passed；185 passed | PR #19 multiple 组合门禁覆盖状态、日期、公司和行业反例；合成 fixture 不是正式实验结果，待 A 复审 |
 
 

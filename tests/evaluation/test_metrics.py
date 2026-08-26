@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,69 @@ def _load_report(name: str = "report_sample.json") -> ResearchReport:
 def _load_gold_payload() -> dict:
     return json.loads(
         (FIXTURES / "metrics_gold_sample.json").read_text(encoding="utf-8")
+    )
+
+
+def _write_multiple_gold(tmp_path: Path) -> Path:
+    gold = _load_gold_payload()
+    revenue_item = gold["items"][0]
+    revenue_item.update(
+        {
+            "item_id": "GOLD-MULTIPLE",
+            "source_doc_id": None,
+            "source_page": None,
+            "evidence_requirement": "multiple",
+            "independent_sources": [
+                {
+                    "doc_id": "DOC-SYN-001",
+                    "page": 42,
+                    "publisher": "合成发布方甲",
+                    "content_hash": "synthetic-hash-a",
+                },
+                {
+                    "doc_id": "DOC-SYN-005",
+                    "page": 7,
+                    "publisher": "合成发布方乙",
+                    "content_hash": "synthetic-hash-b",
+                },
+            ],
+        }
+    )
+    gold.update(
+        {
+            "required_metric_ids_source": "synthetic multiple-source test",
+            "required_metric_ids": ["revenue_growth"],
+            "items": [revenue_item],
+        }
+    )
+    gold_path = tmp_path / "multiple.json"
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+    return gold_path
+
+
+def _report_with_second_revenue_evidence(**updates: object) -> ResearchReport:
+    report = _load_report()
+    second_update = {
+        "evidence_id": "EV-SYN-REV-SECOND",
+        "doc_id": "DOC-SYN-005",
+        "chunk_id": "CHUNK-SYN-005",
+        "page": 7,
+    }
+    second_update.update(updates)
+    second_evidence = report.evidence_index[0].model_copy(update=second_update)
+    revenue_claim = report.claims[0].model_copy(
+        update={
+            "evidence_ids": [
+                report.evidence_index[0].evidence_id,
+                second_evidence.evidence_id,
+            ]
+        }
+    )
+    return report.model_copy(
+        update={
+            "claims": [revenue_claim, *report.claims[1:]],
+            "evidence_index": [*report.evidence_index, second_evidence],
+        }
     )
 
 
@@ -119,49 +183,40 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
 
 
 def test_multiple_evidence_requirement_needs_two_documents(tmp_path: Path) -> None:
-    gold_path = tmp_path / "multiple.json"
-    gold_path.write_text(
-        json.dumps(
-            {
-                "required_metric_ids_source": "synthetic multiple-source test",
-                "required_metric_ids": ["revenue_growth"],
-                "items": [
-                    {
-                        "item_id": "GOLD-MULTIPLE",
-                        "item_type": "key_factor",
-                        "expected_text": "营业收入同比增长",
-                        "expected_value": 12.0,
-                        "unit": "%",
-                        "required": True,
-                        "source_doc_id": None,
-                        "source_page": None,
-                        "industry_metric_id": "revenue_growth",
-                        "evidence_requirement": "multiple",
-                        "independent_sources": [
-                            {
-                                "doc_id": "DOC-SYN-001",
-                                "page": 42,
-                                "publisher": "合成发布方甲",
-                                "content_hash": "synthetic-hash-a",
-                            },
-                            {
-                                "doc_id": "DOC-SYN-005",
-                                "page": 7,
-                                "publisher": "合成发布方乙",
-                                "content_hash": "synthetic-hash-b",
-                            },
-                        ],
-                    }
-                ]
-            },
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
+    gold_path = _write_multiple_gold(tmp_path)
 
     metrics = evaluate_report(_load_report(), str(gold_path))
 
     assert metrics["citation_location_accuracy_rate"] == 1 / 3
+    assert metrics["evidence_validity_rate"] == 0.0
+
+
+def test_multiple_two_eligible_sources_are_valid(tmp_path: Path) -> None:
+    metrics = evaluate_report(
+        _report_with_second_revenue_evidence(), str(_write_multiple_gold(tmp_path))
+    )
+
+    assert metrics["evidence_validity_rate"] == pytest.approx(2 / 4)
+
+
+@pytest.mark.parametrize(
+    "invalid_update",
+    [
+        {"review_status": "pending"},
+        {"published_at": date(2026, 8, 21)},
+        {"company_name": "其他合成公司"},
+        {"industry_id": "banking"},
+    ],
+    ids=["pending", "post-cutoff", "company-mismatch", "industry-mismatch"],
+)
+def test_multiple_rejects_individually_ineligible_second_source(
+    tmp_path: Path, invalid_update: dict[str, object]
+) -> None:
+    metrics = evaluate_report(
+        _report_with_second_revenue_evidence(**invalid_update),
+        str(_write_multiple_gold(tmp_path)),
+    )
+
     assert metrics["evidence_validity_rate"] == 0.0
 
 

@@ -7,11 +7,20 @@ page) and in source classification (synthetic data must never be formal).
 
 from __future__ import annotations
 
+import gc
 from pathlib import Path
 
 from pypdf import PdfReader
 
-from app.ingestion import load_manifest, validate_manifest
+import yaml
+
+from app.ingestion import (
+    chunk_text,
+    extract_pdf,
+    load_manifest,
+    locate_evidence,
+    validate_manifest,
+)
 
 ROOT = Path(__file__).parents[2]
 DATA_MANIFESTS = [ROOT / "data" / "manifests" / "food_case.csv",
@@ -104,3 +113,35 @@ def test_synthetic_manifest_is_all_red_team() -> None:
         )
     issues = validate_manifest(documents)
     assert issues == [], f"synthetic manifest 存在校验问题: {issues}"
+
+
+def _industry_keywords(industry_id: str) -> list[str]:
+    # 取 C 配置前 2 个必选指标的全部关键词（含用词变体，如"净息差/净利息收益率"），
+    # 既足以验证"能定位到证据"，又不会让 CI 过慢。
+    config = "food_beverage" if industry_id == "food_beverage" else "banking"
+    path = ROOT / "configs" / f"{config}.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    keywords: list[str] = []
+    for metric in data.get("required_metrics", [])[:2]:
+        keywords.extend(metric.get("keywords", []))
+    return keywords
+
+
+def test_formal_sources_extract_and_locate() -> None:
+    # A 要求：每个 formal PDF 都必须能 extract_pdf 且用行业关键词定位到证据，
+    # 否则资料包不可声称"端到端可用"。
+    for manifest in DATA_MANIFESTS:
+        documents = load_manifest(str(manifest))
+        for document in documents:
+            if document.review_status not in ("formal", "background"):
+                continue
+            chunks = extract_pdf(document)
+            chunks = chunk_text(chunks, max_chars=400)
+            keywords = _industry_keywords(document.industry_id)
+            evidence = locate_evidence(
+                chunks, keywords, documents=[document], evidence_type="financial"
+            )
+            assert evidence, (
+                f"{document.doc_id} extract_pdf 后无法用行业关键词定位到任何证据"
+            )
+            gc.collect()

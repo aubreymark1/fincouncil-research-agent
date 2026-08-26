@@ -20,6 +20,12 @@ def _load_report(name: str = "report_sample.json") -> ResearchReport:
     return ResearchReport.model_validate(payload)
 
 
+def _load_gold_payload() -> dict:
+    return json.loads(
+        (FIXTURES / "metrics_gold_sample.json").read_text(encoding="utf-8")
+    )
+
+
 def test_evaluate_report_returns_fixed_expected_metrics() -> None:
     metrics = evaluate_report(
         _load_report(), str(FIXTURES / "metrics_gold_sample.json")
@@ -32,7 +38,7 @@ def test_evaluate_report_returns_fixed_expected_metrics() -> None:
             "citation_location_accuracy_rate": 2 / 3,
             "numeric_error_rate": 1 / 3,
             "cutoff_violation_count": 1.0,
-            "industry_metric_coverage_rate": 1.0,
+            "industry_metric_coverage_rate": 3 / 5,
         }
     )
 
@@ -50,6 +56,8 @@ def test_empty_denominators_are_reported_as_zero(tmp_path: Path) -> None:
     gold_path.write_text(
         json.dumps(
             {
+                "required_metric_ids_source": "synthetic empty-denominator test",
+                "required_metric_ids": ["unused_required_metric"],
                 "items": [
                     {
                         "item_id": "GOLD-OPTIONAL",
@@ -95,7 +103,15 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
     }
     gold_path = tmp_path / "duplicate.json"
     gold_path.write_text(
-        json.dumps({"items": [item, item]}, ensure_ascii=False), encoding="utf-8"
+        json.dumps(
+            {
+                "required_metric_ids_source": "synthetic duplicate-item test",
+                "required_metric_ids": ["revenue"],
+                "items": [item, item],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
     )
 
     with pytest.raises(ValueError, match="item_id must be unique"):
@@ -107,6 +123,8 @@ def test_multiple_evidence_requirement_needs_two_documents(tmp_path: Path) -> No
     gold_path.write_text(
         json.dumps(
             {
+                "required_metric_ids_source": "synthetic multiple-source test",
+                "required_metric_ids": ["revenue_growth"],
                 "items": [
                     {
                         "item_id": "GOLD-MULTIPLE",
@@ -145,6 +163,94 @@ def test_multiple_evidence_requirement_needs_two_documents(tmp_path: Path) -> No
 
     assert metrics["citation_location_accuracy_rate"] == 1 / 3
     assert metrics["evidence_validity_rate"] == 0.0
+
+
+@pytest.mark.parametrize("field", ["quote", "fact_text"])
+def test_same_page_unrelated_evidence_is_not_valid(field: str) -> None:
+    report = _load_report()
+    unrelated = report.evidence_index[0].model_copy(
+        update={field: "渠道库存恢复 12.0%。"}
+    )
+    report = report.model_copy(
+        update={"evidence_index": [unrelated, *report.evidence_index[1:]]}
+    )
+
+    metrics = evaluate_report(report, str(FIXTURES / "metrics_gold_sample.json"))
+
+    assert metrics["citation_location_accuracy_rate"] == pytest.approx(2 / 3)
+    assert metrics["evidence_validity_rate"] == 0.0
+
+
+def test_numeric_error_rate_counts_each_reported_number() -> None:
+    report = _load_report()
+    revenue_claim = report.claims[0].model_copy(
+        update={"text": "营业收入同比增长 12.0%，另称实际增长 10.0%。"}
+    )
+    report = report.model_copy(
+        update={"claims": [revenue_claim, *report.claims[1:]]}
+    )
+
+    metrics = evaluate_report(report, str(FIXTURES / "metrics_gold_sample.json"))
+
+    assert metrics["numeric_error_rate"] == pytest.approx(2 / 4)
+
+
+def test_publisher_variants_do_not_create_false_independence(tmp_path: Path) -> None:
+    gold_path = tmp_path / "publisher_variants.json"
+    gold_path.write_text(
+        json.dumps(
+            {
+                "required_metric_ids_source": "synthetic publisher-normalization test",
+                "required_metric_ids": ["revenue_growth"],
+                "items": [
+                    {
+                        "item_id": "GOLD-PUBLISHER-VARIANTS",
+                        "item_type": "key_factor",
+                        "expected_text": "营业收入同比增长",
+                        "expected_value": 12.0,
+                        "unit": "%",
+                        "required": True,
+                        "source_doc_id": None,
+                        "source_page": None,
+                        "industry_metric_id": "revenue_growth",
+                        "evidence_requirement": "multiple",
+                        "independent_sources": [
+                            {
+                                "doc_id": "DOC-SYN-001",
+                                "page": 42,
+                                "publisher": "公司A",
+                                "content_hash": "synthetic-hash-a",
+                            },
+                            {
+                                "doc_id": "DOC-SYN-005",
+                                "page": 7,
+                                "publisher": " 公司a ",
+                                "content_hash": "synthetic-hash-b",
+                            },
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="different publishers"):
+        evaluate_report(_load_report(), str(gold_path))
+
+
+def test_required_metric_missing_from_gold_items_cannot_score_full(
+    tmp_path: Path,
+) -> None:
+    gold = _load_gold_payload()
+    gold["required_metric_ids"].append("channel_turnover")
+    gold_path = tmp_path / "complete_required_metrics.json"
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+
+    metrics = evaluate_report(_load_report(), str(gold_path))
+
+    assert metrics["industry_metric_coverage_rate"] == pytest.approx(3 / 6)
 
 
 def test_missing_gold_file_has_actionable_error(tmp_path: Path) -> None:

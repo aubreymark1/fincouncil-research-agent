@@ -2,6 +2,14 @@
   "schema_version": "1.0",
   "case_id": "synthetic_metrics_case",
   "fixture_notice": "合成测试数据，仅用于确定性单元测试，不代表真实实验或公司事实。",
+  "required_metric_ids_source": "configs/food_beverage.yaml@3621cfc",
+  "required_metric_ids": [
+    "revenue_growth",
+    "gross_margin",
+    "sales_expense_rate",
+    "inventory",
+    "food_safety"
+  ],
   "items": [
     {
       "item_id": "GOLD-SYN-001",

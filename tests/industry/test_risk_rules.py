@@ -457,6 +457,23 @@ def test_inventory_rule_requires_revenue_metric_coverage() -> None:
     assert "revenue_growth" in claims[0].text
 
 
+def test_all_risk_rule_metric_types_are_satisfiable() -> None:
+    for industry_id in ("food_beverage", "banking"):
+        config = load_industry_config(industry_id)
+        metric_by_id = {metric.metric_id: metric for metric in config.required_metrics}
+
+        for rule in config.risk_rules:
+            for metric_id in rule.metric_ids:
+                metric = metric_by_id[metric_id]
+                assert any(
+                    evidence_type in metric.evidence_types
+                    for evidence_type in rule.required_evidence_types
+                ), (
+                    f"{industry_id} risk rule {rule.risk_id} metric {metric_id} "
+                    "has no satisfiable evidence_type"
+                )
+
+
 def test_risk_claim_does_not_include_stock_price_judgment() -> None:
     config = make_config()
     evidence = [

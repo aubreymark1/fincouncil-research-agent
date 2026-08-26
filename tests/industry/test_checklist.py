@@ -491,3 +491,155 @@ def test_missing_action_severity_mapping(
 
     assert len(issues) == 1
     assert issues[0].severity == expected_severity
+
+
+def test_food_config_inventory_semantics() -> None:
+    config = load_industry_config("food_beverage")
+    metric_by_id = {metric.metric_id: metric for metric in config.required_metrics}
+
+    inventory = metric_by_id["inventory"]
+    assert inventory.evidence_types == ["financial"]
+    assert inventory.evidence_requirement == "single"
+    assert "库存" not in inventory.keywords
+
+    inventory_volume = metric_by_id["inventory_volume"]
+    assert inventory_volume.required is False
+    assert inventory_volume.evidence_types == ["operating"]
+    assert "库存量" in inventory_volume.keywords
+    assert "期末库存量" in inventory_volume.keywords
+    assert "产成品库存量" in inventory_volume.keywords
+
+    channel = metric_by_id["channel"]
+    assert set(channel.evidence_types) == {"operating", "company_release", "news"}
+    assert "渠道库存" in channel.keywords
+    assert "经销商库存" in channel.keywords
+    assert "动销" in channel.keywords
+
+    assert "库存" not in config.retrieval_keywords
+    assert "库存量" in config.retrieval_keywords
+    assert "渠道库存" in config.retrieval_keywords
+    assert "经销商库存" in config.retrieval_keywords
+
+
+def test_inventory_stock_does_not_match_inventory_or_inventory_volume() -> None:
+    config = make_config(
+        make_metric(
+            metric_id="inventory",
+            display_name="财务存货",
+            keywords=["存货"],
+            evidence_types=["financial"],
+            required=True,
+        ),
+        make_metric(
+            metric_id="inventory_volume",
+            display_name="实物库存量",
+            keywords=["库存量"],
+            evidence_types=["operating"],
+            required=True,
+        ),
+    )
+    documents = [make_document("A")]
+    evidence = [
+        make_evidence("E1", text="库存股数量没有变化。", evidence_type="financial"),
+        make_evidence("E2", text="库存股数量没有变化。", evidence_type="operating"),
+    ]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 2
+    assert all("库存股" not in issue.message for issue in issues)
+
+
+def test_inventory_volume_only_matches_volume_evidence() -> None:
+    config = make_config(
+        make_metric(
+            metric_id="inventory",
+            display_name="财务存货",
+            keywords=["存货"],
+            evidence_types=["financial"],
+            required=True,
+        ),
+        make_metric(
+            metric_id="inventory_volume",
+            display_name="实物库存量",
+            keywords=["库存量"],
+            evidence_types=["operating"],
+            required=True,
+        ),
+    )
+    documents = [make_document("A")]
+    evidence = [make_evidence("E1", text="期末库存量100吨。", evidence_type="operating")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert "inventory_volume" not in issues[0].message
+    assert "inventory (" in issues[0].message or "财务存货" in issues[0].message
+
+
+def test_inventory_financial_only_matches_inventory() -> None:
+    config = make_config(
+        make_metric(
+            metric_id="inventory",
+            display_name="财务存货",
+            keywords=["存货"],
+            evidence_types=["financial"],
+            required=True,
+        ),
+        make_metric(
+            metric_id="inventory_volume",
+            display_name="实物库存量",
+            keywords=["库存量"],
+            evidence_types=["operating"],
+            required=True,
+        ),
+    )
+    documents = [make_document("A")]
+    evidence = [make_evidence("E1", text="存货614亿元。", evidence_type="financial")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert "inventory_volume" in issues[0].message
+
+
+def test_channel_keywords_only_match_channel() -> None:
+    config = make_config(
+        make_metric(
+            metric_id="inventory",
+            display_name="财务存货",
+            keywords=["存货"],
+            evidence_types=["financial"],
+            required=True,
+        ),
+        make_metric(
+            metric_id="inventory_volume",
+            display_name="实物库存量",
+            keywords=["库存量"],
+            evidence_types=["operating"],
+            required=True,
+        ),
+        make_metric(
+            metric_id="channel",
+            display_name="渠道库存与动销",
+            keywords=["渠道库存", "经销商库存", "动销"],
+            evidence_types=["operating", "company_release", "news"],
+            required=True,
+        ),
+    )
+    documents = [make_document("A")]
+    evidence = [
+        make_evidence("E1", text="渠道库存高企，动销放缓。", evidence_type="operating")
+    ]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 2
+    assert all("channel" not in issue.message for issue in issues)
+
+
+def test_banking_config_does_not_add_food_inventory_metrics() -> None:
+    config = load_industry_config("banking")
+    metric_ids = {metric.metric_id for metric in config.required_metrics}
+
+    assert not (metric_ids & {"inventory", "inventory_volume", "channel"})

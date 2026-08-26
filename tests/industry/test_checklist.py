@@ -18,6 +18,7 @@ def make_metric(
     metric_id: str = "revenue_growth",
     display_name: str = "收入增速",
     keywords: list[str] | None = None,
+    evidence_types: list[str] | None = None,
     required: bool = True,
     evidence_requirement: str = "single",
     missing_action: str = "review",
@@ -26,6 +27,7 @@ def make_metric(
         metric_id=metric_id,
         display_name=display_name,
         keywords=keywords if keywords is not None else ["收入", "营业收入"],
+        evidence_types=evidence_types or ["financial"],
         required=required,
         evidence_requirement=evidence_requirement,  # type: ignore[arg-type]
         missing_action=missing_action,  # type: ignore[arg-type]
@@ -48,6 +50,9 @@ def make_document(
     doc_id: str,
     publisher: str = "公司A",
     content_hash: str = "hashA",
+    published_at: date = date(2026, 1, 1),
+    company_name: str = "测试公司",
+    industry_id: str = "food_beverage",
 ) -> SourceDocument:
     return SourceDocument(
         doc_id=f"DOC-{doc_id}",
@@ -56,11 +61,11 @@ def make_document(
         publisher=publisher,
         source_url=None,
         local_path=f"data/{doc_id}.pdf",
-        published_at=date(2026, 1, 1),
+        published_at=published_at,
         event_date=None,
         retrieved_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
-        company_name="测试公司",
-        industry_id="food_beverage",
+        company_name=company_name,
+        industry_id=industry_id,
         trust_level=3,
         content_hash=content_hash,
         review_status="formal",
@@ -74,6 +79,8 @@ def make_evidence(
     evidence_type: str = "financial",
     review_status: str = "verified",
     industry_id: str = "food_beverage",
+    published_at: date = date(2026, 1, 1),
+    company_name: str = "测试公司",
 ) -> Evidence:
     return Evidence(
         evidence_id=f"EV-{evidence_id}",
@@ -81,11 +88,11 @@ def make_evidence(
         chunk_id=f"CHUNK-{doc_id}-001",
         fact_text=text,
         quote=text,
-        published_at=date(2026, 1, 1),
+        published_at=published_at,
         page=1,
         section="经营情况讨论与分析",
         locator=f"page 1, doc {doc_id}",
-        company_name="测试公司",
+        company_name=company_name,
         industry_id=industry_id,
         evidence_type=evidence_type,
         confidence=0.5,
@@ -222,6 +229,64 @@ def test_metric_specific_evidence_type_mismatch_does_not_count() -> None:
     config = make_config(make_metric(required=True))
     evidence = [make_evidence(evidence_type="policy")]
     documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_metric_evidence_types_are_config_driven() -> None:
+    config = make_config(
+        make_metric(metric_id="custom_growth", evidence_types=["policy"])
+    )
+    evidence = [make_evidence(evidence_type="policy")]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert issues == []
+
+
+def test_metric_evidence_types_do_not_fallback_to_all() -> None:
+    config = make_config(
+        make_metric(metric_id="custom_growth", evidence_types=["financial"])
+    )
+    evidence = [make_evidence(evidence_type="policy")]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_evidence_industry_must_match_source_document() -> None:
+    config = make_config(make_metric())
+    documents = [make_document("A", industry_id="banking")]
+    evidence = [make_evidence(industry_id="food_beverage")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_evidence_published_at_must_match_source_document() -> None:
+    config = make_config(make_metric())
+    documents = [make_document("A", published_at=date(2026, 1, 1))]
+    evidence = [make_evidence(published_at=date(2026, 2, 1))]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_evidence_company_name_must_match_source_document() -> None:
+    config = make_config(make_metric())
+    documents = [make_document("A", company_name="测试公司")]
+    evidence = [make_evidence(company_name="另一公司")]
 
     issues = check_required_metrics(evidence, config, documents=documents)
 

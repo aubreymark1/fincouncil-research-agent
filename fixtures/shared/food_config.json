@@ -9,6 +9,9 @@
         "营业收入",
         "收入增长"
       ],
+      "evidence_types": [
+        "financial"
+      ],
       "required": true,
       "evidence_requirement": "single",
       "missing_action": "review"
@@ -19,6 +22,10 @@
       "keywords": [
         "存货",
         "库存"
+      ],
+      "evidence_types": [
+        "financial",
+        "operating"
       ],
       "required": true,
       "evidence_requirement": "multiple",

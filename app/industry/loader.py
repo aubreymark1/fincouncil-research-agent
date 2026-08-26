@@ -17,6 +17,9 @@ from app.schemas import IndustryConfig
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
 INDUSTRY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+_ALLOWED_EVIDENCE_TYPES = frozenset(
+    {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
+)
 
 
 class IndustryConfigError(RuntimeError):
@@ -142,6 +145,29 @@ def _validate_metric_keywords(config: IndustryConfig, path: Path) -> None:
                 (
                     f"metric {metric.metric_id} ({metric.display_name}) "
                     f"has blank keyword entries: {blank_keywords!r}"
+                ),
+                path=path,
+            )
+        if not metric.evidence_types:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    "must define at least one evidence_type"
+                ),
+                path=path,
+            )
+        invalid_evidence_types = [
+            evidence_type
+            for evidence_type in metric.evidence_types
+            if evidence_type not in _ALLOWED_EVIDENCE_TYPES
+        ]
+        if invalid_evidence_types:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    f"has invalid evidence_types: {invalid_evidence_types!r}"
                 ),
                 path=path,
             )

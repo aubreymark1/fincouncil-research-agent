@@ -8,6 +8,8 @@ required_metrics:
       - 营业收入
       - 收入增长
       - 营收
+    evidence_types:
+      - financial
     required: true
     evidence_requirement: single
     missing_action: review
@@ -17,6 +19,8 @@ required_metrics:
       - 毛利率
       - 毛利
       - 营业成本
+    evidence_types:
+      - financial
     required: true
     evidence_requirement: single
     missing_action: review
@@ -26,6 +30,8 @@ required_metrics:
       - 销售费用率
       - 销售费用
       - 费用率
+    evidence_types:
+      - financial
     required: true
     evidence_requirement: single
     missing_action: review
@@ -35,6 +41,9 @@ required_metrics:
       - 存货
       - 库存
       - 动销
+    evidence_types:
+      - financial
+      - operating
     required: true
     evidence_requirement: multiple
     missing_action: review
@@ -44,6 +53,9 @@ required_metrics:
       - 销量
       - 销售量
       - 出货量
+    evidence_types:
+      - financial
+      - operating
     required: false
     evidence_requirement: single
     missing_action: warn
@@ -54,6 +66,10 @@ required_metrics:
       - 经销商
       - 电商
       - 直营
+    evidence_types:
+      - operating
+      - company_release
+      - news
     required: false
     evidence_requirement: single
     missing_action: warn
@@ -63,6 +79,10 @@ required_metrics:
       - 原材料
       - 原料成本
       - 采购成本
+    evidence_types:
+      - financial
+      - news
+      - policy
     required: false
     evidence_requirement: single
     missing_action: warn
@@ -73,6 +93,10 @@ required_metrics:
       - 抽检
       - 质量
       - 召回
+    evidence_types:
+      - news
+      - policy
+      - company_release
     required: true
     evidence_requirement: multiple
     missing_action: review

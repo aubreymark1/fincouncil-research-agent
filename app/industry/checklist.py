@@ -12,28 +12,6 @@ _ALLOWED_EVIDENCE_TYPES = frozenset(
     {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
 )
 
-#: Temporary metric-level evidence type constraints until A adds an
-#: ``evidence_types`` field to MetricRule through CONTRACT-CHANGE. Unknown
-#: metrics fall back to the full allowed vocabulary.
-_METRIC_EVIDENCE_TYPES: dict[str, frozenset[str]] = {
-    "revenue_growth": frozenset({"financial"}),
-    "gross_margin": frozenset({"financial"}),
-    "sales_expense_rate": frozenset({"financial"}),
-    "inventory": frozenset({"financial", "operating"}),
-    "volume": frozenset({"financial", "operating"}),
-    "channel": frozenset({"operating", "company_release", "news"}),
-    "raw_material_cost": frozenset({"financial", "news", "policy"}),
-    "food_safety": frozenset({"news", "policy", "company_release"}),
-    "net_interest_margin": frozenset({"financial"}),
-    "loan_growth": frozenset({"financial"}),
-    "deposit_structure": frozenset({"financial", "company_release"}),
-    "non_performing_loan_ratio": frozenset({"financial"}),
-    "provision_coverage": frozenset({"financial"}),
-    "capital_adequacy": frozenset({"financial", "policy"}),
-    "liquidity": frozenset({"financial", "policy"}),
-    "real_estate_exposure": frozenset({"financial", "news", "policy"}),
-}
-
 #: Map MetricRule.missing_action to ValidationIssue.severity, consistent with A's Critic.
 _MISSING_ACTION_SEVERITY = {
     "warn": "warning",
@@ -64,18 +42,39 @@ def build_industry_checklist(config: IndustryConfig) -> list[str]:
     return [metric.metric_id for metric in config.required_metrics if metric.required]
 
 
+def _evidence_matches_source_document(
+    item: Evidence,
+    document: SourceDocument,
+) -> bool:
+    """Return True when Evidence metadata is consistent with its SourceDocument.
+
+    CONTRACT-CHANGE-002 requires Evidence to copy ``published_at``,
+    ``company_name`` and ``industry_id`` from its SourceDocument, so any
+    inconsistency means the evidence cannot be trusted for coverage.
+    """
+
+    if item.doc_id != document.doc_id:
+        return False
+    if item.published_at != document.published_at:
+        return False
+    if item.industry_id != document.industry_id:
+        return False
+    if item.company_name != document.company_name:
+        return False
+    return True
+
+
 def _evidence_matches_metric(
     item: Evidence,
     config: IndustryConfig,
-    metric_id: str,
-    keywords: list[str],
+    metric,
 ) -> bool:
     """Return True when one Evidence item can cover one metric.
 
     Coverage requires:
     - verified status;
     - explicit industry match (``None`` is unknown, not wildcard);
-    - a recognized evidence type appropriate for the metric;
+    - a recognized evidence type allowed by ``metric.evidence_types``;
     - at least one non-empty metric keyword present in the fact or quote.
     """
 
@@ -85,13 +84,11 @@ def _evidence_matches_metric(
         return False
     if item.evidence_type not in _ALLOWED_EVIDENCE_TYPES:
         return False
-
-    allowed_types = _METRIC_EVIDENCE_TYPES.get(metric_id, _ALLOWED_EVIDENCE_TYPES)
-    if item.evidence_type not in allowed_types:
+    if item.evidence_type not in metric.evidence_types:
         return False
 
     searchable = f"{item.fact_text}\n{item.quote}".casefold()
-    return any(keyword in searchable for keyword in _normalise_keywords(keywords))
+    return any(keyword in searchable for keyword in _normalise_keywords(metric.keywords))
 
 
 def _independent_sources(
@@ -148,7 +145,7 @@ def check_required_metrics(
 ) -> list[ValidationIssue]:
     """Check that every required metric has sufficient verified evidence.
 
-    Only Evidence that can be traced to a registered SourceDocument is counted.
+    Only Evidence that can be traced to a matching SourceDocument is counted.
     Missing or insufficiently supported metrics produce ``ValidationIssue``
     objects. Optional metrics are never checked.
     """
@@ -164,12 +161,8 @@ def check_required_metrics(
             item
             for item in evidence
             if item.doc_id in doc_by_id
-            and _evidence_matches_metric(
-                item,
-                config,
-                metric_id=metric.metric_id,
-                keywords=metric.keywords,
-            )
+            and _evidence_matches_source_document(item, doc_by_id[item.doc_id])
+            and _evidence_matches_metric(item, config, metric)
         ]
 
         if not matching_evidence:
@@ -179,8 +172,8 @@ def check_required_metrics(
                     (
                         f"E202 module=industry.checklist: required metric "
                         f"{metric.metric_id} ({metric.display_name}) has no "
-                        f"verified, source-traced evidence matching its keywords; "
-                        f"missing_action={metric.missing_action}"
+                        f"verified, source-traced evidence matching its keywords "
+                        f"and evidence_types; missing_action={metric.missing_action}"
                     ),
                     issue_type="missing_metric",
                 )

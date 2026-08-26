@@ -15,6 +15,7 @@ class MetricRule(BaseModel):
     metric_id: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     keywords: list[str]
+    evidence_types: list[str] = Field(min_length=1)
     required: bool
     evidence_requirement: Literal["single", "multiple"]
     missing_action: Literal["warn", "review", "reject"]

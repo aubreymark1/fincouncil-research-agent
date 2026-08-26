@@ -638,6 +638,28 @@ def test_channel_keywords_only_match_channel() -> None:
     assert all("channel" not in issue.message for issue in issues)
 
 
+def test_channel_generic_words_do_not_match_channel() -> None:
+    config = make_config(
+        make_metric(
+            metric_id="channel",
+            display_name="渠道库存与动销",
+            keywords=["渠道库存", "经销商库存", "动销", "渠道动销"],
+            evidence_types=["operating", "company_release", "news"],
+            required=True,
+        )
+    )
+    documents = [make_document("A")]
+    evidence = [
+        make_evidence("E1", text="渠道结构持续优化。", evidence_type="company_release"),
+        make_evidence("E2", text="经销商网络覆盖全国。", evidence_type="company_release"),
+    ]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert "channel" in issues[0].message
+
+
 def test_banking_config_does_not_add_food_inventory_metrics() -> None:
     config = load_industry_config("banking")
     metric_ids = {metric.metric_id for metric in config.required_metrics}

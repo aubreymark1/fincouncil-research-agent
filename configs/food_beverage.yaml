@@ -78,8 +78,6 @@ required_metrics:
       - 经销商库存
       - 动销
       - 渠道动销
-      - 渠道
-      - 经销商
     evidence_types:
       - operating
       - company_release

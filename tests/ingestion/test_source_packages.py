@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from pypdf import PdfReader
 
 from app.ingestion import load_manifest, validate_manifest
@@ -59,13 +60,36 @@ def test_data_manifests_load_and_validate_cleanly() -> None:
         assert issues == [], f"{manifest} 存在校验问题: {issues}"
 
 
-def test_data_manifests_contain_no_formal_sources() -> None:
-    # Synthetic sources must never be classified as formal/background; real
-    # formal sources are filled in manually by B after human verification.
-    for manifest in DATA_MANIFESTS:
-        documents = load_manifest(str(manifest))
-        formal = [d.doc_id for d in documents if d.review_status in ("formal", "background")]
-        assert not formal, f"{manifest} 不应包含 formal/background 合成资料: {formal}"
+def _core_documents(manifest: Path) -> list:
+    return [
+        d for d in load_manifest(str(manifest))
+        if d.review_status in ("formal", "background")
+    ]
+
+
+@pytest.mark.xfail(
+    reason="B-006 真实资料待 B 人工收集核验；到位后移除本标记",
+    strict=True,
+)
+def test_data_manifests_contain_real_formal_sources() -> None:
+    # data/manifests 的目标是容纳 B 人工核验后的真实 formal/background 来源，
+    # 因此这里验收真实资料包的数量与可核验性，而非"无 formal 即通过"。
+    food = _core_documents(DATA_MANIFESTS[0])
+    bank = _core_documents(DATA_MANIFESTS[1])
+
+    assert 8 <= len(food) <= 12, f"食品应有 8-12 份核心资料，当前 {len(food)} 份"
+    assert 4 <= len(bank) <= 6, f"银行应有 4-6 份核心资料，当前 {len(bank)} 份"
+
+    for doc in food + bank:
+        assert doc.source_url and doc.source_url.startswith("http"), (
+            f"{doc.doc_id} 缺可核验 source_url"
+        )
+        assert doc.published_at is not None, f"{doc.doc_id} 缺公开日期"
+        assert doc.trust_level >= 3, f"{doc.doc_id} trust_level 过低({doc.trust_level})"
+        local = Path(doc.local_path)
+        if not local.is_absolute():
+            local = ROOT / local
+        assert local.is_file(), f"{doc.doc_id} 本地原始文件不存在: {doc.local_path}"
 
 
 def test_synthetic_manifest_is_all_red_team() -> None:

@@ -133,3 +133,23 @@ def test_every_scenario_type_has_a_builder() -> None:
     issues = _run()
     assert all(issue.issue_id.startswith(("ISSUE-TIME-", "ISSUE-CRITIC-", "ISSUE-REDTEAM-")) for issue in issues)
     assert len(SCENARIO_TYPES) == 6
+
+
+def test_post_cutoff_date_is_relative_to_request_cutoff() -> None:
+    issues = _run(make_request(cutoff_date="2027-01-01"))
+
+    cutoff = _of_type(issues, "published_after_cutoff")
+    assert len(cutoff) == 1
+    assert cutoff[0].severity == "critical"
+    # published_at 应为 cutoff 次日，而非写死的 2026-08-25。
+    assert "2027-01-02" in cutoff[0].message
+    assert "2027-01-01" in cutoff[0].message
+
+
+def test_evidence_dates_are_relative_to_cutoff_not_fixed() -> None:
+    # cutoff 早于旧固定日期 2026-03-30，验证证据日期随 cutoff 前移、不额外触发时间锁。
+    issues = _run(make_request(cutoff_date="2026-02-01"))
+
+    assert len(_of_type(issues, "unsourced_number")) == 1
+    assert _of_type(issues, "cutoff_violation") == []
+

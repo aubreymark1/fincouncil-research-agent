@@ -10,7 +10,7 @@ rejects bad input instead of silently absorbing it, without calling any model.
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from app.agents import run_critic
@@ -69,9 +69,14 @@ def _make_evidence(
     *,
     fact_text: str,
     quote: str,
+    cutoff_date: date,
     **updates: object,
 ) -> Evidence:
-    """Build a deterministic, verified evidence item with a derived locator."""
+    """Build a deterministic, verified evidence item with a derived locator.
+
+    ``published_at`` is derived from ``cutoff_date`` so the evidence stays
+    within the time lock for any request cutoff.
+    """
 
     suffix = evidence_id.removeprefix("EV-")
     payload: dict[str, object] = {
@@ -80,7 +85,7 @@ def _make_evidence(
         "chunk_id": f"CHUNK-{suffix}",
         "fact_text": fact_text,
         "quote": quote,
-        "published_at": "2026-03-30",
+        "published_at": (cutoff_date - timedelta(days=30)).isoformat(),
         "page": 1,
         "locator": "第 1 页",
         "company_name": "示例食品公司",
@@ -160,7 +165,7 @@ def _run_post_cutoff(request: ResearchRequest, config: IndustryConfig) -> list[V
     del config
     document = _make_document(
         "DOC-RT-CUTOFF",
-        published_at=date(2026, 8, 25),
+        published_at=request.cutoff_date + timedelta(days=1),
         review_status="red_team",
     )
     _, issues = apply_time_lock([document], request.cutoff_date)
@@ -183,6 +188,7 @@ def _run_wrong_number(request: ResearchRequest, config: IndustryConfig) -> list[
         "EV-RT-NUM",
         fact_text="公司收入保持稳定。",
         quote="收入保持稳定。",
+        cutoff_date=request.cutoff_date,
     )
     claim = _make_claim(
         "CL-RT-WRONG-NUM",
@@ -199,6 +205,7 @@ def _run_irrelevant(request: ResearchRequest, config: IndustryConfig) -> list[Va
         fact_text="某科技公司季度业绩同比增长 8%。",
         quote="某科技公司季度业绩同比增长 8%。",
         company_name="某科技公司",
+        cutoff_date=request.cutoff_date,
     )
     return _check_relevance(request, [evidence])
 
@@ -210,11 +217,13 @@ def _run_conflicting_sources(
         "EV-RT-UP",
         fact_text="公司收入增长 10%。",
         quote="收入增长 10%。",
+        cutoff_date=request.cutoff_date,
     )
     down = _make_evidence(
         "EV-RT-DOWN",
         fact_text="公司收入下降 5%。",
         quote="收入下降 5%。",
+        cutoff_date=request.cutoff_date,
     )
     claim = _make_claim(
         "CL-RT-CONFLICT",

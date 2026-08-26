@@ -7,7 +7,11 @@
 ## 一、通用复核项（两个行业都适用）
 
 - [ ] 每条结论的精确数字都能在 `quote` 原文中找到，或由 `calculation` 明确推导。
-- [ ] 每处引用都能通过 `locator`（页码 + 段落）人工定位到原始资料。
+- [ ] 每处引用都能通过 `locator` 人工定位到原始资料；locator 兼容两种来源：
+  - PDF：`page`（页码）+ `section`（章节）+ `chunk`；
+  - HTML：`section` + `chunk`（`page` 可为 `None`，**不要求页码**）。
+
+  HTML 证据复核示例：`locator = "section 政策背景 chunk CHUNK-html-001"` 合法，不得因缺少页码而拒绝。
 - [ ] `published_at` 不晚于 `cutoff_date`；日期不明或晚于截止的资料未进入正文。
 - [ ] `quote` 未被改写、拼接或断章取义。
 - [ ] 需多来源的结论（`evidence_requirement=multiple`）确实来自至少两个不同发布主体，且内容哈希不同，而非同一来源重复引用。

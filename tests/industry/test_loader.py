@@ -176,6 +176,158 @@ def test_invalid_missing_action_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp
     assert exc_info.value.code == "E201"
 
 
+@pytest.mark.parametrize(
+    "bad_id",
+    [
+        "../secret",
+        "a/b",
+        "C:\\secret",
+        "/etc/passwd",
+    ],
+)
+def test_unsafe_industry_id_raises_e201(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    bad_id: str,
+) -> None:
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config(bad_id)
+
+    assert exc_info.value.code == "E201"
+
+
+def test_risk_rule_missing_metric_ids_raises_e201(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: [收入]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules:
+      - risk_id: inventory_pressure
+        display_name: 库存压力
+        trigger_description: 测试风险规则。
+        required_evidence_types: [financial]
+        severity: medium
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_risk_rule_unknown_metric_ids_raises_e201(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: [收入]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules:
+      - risk_id: inventory_pressure
+        display_name: 库存压力
+        trigger_description: 测试风险规则。
+        metric_ids: [unknown_metric]
+        required_evidence_types: [financial]
+        severity: medium
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_duplicate_risk_id_raises_e201(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: [收入]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules:
+      - risk_id: duplicate
+        display_name: 风险一
+        trigger_description: 测试风险规则一。
+        metric_ids: [revenue_growth]
+        required_evidence_types: [financial]
+        severity: medium
+      - risk_id: duplicate
+        display_name: 风险二
+        trigger_description: 测试风险规则二。
+        metric_ids: [revenue_growth]
+        required_evidence_types: [financial]
+        severity: low
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_invalid_utf8_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    path = tmp_path / "food_beverage.yaml"
+    path.write_bytes(b"industry_id: \xff\xfe\n")
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_read_error_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _write_yaml(tmp_path, "food_beverage.yaml", "industry_id: food_beverage\n")
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    def raise_oserror(self: Path, *args: object, **kwargs: object) -> str:
+        raise OSError("simulated read failure")
+
+    monkeypatch.setattr(Path, "read_text", raise_oserror)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
 def test_industry_id_mismatch_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     content = """
     industry_id: banking

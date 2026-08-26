@@ -113,6 +113,10 @@
       "risk_id": "inventory_pressure",
       "display_name": "库存压力",
       "trigger_description": "库存变化需要结合收入和动销证据判断，不能仅凭库存绝对值下结论。",
+      "metric_ids": [
+        "inventory",
+        "revenue_growth"
+      ],
       "required_evidence_types": [
         "financial",
         "operating"
@@ -123,6 +127,10 @@
       "risk_id": "margin_deterioration",
       "display_name": "毛利率下滑风险",
       "trigger_description": "毛利率变化必须说明比较期间，并区分价格、成本和产品结构影响。",
+      "metric_ids": [
+        "gross_margin",
+        "revenue_growth"
+      ],
       "required_evidence_types": [
         "financial"
       ],
@@ -132,9 +140,12 @@
       "risk_id": "food_safety_incident",
       "display_name": "食品安全事件风险",
       "trigger_description": "食品安全信息必须确认是否适用于目标公司，行业事件不能直接推导到目标公司。",
+      "metric_ids": [
+        "food_safety"
+      ],
       "required_evidence_types": [
         "news",
-        "regulatory"
+        "policy"
       ],
       "severity": "high"
     },
@@ -142,6 +153,10 @@
       "risk_id": "channel_disruption",
       "display_name": "渠道波动风险",
       "trigger_description": "渠道库存或经销商变化需要公司或渠道层面证据，单一行业新闻不能直接作为目标公司事实。",
+      "metric_ids": [
+        "channel",
+        "inventory"
+      ],
       "required_evidence_types": [
         "operating",
         "news"

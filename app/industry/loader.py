@@ -7,6 +7,7 @@ C module responsibility: load ``configs/{industry_id}.yaml`` into the shared
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,7 @@ from pydantic import ValidationError
 from app.schemas import IndustryConfig
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
+INDUSTRY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 class IndustryConfigError(RuntimeError):
@@ -36,8 +38,7 @@ def load_industry_config(industry_id: str) -> IndustryConfig:
     ----------
     industry_id:
         Stable industry identifier, e.g. ``food_beverage`` or ``banking``.
-        This value must match the YAML file name and the file's
-        ``industry_id`` field.
+        Must match ``^[A-Za-z0-9_-]+$`` and the YAML file's ``industry_id``.
 
     Returns
     -------
@@ -48,11 +49,29 @@ def load_industry_config(industry_id: str) -> IndustryConfig:
     ------
     IndustryConfigError
         With code ``E200`` when the file is missing, or ``E201`` when the
-        YAML cannot be parsed or does not satisfy the public schema.
+        identifier is unsafe, the YAML cannot be parsed, the file cannot be
+        read, or the content does not satisfy the public schema.
     """
 
+    if not isinstance(industry_id, str) or not INDUSTRY_ID_PATTERN.fullmatch(industry_id):
+        raise IndustryConfigError(
+            "E201",
+            (
+                f"invalid industry_id={industry_id!r}; "
+                "expected stable identifier matching ^[A-Za-z0-9_-]+$"
+            ),
+        )
+
     path = CONFIG_DIR / f"{industry_id}.yaml"
-    if not path.is_file():
+    resolved_path = path.resolve()
+    if resolved_path.parent != CONFIG_DIR.resolve():
+        raise IndustryConfigError(
+            "E201",
+            f"industry config path escapes configs directory: {resolved_path}",
+            path=path,
+        )
+
+    if not resolved_path.is_file():
         raise IndustryConfigError(
             "E200",
             f"industry config file not found for industry_id={industry_id!r}",
@@ -60,11 +79,11 @@ def load_industry_config(industry_id: str) -> IndustryConfig:
         )
 
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
+        raw = yaml.safe_load(resolved_path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, OSError, UnicodeDecodeError) as exc:
         raise IndustryConfigError(
             "E201",
-            f"YAML parse error for industry_id={industry_id!r}: {exc}",
+            f"cannot read or parse YAML for industry_id={industry_id!r}: {exc}",
             path=path,
         ) from exc
 

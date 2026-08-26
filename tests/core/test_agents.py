@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from app.agents import analyze_fundamentals, analyze_news_policy, analyze_risks
+from app.industry import check_required_metrics
 from app.schemas import Evidence, IndustryConfig, SourceDocument
 
 
@@ -58,6 +59,24 @@ def test_fundamentals_reject_disallowed_evidence_type_even_with_keyword() -> Non
     assert revenue_claim.claim_type == "unresolved"
     assert revenue_claim.status == "review"
     assert revenue_claim.evidence_ids == []
+
+
+def test_checklist_and_fundamentals_agree_on_whitespace_keywords() -> None:
+    payload = load_fixture("food_config.json")
+    payload["required_metrics"][0]["keywords"] = [" 营业收入 "]
+    config = IndustryConfig.model_validate(payload)
+    evidence = [make_evidence()]
+    documents = [make_document()]
+
+    checklist_issues = check_required_metrics(evidence, config, documents=documents)
+    claims = analyze_fundamentals(evidence, config, documents=documents)
+
+    revenue_claim = next(
+        claim for claim in claims if claim.claim_id.startswith("CL-FUND-REVENUE-GROWTH-")
+    )
+    assert revenue_claim.claim_type == "fact"
+    assert revenue_claim.status == "pass"
+    assert not any("revenue_growth" in issue.message for issue in checklist_issues)
 
 
 def test_fundamentals_require_two_distinct_documents_for_multiple_metrics() -> None:

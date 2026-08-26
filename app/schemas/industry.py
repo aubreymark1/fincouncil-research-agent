@@ -25,11 +25,10 @@ class MetricRule(BaseModel):
     @field_validator("keywords")
     @classmethod
     def validate_keywords(cls, values: list[str]) -> list[str]:
-        if not values:
-            raise ValueError("keywords must not be empty")
-        if any(not keyword.strip() for keyword in values):
-            raise ValueError("keywords must not contain blank entries")
-        return values
+        normalized = [keyword.strip() for keyword in values]
+        if not normalized or any(not keyword for keyword in normalized):
+            raise ValueError("keywords must not be empty or contain blank entries")
+        return list(dict.fromkeys(normalized))
 
 
 class RiskRule(BaseModel):

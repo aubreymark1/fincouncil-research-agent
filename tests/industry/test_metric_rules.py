@@ -501,6 +501,40 @@ def test_bank_npl_change_with_provision_and_watch_not_flagged() -> None:
     )
 
 
+def test_bank_npl_provision_news_does_not_satisfy_joint_check() -> None:
+    """Regression for PR #24 inline review: provision-coverage context must
+    come from Evidence whose type satisfies the ``provision_coverage`` metric
+    (financial). A news-only mention of 拨备 must not satisfy the joint check.
+    """
+
+    config = make_bank_config()
+    evidence = [
+        make_evidence(
+            "E1",
+            text="本期不良率上升 5 个基点。",
+            evidence_type="financial",
+            industry_id="banking",
+        ),
+        make_evidence(
+            "E2",
+            text="拨备覆盖率和关注类贷款均有变化。",
+            evidence_type="news",
+            industry_id="banking",
+        ),
+    ]
+
+    issues = apply_metric_rules(evidence, config, documents=[])
+
+    npl_issues = [
+        i for i in issues if i.issue_type == "npl_provision_joint_incomplete"
+    ]
+    assert len(npl_issues) == 1
+    assert "拨备覆盖率" in npl_issues[0].message
+    # 关注类 is mentioned in news and has no dedicated metric, so it is still
+    # treated as present at the pool level and should not be reported missing.
+    assert "关注类贷款" not in npl_issues[0].message
+
+
 def test_bank_nim_change_without_period_flagged() -> None:
     config = make_bank_config()
     evidence = [
@@ -533,6 +567,32 @@ def test_bank_nim_change_with_period_not_flagged() -> None:
     issues = apply_metric_rules(evidence, config, documents=[])
 
     assert not any(i.issue_type == "nim_missing_period" for i in issues)
+
+
+def test_bank_nim_alias_net_interest_yield_flagged() -> None:
+    """Regression for PR #24 inline review: the NIM rule must reuse the
+    banking config's NIM synonyms (净利息收益率). The config declares
+    ``净利息收益率`` as a ``net_interest_margin`` keyword, so the change
+    detection must fire for that alias even though the rule's own vocabulary
+    only lists bare direction terms.
+    """
+
+    config = make_bank_config()
+    evidence = [
+        make_evidence(
+            "E1",
+            text="本期净利息收益率下降 15 个基点。",
+            evidence_type="financial",
+            industry_id="banking",
+        )
+    ]
+
+    issues = apply_metric_rules(evidence, config, documents=[])
+
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue.issue_type == "nim_missing_period"
+    assert issue.evidence_id == "EV-E1"
 
 
 def test_bank_capital_adequacy_change_without_caliber_flagged() -> None:

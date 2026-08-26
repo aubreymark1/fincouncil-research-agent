@@ -204,17 +204,24 @@ _BANK_NPL_CHANGE_TERMS = [
     "不良贷款率下降",
     "不良贷款率恶化",
 ]
-_BANK_PROVISION_TERMS = ["拨备覆盖率", "拨备", "贷款损失准备"]
 _BANK_WATCH_TERMS = ["关注类贷款", "关注类"]
 
 # Banking: NIM change must state a period.
-_BANK_NIM_CHANGE_TERMS = [
-    "净息差下降",
-    "净息差上升",
-    "净息差下滑",
-    "净息差变化",
-    "息差收窄",
-    "息差扩大",
+# Direction terms are intentionally bare: the NIM rule first filters Evidence
+# through the ``net_interest_margin`` metric (config keywords + evidence_types),
+# so any NIM synonym declared in ``configs/banking.yaml`` (净息差 / 净利息收益率
+# / 息差) is automatically reused. This avoids drift between the rule and YAML.
+_BANK_NIM_DIRECTION_TERMS = [
+    "下降",
+    "上升",
+    "下滑",
+    "变化",
+    "收窄",
+    "扩大",
+    "降低",
+    "提高",
+    "恶化",
+    "改善",
 ]
 
 # Banking: capital adequacy ratio must preserve original caliber.
@@ -381,7 +388,14 @@ def _bank_npl_provision_joint(
     config: IndustryConfig,
     documents: list[SourceDocument],  # noqa: ARG003
 ) -> ValidationIssue | None:
-    """Flag NPL change evidence lacking provision-coverage / watch-class context."""
+    """Flag NPL change evidence lacking provision-coverage / watch-class context.
+
+    Provision-coverage context must come from Evidence that satisfies the
+    ``provision_coverage`` metric (its ``evidence_types`` filter, financial in
+    the banking config) and mentions the metric's keywords. A news-only mention
+    of 拨备 does not satisfy the joint check. 关注类贷款 has no dedicated
+    metric, so it is still matched at the pool level.
+    """
 
     npl_evidence = _evidence_for_metric(evidence, config, "non_performing_loan_ratio")
     if not npl_evidence:
@@ -391,7 +405,8 @@ def _bank_npl_provision_joint(
     ]
     if not npl_change_items:
         return None
-    has_provision = _pool_mentions_any(evidence, _BANK_PROVISION_TERMS)
+    provision_evidence = _evidence_for_metric(evidence, config, "provision_coverage")
+    has_provision = bool(provision_evidence)
     has_watch = _pool_mentions_any(evidence, _BANK_WATCH_TERMS)
     missing: list[str] = []
     if not has_provision:
@@ -406,7 +421,7 @@ def _bank_npl_provision_joint(
         (
             f"{_ERROR_CODE} module=industry.metric_rules: NPL change evidence "
             f"requires joint check with {', '.join(missing)}; current evidence "
-            "pool does not provide them."
+            "pool does not provide them with the required evidence_types."
         ),
         evidence_id=npl_change_items[0].evidence_id,
     )
@@ -417,12 +432,18 @@ def _bank_nim_period(
     config: IndustryConfig,
     documents: list[SourceDocument],  # noqa: ARG003
 ) -> ValidationIssue | None:
-    """Flag NIM change evidence that does not state a period."""
+    """Flag NIM change evidence that does not state a period.
+
+    A change is detected when an Evidence item covers the
+    ``net_interest_margin`` metric (config keywords + evidence_types) and
+    mentions a direction term. NIM synonyms come from the loaded config, so
+    the rule stays in sync with ``configs/banking.yaml`` automatically.
+    """
 
     nim_evidence = _evidence_for_metric(evidence, config, "net_interest_margin")
     flagged: list[Evidence] = []
     for item in nim_evidence:
-        if _mentions_any(item, _BANK_NIM_CHANGE_TERMS) and not _mentions_any(
+        if _mentions_any(item, _BANK_NIM_DIRECTION_TERMS) and not _mentions_any(
             item, _PERIOD_TERMS
         ):
             flagged.append(item)

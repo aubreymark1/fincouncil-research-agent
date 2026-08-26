@@ -104,3 +104,35 @@ def test_html_without_body_raises(tmp_path: Path) -> None:
 
     assert exc_info.value.code == "E100"
     assert "no extractable body text" in exc_info.value.message
+
+
+def test_bare_body_text_is_flushed_at_eof(tmp_path: Path) -> None:
+    # 无块级子标签的裸 body，正文只在 EOF 时被 finalize 刷出。
+    page = tmp_path / "bare_body.html"
+    page.write_text("<html><body>正文</body></html>", encoding="utf-8")
+
+    chunks = extract_html(_document(str(page)))
+
+    assert _text(chunks) == "正文"
+
+
+def test_wrapper_text_without_block_child_is_flushed(tmp_path: Path) -> None:
+    # <main> 不在块级标签内，正文同样只能在 EOF 被刷出。
+    page = tmp_path / "main_wrapper.html"
+    page.write_text("<main>正文</main>", encoding="utf-8")
+
+    chunks = extract_html(_document(str(page)))
+
+    assert _text(chunks) == "正文"
+
+
+def test_trailing_text_after_block_is_flushed(tmp_path: Path) -> None:
+    # 块级标签结束后紧跟的尾部文本，EOF 时应被 flush 而不丢失。
+    page = tmp_path / "trailing.html"
+    page.write_text("<p>第一段</p>尾部文本", encoding="utf-8")
+
+    chunks = extract_html(_document(str(page)))
+
+    text = _text(chunks)
+    assert "第一段" in text
+    assert "尾部文本" in text

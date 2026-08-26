@@ -27,6 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _SKIP_TAGS = {
     "script", "style", "nav", "header", "footer", "aside", "noscript",
     "template", "iframe", "form", "button", "select", "option",
+    "head", "title",
 }
 
 #: Tags that end the current paragraph and start a new one.
@@ -108,6 +109,16 @@ class _ArticleParser(HTMLParser):
             self._paragraphs.append((self._section, text))
             self._section = text
 
+    def finalize(self) -> None:
+        """Flush trailing text left in the buffer at end of document.
+
+        ``<html><body>正文</body></html>`` and ``<main>正文</main>`` contain no
+        block-level child tags, so their body text is only collected here, at
+        EOF. Callers must invoke this after ``feed``/``close`` and before
+        reading ``_paragraphs``.
+        """
+        self._flush()
+
 
 def extract_html(document: SourceDocument) -> list[TextChunk]:
     """Extract one TextChunk per body paragraph of ``document``.
@@ -132,6 +143,7 @@ def extract_html(document: SourceDocument) -> list[TextChunk]:
     try:
         parser.feed(raw)
         parser.close()
+        parser.finalize()
     except Exception as exc:  # noqa: BLE001 - malformed HTML must not crash
         raise HtmlExtractionError(
             "E100", document.local_path, f"unable to parse HTML: {exc}"

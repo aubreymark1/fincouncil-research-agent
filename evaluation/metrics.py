@@ -16,6 +16,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
+from app.industry.loader import IndustryConfigError, load_industry_config
 from app.schemas import Claim, Evidence, ResearchReport
 
 
@@ -159,7 +160,7 @@ def _parse_sources(
     return tuple(sources)
 
 
-def _load_gold(gold_path: str) -> _GoldStandard:
+def _load_gold(gold_path: str, industry_id: str) -> _GoldStandard:
     path = Path(gold_path)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -191,6 +192,20 @@ def _load_gold(gold_path: str) -> _GoldStandard:
         payload, "required_metric_ids_source", "root"
     )
 
+    try:
+        config = load_industry_config(industry_id)
+    except IndustryConfigError as exc:
+        raise ValueError(
+            f"Gold Standard cannot load industry config for {industry_id!r}: {exc}"
+        ) from exc
+    known_metric_ids = {metric.metric_id for metric in config.required_metrics}
+    unknown_required_metric_ids = sorted(set(required_metric_ids) - known_metric_ids)
+    if unknown_required_metric_ids:
+        raise ValueError(
+            "Gold required_metric_ids contains unknown metric_id(s): "
+            + ", ".join(unknown_required_metric_ids)
+        )
+
     items: list[_GoldItem] = []
     seen_ids: set[str] = set()
     for index, raw in enumerate(payload["items"]):
@@ -217,6 +232,11 @@ def _load_gold(gold_path: str) -> _GoldStandard:
             raise ValueError(
                 f"Gold item {item_id}: unit is required when expected_value is numeric"
             )
+        industry_metric_id = _optional_string(raw, "industry_metric_id", item_id)
+        if industry_metric_id is not None and industry_metric_id not in known_metric_ids:
+            raise ValueError(
+                f"Gold item {item_id}: unknown industry_metric_id {industry_metric_id!r}"
+            )
         item = _GoldItem(
             item_id=item_id,
             item_type=_required_string(raw, "item_type", item_id),
@@ -225,7 +245,7 @@ def _load_gold(gold_path: str) -> _GoldStandard:
             unit=unit,
             required=required,
             sources=_parse_sources(raw, item_id, evidence_requirement),
-            industry_metric_id=_optional_string(raw, "industry_metric_id", item_id),
+            industry_metric_id=industry_metric_id,
             evidence_requirement=evidence_requirement,
         )
         items.append(item)
@@ -383,7 +403,7 @@ def evaluate_report(report: ResearchReport, gold_path: str) -> dict[str, float]:
     ``cutoff_violation_count`` is a float to preserve the public return type.
     """
 
-    gold = _load_gold(gold_path)
+    gold = _load_gold(gold_path, report.industry_id)
     gold_items = gold.items
     substantive_claims = _report_claims(report)
     formal_claims = _formal_claims(report)

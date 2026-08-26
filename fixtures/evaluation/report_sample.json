@@ -37,21 +37,21 @@
       "evidence_ids": ["EV-SYN-POST-CUTOFF"],
       "calculation": null,
       "confidence": 0.7,
-      "industry_metric_ids": ["sales_volume"],
+      "industry_metric_ids": ["volume"],
       "status": "pass"
     }
   ],
   "risks": [],
   "unresolved_items": [
     {
-      "claim_id": "CL-SYN-INVENTORY",
+      "claim_id": "CL-SYN-CHANNEL",
       "text": "缺少可核验的渠道库存变化证据。",
       "claim_type": "unresolved",
       "risk_severity": null,
       "evidence_ids": [],
       "calculation": null,
       "confidence": 0.0,
-      "industry_metric_ids": ["inventory"],
+      "industry_metric_ids": ["channel"],
       "status": "review"
     }
   ],

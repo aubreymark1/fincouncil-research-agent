@@ -102,7 +102,7 @@ def test_evaluate_report_returns_fixed_expected_metrics() -> None:
             "citation_location_accuracy_rate": 2 / 3,
             "numeric_error_rate": 1 / 3,
             "cutoff_violation_count": 1.0,
-            "industry_metric_coverage_rate": 3 / 5,
+            "industry_metric_coverage_rate": 2 / 5,
         }
     )
 
@@ -121,7 +121,7 @@ def test_empty_denominators_are_reported_as_zero(tmp_path: Path) -> None:
         json.dumps(
             {
                 "required_metric_ids_source": "synthetic empty-denominator test",
-                "required_metric_ids": ["unused_required_metric"],
+                "required_metric_ids": ["food_safety"],
                 "items": [
                     {
                         "item_id": "GOLD-OPTIONAL",
@@ -162,7 +162,7 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
         "required": True,
         "source_doc_id": "DOC-SYN-001",
         "source_page": 1,
-        "industry_metric_id": "revenue",
+        "industry_metric_id": "revenue_growth",
         "evidence_requirement": "single",
     }
     gold_path = tmp_path / "duplicate.json"
@@ -170,7 +170,7 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
         json.dumps(
             {
                 "required_metric_ids_source": "synthetic duplicate-item test",
-                "required_metric_ids": ["revenue"],
+                "required_metric_ids": ["revenue_growth"],
                 "items": [item, item],
             },
             ensure_ascii=False,
@@ -299,13 +299,66 @@ def test_required_metric_missing_from_gold_items_cannot_score_full(
     tmp_path: Path,
 ) -> None:
     gold = _load_gold_payload()
-    gold["required_metric_ids"].append("channel_turnover")
+    gold["required_metric_ids"].append("raw_material_cost")
     gold_path = tmp_path / "complete_required_metrics.json"
     gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
 
     metrics = evaluate_report(_load_report(), str(gold_path))
 
-    assert metrics["industry_metric_coverage_rate"] == pytest.approx(3 / 6)
+    assert metrics["industry_metric_coverage_rate"] == pytest.approx(2 / 6)
+
+
+def test_unknown_gold_metric_id_is_rejected(tmp_path: Path) -> None:
+    gold = _load_gold_payload()
+    gold["items"][2]["industry_metric_id"] = "sales_volume"
+    gold_path = tmp_path / "unknown_metric.json"
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unknown industry_metric_id"):
+        evaluate_report(_load_report(), str(gold_path))
+
+
+def test_channel_metric_id_distinguishes_channel_from_inventory() -> None:
+    report = _load_report()
+    channel_claim = report.unresolved_items[0].model_copy(
+        update={
+            "claim_id": "CL-SYN-CHANNEL-PASS",
+            "claim_type": "fact",
+            "status": "pass",
+            "text": "渠道库存下降。",
+            "evidence_ids": [],
+        }
+    )
+    channel_report = report.model_copy(
+        update={
+            "unresolved_items": [],
+            "claims": [*report.claims, channel_claim],
+        }
+    )
+    channel_metrics = evaluate_report(
+        channel_report, str(FIXTURES / "metrics_gold_sample.json")
+    )
+
+    assert channel_metrics["key_factor_coverage_rate"] == pytest.approx(3 / 4)
+
+    inventory_claim = channel_claim.model_copy(
+        update={
+            "claim_id": "CL-SYN-INVENTORY-PASS",
+            "text": "存货余额下降。",
+            "industry_metric_ids": ["inventory"],
+        }
+    )
+    inventory_report = report.model_copy(
+        update={
+            "unresolved_items": [],
+            "claims": [*report.claims, inventory_claim],
+        }
+    )
+    inventory_metrics = evaluate_report(
+        inventory_report, str(FIXTURES / "metrics_gold_sample.json")
+    )
+
+    assert inventory_metrics["key_factor_coverage_rate"] == pytest.approx(2 / 4)
 
 
 def test_missing_gold_file_has_actionable_error(tmp_path: Path) -> None:

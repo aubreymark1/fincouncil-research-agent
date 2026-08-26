@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "case_id": "synthetic_metrics_case",
   "fixture_notice": "合成测试数据，仅用于确定性单元测试，不代表真实实验或公司事实。",
-  "required_metric_ids_source": "configs/food_beverage.yaml@3621cfc",
+  "required_metric_ids_source": "configs/food_beverage.yaml@82b5440",
   "required_metric_ids": [
     "revenue_growth",
     "gross_margin",
@@ -44,7 +44,7 @@
       "required": true,
       "source_doc_id": "DOC-SYN-003",
       "source_page": 5,
-      "industry_metric_id": "sales_volume",
+      "industry_metric_id": "volume",
       "evidence_requirement": "single"
     },
     {
@@ -56,7 +56,7 @@
       "required": true,
       "source_doc_id": "DOC-SYN-004",
       "source_page": 18,
-      "industry_metric_id": "inventory",
+      "industry_metric_id": "channel",
       "evidence_requirement": "single"
     }
   ]

@@ -1,0 +1,186 @@
+{
+  "industry_id": "banking",
+  "display_name": "银行",
+  "required_metrics": [
+    {
+      "metric_id": "net_interest_margin",
+      "display_name": "净息差",
+      "keywords": [
+        "净息差",
+        "净利息收益率",
+        "息差"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "loan_growth",
+      "display_name": "贷款增长",
+      "keywords": [
+        "贷款增长",
+        "贷款余额",
+        "信贷投放"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "deposit_structure",
+      "display_name": "存款结构",
+      "keywords": [
+        "存款结构",
+        "活期存款",
+        "定期存款",
+        "存款成本"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "non_performing_loan_ratio",
+      "display_name": "不良贷款率",
+      "keywords": [
+        "不良率",
+        "不良贷款率",
+        "不良贷款余额"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "provision_coverage",
+      "display_name": "拨备覆盖率",
+      "keywords": [
+        "拨备覆盖率",
+        "拨备",
+        "贷款损失准备"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "capital_adequacy",
+      "display_name": "资本充足率",
+      "keywords": [
+        "资本充足率",
+        "核心一级资本充足率",
+        "一级资本充足率"
+      ],
+      "required": true,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    },
+    {
+      "metric_id": "liquidity",
+      "display_name": "流动性",
+      "keywords": [
+        "流动性",
+        "流动性覆盖率",
+        "存贷比"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "warn"
+    },
+    {
+      "metric_id": "real_estate_exposure",
+      "display_name": "房地产风险敞口",
+      "keywords": [
+        "房地产贷款",
+        "房地产风险",
+        "按揭贷款",
+        "开发贷"
+      ],
+      "required": false,
+      "evidence_requirement": "single",
+      "missing_action": "review"
+    }
+  ],
+  "event_taxonomy": [
+    "业绩",
+    "监管政策",
+    "信贷风险",
+    "资本充足",
+    "流动性",
+    "房地产风险"
+  ],
+  "risk_rules": [
+    {
+      "risk_id": "credit_risk_deterioration",
+      "display_name": "信用风险恶化",
+      "trigger_description": "不良率、关注类贷款和拨备覆盖率必须联合检查，不能只看单一指标。",
+      "metric_ids": [
+        "non_performing_loan_ratio",
+        "provision_coverage"
+      ],
+      "required_evidence_types": [
+        "financial",
+        "policy"
+      ],
+      "severity": "high"
+    },
+    {
+      "risk_id": "nim_pressure",
+      "display_name": "净息差压力",
+      "trigger_description": "净息差变化必须说明比较期间和资产端、负债端驱动因素。",
+      "metric_ids": [
+        "net_interest_margin"
+      ],
+      "required_evidence_types": [
+        "financial"
+      ],
+      "severity": "medium"
+    },
+    {
+      "risk_id": "capital_adequacy_concern",
+      "display_name": "资本充足率风险",
+      "trigger_description": "资本充足率必须保留原始口径，不同监管口径不能混用。",
+      "metric_ids": [
+        "capital_adequacy"
+      ],
+      "required_evidence_types": [
+        "financial",
+        "policy"
+      ],
+      "severity": "high"
+    },
+    {
+      "risk_id": "real_estate_concentration_risk",
+      "display_name": "房地产集中度风险",
+      "trigger_description": "房地产或地方债风险不能由单一行业新闻直接推导到目标银行，需要目标银行敞口证据。",
+      "metric_ids": [
+        "real_estate_exposure",
+        "loan_growth"
+      ],
+      "required_evidence_types": [
+        "financial",
+        "news"
+      ],
+      "severity": "medium"
+    }
+  ],
+  "report_sections": [
+    "summary",
+    "fundamentals",
+    "credit_risk",
+    "capital_liquidity",
+    "risks",
+    "unresolved"
+  ],
+  "retrieval_keywords": [
+    "净息差",
+    "贷款增长",
+    "存款结构",
+    "不良率",
+    "拨备覆盖率",
+    "资本充足率",
+    "流动性",
+    "房地产贷款",
+    "风险加权资产"
+  ]
+}

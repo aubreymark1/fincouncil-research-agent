@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
+
 from app.schemas import Evidence, IndustryConfig, SourceDocument, ValidationIssue
 
 #: Evidence types accepted by B's locator and recommended in CONTRACTS.
@@ -9,12 +12,47 @@ _ALLOWED_EVIDENCE_TYPES = frozenset(
     {"financial", "operating", "policy", "news", "company_release", "market_data", "other"}
 )
 
+#: Temporary metric-level evidence type constraints until A adds an
+#: ``evidence_types`` field to MetricRule through CONTRACT-CHANGE. Unknown
+#: metrics fall back to the full allowed vocabulary.
+_METRIC_EVIDENCE_TYPES: dict[str, frozenset[str]] = {
+    "revenue_growth": frozenset({"financial"}),
+    "gross_margin": frozenset({"financial"}),
+    "sales_expense_rate": frozenset({"financial"}),
+    "inventory": frozenset({"financial", "operating"}),
+    "volume": frozenset({"financial", "operating"}),
+    "channel": frozenset({"operating", "company_release", "news"}),
+    "raw_material_cost": frozenset({"financial", "news", "policy"}),
+    "food_safety": frozenset({"news", "policy", "company_release"}),
+    "net_interest_margin": frozenset({"financial"}),
+    "loan_growth": frozenset({"financial"}),
+    "deposit_structure": frozenset({"financial", "company_release"}),
+    "non_performing_loan_ratio": frozenset({"financial"}),
+    "provision_coverage": frozenset({"financial"}),
+    "capital_adequacy": frozenset({"financial", "policy"}),
+    "liquidity": frozenset({"financial", "policy"}),
+    "real_estate_exposure": frozenset({"financial", "news", "policy"}),
+}
+
 #: Map MetricRule.missing_action to ValidationIssue.severity, consistent with A's Critic.
 _MISSING_ACTION_SEVERITY = {
     "warn": "warning",
     "review": "error",
     "reject": "critical",
 }
+
+
+def _normalise_keywords(keywords: list[str]) -> list[str]:
+    """Strip, casefold, de-duplicate, and drop blank metric keywords."""
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for keyword in keywords:
+        normalized = keyword.strip().casefold()
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            result.append(normalized)
+    return result
 
 
 def build_industry_checklist(config: IndustryConfig) -> list[str]:
@@ -37,8 +75,8 @@ def _evidence_matches_metric(
     Coverage requires:
     - verified status;
     - explicit industry match (``None`` is unknown, not wildcard);
-    - a recognized evidence type;
-    - at least one metric keyword present in the fact or quote.
+    - a recognized evidence type appropriate for the metric;
+    - at least one non-empty metric keyword present in the fact or quote.
     """
 
     if item.review_status != "verified":
@@ -48,8 +86,12 @@ def _evidence_matches_metric(
     if item.evidence_type not in _ALLOWED_EVIDENCE_TYPES:
         return False
 
+    allowed_types = _METRIC_EVIDENCE_TYPES.get(metric_id, _ALLOWED_EVIDENCE_TYPES)
+    if item.evidence_type not in allowed_types:
+        return False
+
     searchable = f"{item.fact_text}\n{item.quote}".casefold()
-    return any(keyword.casefold() in searchable for keyword in keywords)
+    return any(keyword in searchable for keyword in _normalise_keywords(keywords))
 
 
 def _independent_sources(
@@ -59,8 +101,9 @@ def _independent_sources(
     """Return True when evidence has at least two independent sources.
 
     Independence follows CONTRACT-CHANGE-002: at least two different
-    publishers and at least two different content hashes. Evidence whose
-    document is missing is not counted.
+    publishers and at least two different content hashes. Publisher names are
+    normalized (strip + casefold) so cosmetic differences do not create false
+    independence. Evidence whose document is missing is not counted.
     """
 
     doc_by_id = {document.doc_id: document for document in documents}
@@ -69,7 +112,8 @@ def _independent_sources(
         document = doc_by_id.get(item.doc_id)
         if document is None:
             continue
-        sources.append((document.publisher, document.content_hash))
+        publisher = document.publisher.strip().casefold()
+        sources.append((publisher, document.content_hash))
 
     publishers = {publisher for publisher, _ in sources}
     content_hashes = {content_hash for _, content_hash in sources}
@@ -77,8 +121,12 @@ def _independent_sources(
 
 
 def _make_issue(metric, message: str, issue_type: str) -> ValidationIssue:
+    """Build a deterministic, schema-valid issue for one metric."""
+
+    digest = hashlib.sha256(metric.metric_id.encode("utf-8")).hexdigest()[:10].upper()
+    safe_metric = re.sub(r"[^A-Za-z0-9]+", "-", metric.metric_id).strip("-").upper() or "METRIC"
     return ValidationIssue(
-        issue_id=f"ISSUE-C002-{metric.metric_id}",
+        issue_id=f"ISSUE-C002-{safe_metric}-{digest}",
         check_name="required_metric_coverage",
         severity=_MISSING_ACTION_SEVERITY[metric.missing_action],
         issue_type=issue_type,
@@ -100,10 +148,12 @@ def check_required_metrics(
 ) -> list[ValidationIssue]:
     """Check that every required metric has sufficient verified evidence.
 
+    Only Evidence that can be traced to a registered SourceDocument is counted.
     Missing or insufficiently supported metrics produce ``ValidationIssue``
     objects. Optional metrics are never checked.
     """
 
+    doc_by_id = {document.doc_id: document for document in documents}
     issues: list[ValidationIssue] = []
 
     for metric in config.required_metrics:
@@ -113,7 +163,8 @@ def check_required_metrics(
         matching_evidence = [
             item
             for item in evidence
-            if _evidence_matches_metric(
+            if item.doc_id in doc_by_id
+            and _evidence_matches_metric(
                 item,
                 config,
                 metric_id=metric.metric_id,
@@ -128,7 +179,7 @@ def check_required_metrics(
                     (
                         f"E202 module=industry.checklist: required metric "
                         f"{metric.metric_id} ({metric.display_name}) has no "
-                        f"verified evidence matching its keywords; "
+                        f"verified, source-traced evidence matching its keywords; "
                         f"missing_action={metric.missing_action}"
                     ),
                     issue_type="missing_metric",

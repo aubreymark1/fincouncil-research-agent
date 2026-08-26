@@ -176,6 +176,56 @@ def test_invalid_missing_action_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp
     assert exc_info.value.code == "E201"
 
 
+def test_empty_keywords_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: []
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules: []
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
+def test_blank_keywords_raises_e201(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    content = """
+    industry_id: food_beverage
+    display_name: 测试
+    required_metrics:
+      - metric_id: revenue_growth
+        display_name: 收入增速
+        keywords: ["   "]
+        required: true
+        evidence_requirement: single
+        missing_action: warn
+    event_taxonomy: [业绩]
+    risk_rules: []
+    report_sections: [summary]
+    retrieval_keywords: [收入]
+    """
+    _write_yaml(tmp_path, "food_beverage.yaml", content)
+    monkeypatch.setattr(loader_module, "CONFIG_DIR", tmp_path)
+
+    with pytest.raises(IndustryConfigError) as exc_info:
+        load_industry_config("food_beverage")
+
+    assert exc_info.value.code == "E201"
+
+
 @pytest.mark.parametrize(
     "bad_id",
     [

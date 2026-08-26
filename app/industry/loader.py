@@ -113,4 +113,35 @@ def load_industry_config(industry_id: str) -> IndustryConfig:
             path=path,
         )
 
+    _validate_metric_keywords(config, path=path)
     return config
+
+
+def _validate_metric_keywords(config: IndustryConfig, path: Path) -> None:
+    """Reject MetricRule keywords that are empty or contain only whitespace.
+
+    The public schema still allows empty keyword lists, but empty keywords
+    would make coverage checks match every Evidence. The loader therefore
+    enforces the stricter requirement before returning a config.
+    """
+
+    for metric in config.required_metrics:
+        if not metric.keywords:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    "must define at least one keyword"
+                ),
+                path=path,
+            )
+        blank_keywords = [keyword for keyword in metric.keywords if not keyword.strip()]
+        if blank_keywords:
+            raise IndustryConfigError(
+                "E201",
+                (
+                    f"metric {metric.metric_id} ({metric.display_name}) "
+                    f"has blank keyword entries: {blank_keywords!r}"
+                ),
+                path=path,
+            )

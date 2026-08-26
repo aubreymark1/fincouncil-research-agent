@@ -25,7 +25,7 @@ def make_metric(
     return MetricRule(
         metric_id=metric_id,
         display_name=display_name,
-        keywords=keywords or ["收入", "营业收入"],
+        keywords=keywords if keywords is not None else ["收入", "营业收入"],
         required=required,
         evidence_requirement=evidence_requirement,  # type: ignore[arg-type]
         missing_action=missing_action,  # type: ignore[arg-type]
@@ -144,8 +144,32 @@ def test_optional_metric_missing_does_not_produce_issue() -> None:
 def test_single_evidence_requirement_is_satisfied() -> None:
     config = make_config(make_metric(required=True, evidence_requirement="single"))
     evidence = [make_evidence()]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert issues == []
+
+
+def test_single_evidence_without_source_document_does_not_count() -> None:
+    config = make_config(make_metric(required=True, evidence_requirement="single"))
+    evidence = [make_evidence()]
 
     issues = check_required_metrics(evidence, config, documents=[])
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_mixed_source_traced_and_untraced_evidence_counts_only_traced() -> None:
+    config = make_config(make_metric(required=True, evidence_requirement="single"))
+    documents = [make_document("A")]
+    evidence = [
+        make_evidence("E1", doc_id="A", text="营业收入增长 12%。"),
+        make_evidence("E2", doc_id="B", text="营业收入增长 8%。"),
+    ]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
 
     assert issues == []
 
@@ -153,8 +177,9 @@ def test_single_evidence_requirement_is_satisfied() -> None:
 def test_keyword_mismatch_does_not_count() -> None:
     config = make_config(make_metric(required=True))
     evidence = [make_evidence(text="净利润同比增长 5%。")]
+    documents = [make_document("A")]
 
-    issues = check_required_metrics(evidence, config, documents=[])
+    issues = check_required_metrics(evidence, config, documents=documents)
 
     assert len(issues) == 1
     assert issues[0].issue_type == "missing_metric"
@@ -163,8 +188,9 @@ def test_keyword_mismatch_does_not_count() -> None:
 def test_pending_evidence_does_not_count() -> None:
     config = make_config(make_metric(required=True))
     evidence = [make_evidence(review_status="pending")]
+    documents = [make_document("A")]
 
-    issues = check_required_metrics(evidence, config, documents=[])
+    issues = check_required_metrics(evidence, config, documents=documents)
 
     assert len(issues) == 1
     assert issues[0].issue_type == "missing_metric"
@@ -173,8 +199,9 @@ def test_pending_evidence_does_not_count() -> None:
 def test_unknown_evidence_type_does_not_count() -> None:
     config = make_config(make_metric(required=True))
     evidence = [make_evidence(evidence_type="keyword_match")]
+    documents = [make_document("A")]
 
-    issues = check_required_metrics(evidence, config, documents=[])
+    issues = check_required_metrics(evidence, config, documents=documents)
 
     assert len(issues) == 1
     assert issues[0].issue_type == "missing_metric"
@@ -183,11 +210,101 @@ def test_unknown_evidence_type_does_not_count() -> None:
 def test_wrong_industry_evidence_does_not_count() -> None:
     config = make_config(make_metric(required=True))
     evidence = [make_evidence(industry_id="banking")]
+    documents = [make_document("A")]
 
-    issues = check_required_metrics(evidence, config, documents=[])
+    issues = check_required_metrics(evidence, config, documents=documents)
 
     assert len(issues) == 1
     assert issues[0].issue_type == "missing_metric"
+
+
+def test_metric_specific_evidence_type_mismatch_does_not_count() -> None:
+    config = make_config(make_metric(required=True))
+    evidence = [make_evidence(evidence_type="policy")]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_empty_keywords_do_not_match_all_evidence() -> None:
+    config = make_config(make_metric(keywords=[]))
+    evidence = [make_evidence()]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_blank_keywords_do_not_match_all_evidence() -> None:
+    config = make_config(make_metric(keywords=["   "]))
+    evidence = [make_evidence()]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "missing_metric"
+
+
+def test_duplicate_and_whitespace_keywords_are_normalized() -> None:
+    config = make_config(
+        make_metric(keywords=["收入", " 收入 ", "收入"])
+    )
+    evidence = [make_evidence()]
+    documents = [make_document("A")]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert issues == []
+
+
+def test_special_metric_id_produces_valid_issue_id() -> None:
+    import re
+
+    config = make_config(
+        make_metric(metric_id="收入 增速/同比", display_name="特殊指标")
+    )
+
+    issues = check_required_metrics([], config, documents=[])
+
+    assert len(issues) == 1
+    assert re.fullmatch(r"ISSUE-[A-Za-z0-9][A-Za-z0-9._-]*", issues[0].issue_id) is not None
+
+
+@pytest.mark.parametrize(
+    "publisher_b",
+    [" 公司A ", "公司a"],
+)
+def test_publisher_normalization_prevents_false_independence(
+    publisher_b: str,
+) -> None:
+    config = make_config(
+        make_metric(
+            metric_id="inventory",
+            display_name="存货",
+            keywords=["存货"],
+            required=True,
+            evidence_requirement="multiple",
+        )
+    )
+    documents = [
+        make_document("A", publisher="公司A", content_hash="hashA"),
+        make_document("B", publisher=publisher_b, content_hash="hashB"),
+    ]
+    evidence = [
+        make_evidence("E1", doc_id="A", text="存货余额同比增长。", evidence_type="financial"),
+        make_evidence("E2", doc_id="B", text="存货周转天数上升。", evidence_type="financial"),
+    ]
+
+    issues = check_required_metrics(evidence, config, documents=documents)
+
+    assert len(issues) == 1
+    assert issues[0].issue_type == "insufficient_evidence"
 
 
 def test_multiple_requirement_rejects_same_document_sources() -> None:

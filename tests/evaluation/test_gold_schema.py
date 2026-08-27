@@ -27,22 +27,14 @@ def _load_payload(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_food_gold_draft_signed_is_accepted() -> None:
-    gold = load_gold_standard(str(FOOD_GOLD), "food_beverage")
-
-    assert gold.required_metric_ids == frozenset(
-        _config_required_metric_ids("food_beverage")
-    )
-    assert len(gold.items) > 0
+def test_food_gold_pending_signoff_is_rejected() -> None:
+    with pytest.raises(ValueError, match="not signed"):
+        load_gold_standard(str(FOOD_GOLD), "food_beverage")
 
 
-def test_bank_gold_draft_signed_is_accepted() -> None:
-    gold = load_gold_standard(str(BANK_GOLD), "banking")
-
-    assert gold.required_metric_ids == frozenset(
-        _config_required_metric_ids("banking")
-    )
-    assert len(gold.items) > 0
+def test_bank_gold_pending_signoff_is_rejected() -> None:
+    with pytest.raises(ValueError, match="not signed"):
+        load_gold_standard(str(BANK_GOLD), "banking")
 
 
 def test_signed_food_gold_matches_food_config_required_metrics() -> None:
@@ -54,8 +46,13 @@ def test_signed_food_gold_matches_food_config_required_metrics() -> None:
     assert len(gold.items) > 0
 
 
-def test_signed_bank_gold_matches_bank_config_required_metrics() -> None:
-    gold = load_gold_standard(str(BANK_GOLD), "banking")
+def test_signed_bank_gold_matches_bank_config_required_metrics(tmp_path: Path) -> None:
+    payload = _load_payload(BANK_GOLD)
+    payload["status"] = "signed"
+    path = tmp_path / "bank_signed.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    gold = load_gold_standard(str(path), "banking")
 
     assert gold.required_metric_ids == frozenset(
         _config_required_metric_ids("banking")

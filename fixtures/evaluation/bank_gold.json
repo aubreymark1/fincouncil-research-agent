@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "case_id": "bank_main",
-  "fixture_notice": "A 已人工复核并签收的真实银行 Gold Standard；数值均来自工商银行 2025 年度报告。",
-  "status": "signed",
+  "fixture_notice": "A 基于工商银行 2025 年度报告生成的 draft Gold；尚未人工复核，不代表正式签收。",
+  "status": "pending_signoff",
   "required_metric_ids_source": "configs/banking.yaml@a55f757",
   "required_metric_ids": [
     "net_interest_margin",

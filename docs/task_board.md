@@ -1,7 +1,7 @@
 # 项目任务看板
 
 > 更新时间：2026-08-27（Asia/Shanghai）
-> 同步基线：PR #32 合并后的主分支状态
+> 同步基线：PR #35 当前分支状态
 > 状态依据：GitHub 已合并 PR、主分支文件和已验证测试；未提交到 GitHub 的线下工作不作推测。
 > Roles 文档和 `docs/MASTER_PLAN.md` 定义任务范围，本看板记录当前执行状态。
 ## 一、当前结论
@@ -9,11 +9,23 @@
 - A-001～A-008：已全部完成并合并；主编排默认调用真实 B/C 链路，fixture/stub 已删除。
 - B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
 - C-001～C-007：已全部完成并合并。
-- D-001 Gold Standard 格式与校验、D-002 指标计算、D-003 实验运行器、D-004 红蓝测试、D-005 图表、D-006 Streamlit 页面、D-007 报告模板的代码均已合并；D-001 的真实 Gold 内容仍缺。
+- D-001 Gold Standard 格式与校验、D-002 指标计算、D-003 实验运行器、D-004 红蓝测试、D-005 图表、D-006 Streamlit 页面、D-007 报告模板的代码均已合并；PR #35 已补充食品饮料和银行 Gold 草案，当前进入 B/C/D 交叉复核与 A 最终签收。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
-- PR #32 已合并；当前没有 open PR。
+- PR #35 当前开放，内容包括 Gold 草案和 CI 优化；以本看板和 Gold 专项计划为后续执行入口。
 - 当前主流程仍是 `rule-engine` 确定性链路，LLM transport adapter 和 Agent 节点接入（ADAPT-008）尚未完成；E1～E3 仍 disabled。
-- 按 A 的安排，以下剩余工程、资料签收、实验和最终交付事项统一由 A 负责，暂不再拆分角色。
+- 2026-08-27 起，Gold 专项复核重新分派给 B、C、D：B 核对原文证据，C 核对指标口径，D 组装 Gold 与测试；A 负责最终签收和实验接入。
+
+### 2026-08-27 Gold Standard 专项分工
+
+详细执行步骤见：[Gold Standard Verification Plan](superpowers/plans/2026-08-27-gold-standard-verification.md)
+
+| 任务 ID | 负责人 | 任务 | 读取范围 | 交付文件 | 状态 | 验收门 |
+|---|---|---|---|---|---|---|
+| GOLD-B-001 | B | 核验 10 个必查指标的原文、数值、页码、来源和 hash | `data/manifests/`、`data/raw/`、`configs/` | `docs/gold_review/B_source_verification.md` | 待开始 | 每项有原文或明确缺失记录；multiple 来源独立 |
+| GOLD-C-001 | C | 核对指标定义、单位、Evidence 类型、公式和评分器兼容性 | `configs/`、`docs/CONTRACTS.md`、B 交付物 | `docs/gold_review/C_metric_definition_review.md` | 待开始 | 食品/银行各 5 项口径明确；派生项和多来源项无歧义 |
+| GOLD-D-001 | D | 根据 B/C 结果组装 Gold JSON、补来源校验测试、记录组装过程 | B/C 交付物、`evaluation/gold.py`、`evaluation/metrics.py` | `fixtures/evaluation/food_gold.json`、`fixtures/evaluation/bank_gold.json`、`tests/evaluation/test_gold_schema.py`、`docs/gold_review/D_gold_assembly_log.md` | 待开始 | JSON 可加载、来源可追溯、计算可复现；A 签收前不得标记 signed |
+
+专项规则：原始 PDF 和 manifest 只读不改；任何未确认内容标为 `pending_signoff`；Gold 未经 A 签收不得接入正式 E0—E3 评分。
 
 ## 二、里程碑
 
@@ -77,7 +89,7 @@
 
 | ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
-| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #32 已合并格式与校验；`food_gold.json`/`bank_gold.json` 仍为 `pending_signoff` 空模板，真实内容统一由 A 推进签收 |
+| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #35 已提供 Gold 草案；按 GOLD-B-001、GOLD-C-001、GOLD-D-001 完成 B/C/D 交叉复核后，由 A 最终签收 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
 | D-003 | 实验运行器 | 已完成 | PR #31 已合并；`pytest tests/evaluation -q` 60 passed、全量 335 passed |
 | D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
@@ -100,7 +112,7 @@
 | 优先级 | 事项 | 负责人 | 下一步 |
 |---|---|---|---|
 | P0 | LLM transport 与 Agent 接入 | A | 完成 ADAPT-008：真实 transport、prompts、结构化输出、错误处理、缓存、日志和 mock 测试；否则不能完整体现 AI Agent 主题 |
-| P1 | 真实 Gold Standard 缺失 | A | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果 |
+| P1 | Gold Standard 交叉复核与签收 | B/C/D/A | 先完成 GOLD-B-001、GOLD-C-001、GOLD-D-001，再由 A 确认 status、实验路径和可评分性；禁止把未核验草案当正式结果 |
 | P1 | E1～E3 模式开关与 EXP-001 | A | 明确通用/行业/完整合规三种模式，统一资料、cutoff、模型和提示词版本后运行 E0～E3 |
 | P1 | MIG-001 银行迁移检查 | A | 补齐 bank request fixture，运行 banking 配置并验证不改核心编排 |
 | P2 | 工作台和最终交付整合 | A | 将输入、运行、证据审查、人工确认、实验图表和报告导出整合为可演示工作台 |

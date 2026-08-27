@@ -9,10 +9,11 @@
 - A-001～A-008：已全部完成并合并；主编排默认调用真实 B/C 链路，fixture/stub 已删除。
 - B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
 - C-001～C-007：已全部完成并合并。
-- D-002 指标计算与 D-004 红蓝测试：已完成并合并；D-001 正式 Gold Standard 仍只有合成样例，真实食品饮料/银行 Gold 尚未签收。
-- D-003 实验运行器：本 PR 首次提交（`evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py`）；含 `{python}` 占位符替换修复、相对路径解析修复、E0 Gold 评分、聚合纳入 E0、hash 异常捕获、E1-E3 disabled 标记、bank_main case disabled、单实验 CLI disabled 状态、E0 失败持久化，60 项评测测试通过，待审查。
+- D-002 指标计算、D-003 实验运行器、D-004 红蓝测试：已完成并合并。
+- D-001 Gold Standard 格式与校验已提交：`food_gold.json`/`bank_gold.json` 为待 B/C 签收模板，真实 Gold 内容仍缺。
+- D-005 图表、D-006 Streamlit 页面、D-007 报告模板：已提交 PR 待审查。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
-- 当前有 1 个 open PR（D-003，本 PR 首次提交，含 `{python}` 替换修复与测试隔离改造）。
+- 当前有 1 个 open PR（#32，D-001/D-005/D-006/D-007 合并提交）。
 
 ## 二、里程碑
 
@@ -21,8 +22,8 @@
 | G0 公共接口和最小链路 | 已完成 | 公共 Schema、最小 fixture/stub 链路已合并 |
 | G1 四个角色模块可独立测试 | 已完成 | A/B/C 模块和 D-002 指标均有独立测试；不等于端到端完成 |
 | G2 食品饮料端到端 | 已完成 | A-008 接入真实资料；RUN-DEMO 全链运行产出三件套并通过验收抽查 |
-| G3 实验、迁移和红蓝测试 | 进行中 | D-004 已完成并合并；D-003 已提交 PR 待审查；MIG-001 尚未开始 |
-| G4 报告和演示可提交 | 待开始 | UI、图表、报告模板和完整输出尚未完成 |
+| G3 实验、迁移和红蓝测试 | 进行中 | D-003/D-004 已完成并合并；D-001 真实 Gold 待签收；MIG-001 尚未开始 |
+| G4 报告和演示可提交 | 待审查 | D-005 图表、D-006 UI、D-007 报告模板已提交 PR |
 | G5 最终提交 | 待开始 | 需完成实验、验收和交付材料 |
 
 ## 三、任务状态
@@ -67,13 +68,13 @@
 
 | ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
-| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #19 只有合成 `metrics_gold_sample.json`；`food_gold.json`/`bank_gold.json` 及 B/C 签收仍缺 |
+| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #32：`evaluation/gold.py` 与 `food_gold.json`/`bank_gold.json` 模板已提交；真实 Gold 内容待 B/C 签收 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
-| D-003 | 实验运行器 | 待审查 | `evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py` 已提交 PR；含 `{python}` 替换、相对路径解析、E0 Gold 评分、聚合纳入 E0、hash 异常捕获、E1-E3 disabled 标记、bank_main case disabled、单实验 CLI disabled 状态、E0 失败持久化，60 项评测测试通过 |
+| D-003 | 实验运行器 | 已完成 | PR #31 已合并；`pytest tests/evaluation -q` 60 passed、全量 335 passed |
 | D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
-| D-005 | 图表 | 待开始 | `evaluation/charts.py` 尚未提交 |
-| D-006 | Streamlit 页面 | 待开始 | `app/ui/` 尚未提交 |
-| D-007 | 报告模板 | 待开始 | `reports/` 和提交清单尚未提交 |
+| D-005 | 图表 | 待审查 | PR #32：`evaluation/charts.py` 与测试已提交；读取 results.csv/json 生成 SVG |
+| D-006 | Streamlit 页面 | 待审查 | PR #32：`app/ui/` 已提交；只读展示 report/run_metadata/metrics |
+| D-007 | 报告模板 | 待审查 | PR #32：`reports/template.md.j2`、`reports/report_sections.md`、`docs/submission_checklist.md` 已提交 |
 
 ### 集成与交付门
 
@@ -90,7 +91,7 @@
 |---|---|---|---|
 | P1 | 真实 Gold Standard 缺失 | B/C/D | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果；链路已解锁（rule-engine v1-a008 口径） |
 | P1 | MIG-001 银行迁移检查 | C/A | 用 bank_case 资料跑 `python scripts/run_case.py`（request 指向银行 manifest 与 banking 配置），验证不改核心编排 |
-| P2 | 实验、UI、图表、模板未开始 | D | 按 D-003、D-005～D-007 顺序推进；EXP-001 仅差 D-001 与 D-003 |
+| P2 | 实验、UI、图表、模板推进 | D | D-005～D-007 已提交 PR 待审查；EXP-001 仍差 D-001 真实 Gold |
 
 ## 五、接口变更记录
 

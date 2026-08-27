@@ -2,6 +2,7 @@
   "schema_version": "1.0",
   "case_id": "synthetic_metrics_case",
   "fixture_notice": "合成测试数据，仅用于确定性单元测试，不代表真实实验或公司事实。",
+  "status": "signed",
   "required_metric_ids_source": "configs/food_beverage.yaml@82b5440",
   "required_metric_ids": [
     "revenue_growth",
@@ -58,6 +59,56 @@
       "source_page": 18,
       "industry_metric_id": "channel",
       "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-SYN-005",
+      "item_type": "key_factor",
+      "expected_text": "销售费用率为",
+      "expected_value": 15.0,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-SYN-005",
+      "source_page": 20,
+      "industry_metric_id": "sales_expense_rate",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-SYN-006",
+      "item_type": "key_factor",
+      "expected_text": "存货余额为",
+      "expected_value": 20.0,
+      "unit": "亿元",
+      "required": true,
+      "source_doc_id": "DOC-SYN-006",
+      "source_page": 22,
+      "industry_metric_id": "inventory",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-SYN-007",
+      "item_type": "key_factor",
+      "expected_text": "食品安全",
+      "expected_value": null,
+      "unit": null,
+      "required": true,
+      "source_doc_id": null,
+      "source_page": null,
+      "industry_metric_id": "food_safety",
+      "evidence_requirement": "multiple",
+      "independent_sources": [
+        {
+          "doc_id": "DOC-SYN-007",
+          "page": 30,
+          "publisher": "合成发布方甲",
+          "content_hash": "synthetic-hash-a"
+        },
+        {
+          "doc_id": "DOC-SYN-008",
+          "page": 31,
+          "publisher": "合成发布方乙",
+          "content_hash": "synthetic-hash-b"
+        }
+      ]
     }
   ]
 }

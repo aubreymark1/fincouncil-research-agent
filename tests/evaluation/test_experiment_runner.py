@@ -315,6 +315,7 @@ class TestRunExperiment:
 
         assert row["status"] == "failed"
         assert "boom" in row["error"]
+        assert row["error_count"] == 1
         experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E2"
         assert (experiment_dir / "error.txt").exists()
         assert (experiment_dir / "report.json").exists()

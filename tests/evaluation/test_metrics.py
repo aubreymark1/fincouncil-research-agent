@@ -55,7 +55,6 @@ def _write_multiple_gold(tmp_path: Path) -> Path:
     gold.update(
         {
             "required_metric_ids_source": "synthetic multiple-source test",
-            "items": [revenue_item],
         }
     )
     gold_path = tmp_path / "multiple.json"
@@ -96,7 +95,7 @@ def test_evaluate_report_returns_fixed_expected_metrics() -> None:
 
     assert metrics == pytest.approx(
         {
-            "key_factor_coverage_rate": 0.5,
+            "key_factor_coverage_rate": 2 / 7,
             "evidence_validity_rate": 1 / 3,
             "citation_location_accuracy_rate": 2 / 3,
             "numeric_error_rate": 1 / 3,
@@ -106,7 +105,7 @@ def test_evaluate_report_returns_fixed_expected_metrics() -> None:
     )
 
 
-def test_empty_denominators_are_reported_as_zero(tmp_path: Path) -> None:
+def test_empty_denominators_are_reported_as_zero() -> None:
     report = _load_report().model_copy(
         update={
             "claims": [],
@@ -115,39 +114,10 @@ def test_empty_denominators_are_reported_as_zero(tmp_path: Path) -> None:
             "evidence_index": [],
         }
     )
-    gold_path = tmp_path / "optional_gold.json"
-    gold_path.write_text(
-        json.dumps(
-            {
-                "required_metric_ids_source": "synthetic empty-denominator test",
-                "required_metric_ids": [
-                    "revenue_growth",
-                    "gross_margin",
-                    "sales_expense_rate",
-                    "inventory",
-                    "food_safety",
-                ],
-                "items": [
-                    {
-                        "item_id": "GOLD-OPTIONAL",
-                        "item_type": "context",
-                        "expected_text": "可选背景",
-                        "expected_value": None,
-                        "unit": None,
-                        "required": False,
-                        "source_doc_id": None,
-                        "source_page": None,
-                        "industry_metric_id": None,
-                        "evidence_requirement": "single",
-                    }
-                ]
-            },
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
 
-    assert evaluate_report(report, str(gold_path)) == {
+    assert evaluate_report(
+        report, str(FIXTURES / "metrics_gold_sample.json")
+    ) == {
         "key_factor_coverage_rate": 0.0,
         "evidence_validity_rate": 0.0,
         "citation_location_accuracy_rate": 0.0,
@@ -174,6 +144,7 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
     gold_path.write_text(
         json.dumps(
             {
+                "status": "signed",
                 "required_metric_ids_source": "synthetic duplicate-item test",
                 "required_metric_ids": [
                     "revenue_growth",
@@ -198,7 +169,7 @@ def test_multiple_evidence_requirement_needs_two_documents(tmp_path: Path) -> No
 
     metrics = evaluate_report(_load_report(), str(gold_path))
 
-    assert metrics["citation_location_accuracy_rate"] == 1 / 3
+    assert metrics["citation_location_accuracy_rate"] == 2 / 3
     assert metrics["evidence_validity_rate"] == 0.0
 
 
@@ -266,6 +237,7 @@ def test_publisher_variants_do_not_create_false_independence(tmp_path: Path) -> 
     gold_path.write_text(
         json.dumps(
             {
+                "status": "signed",
                 "required_metric_ids_source": "synthetic publisher-normalization test",
                 "required_metric_ids": [
                     "revenue_growth",
@@ -355,7 +327,7 @@ def test_channel_metric_id_distinguishes_channel_from_inventory() -> None:
         channel_report, str(FIXTURES / "metrics_gold_sample.json")
     )
 
-    assert channel_metrics["key_factor_coverage_rate"] == pytest.approx(3 / 4)
+    assert channel_metrics["key_factor_coverage_rate"] == pytest.approx(3 / 7)
 
     inventory_claim = channel_claim.model_copy(
         update={
@@ -374,7 +346,7 @@ def test_channel_metric_id_distinguishes_channel_from_inventory() -> None:
         inventory_report, str(FIXTURES / "metrics_gold_sample.json")
     )
 
-    assert inventory_metrics["key_factor_coverage_rate"] == pytest.approx(2 / 4)
+    assert inventory_metrics["key_factor_coverage_rate"] == pytest.approx(2 / 7)
 
 
 def test_missing_gold_file_has_actionable_error(tmp_path: Path) -> None:

@@ -3,6 +3,7 @@
 from .aggregation import run_analysis
 from .critic import run_critic
 from .fundamental import analyze_fundamentals
+from .generic import run_generic_analysis
 from .llm import (
     analyze_fundamentals_llm,
     analyze_news_policy_llm,
@@ -27,4 +28,5 @@ __all__ = [
     "run_analysis",
     "run_critic",
     "run_critic_llm",
+    "run_generic_analysis",
 ]

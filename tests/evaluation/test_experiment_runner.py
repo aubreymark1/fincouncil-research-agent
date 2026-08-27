@@ -180,8 +180,8 @@ class TestDefinitions:
     def test_frozen_case_paths_resolve_to_project_root(self) -> None:
         """相对路径必须按仓库根解析，不能解析到 evaluation/ 目录下。
 
-        food_main 的 request 必须存在（仓库已有）；
-        bank_main 的 request 尚未签收（B 责任），仅验证路径解析正确且 gold_path 为 null。
+        food_main 和 bank_main 的 request 都必须存在；Gold 未签收前
+        gold_path 仍为 null。
         """
         cases, _, _ = load_definitions(DEFAULT_DEFINITIONS)
         case_map = {c.case_id: c for c in cases}
@@ -194,7 +194,9 @@ class TestDefinitions:
         assert "evaluation/fixtures" not in str(food.request_path).replace("\\", "/")
 
         bank = case_map["bank_main"]
-        # bank_request.json 尚未签收（B 责任），但路径必须按仓库根解析
+        assert bank.request_path.exists(), (
+            f"bank_main request_path 不存在: {bank.request_path}"
+        )
         assert str(bank.request_path).startswith(str(PROJECT_ROOT))
         assert "evaluation/fixtures" not in str(bank.request_path).replace("\\", "/")
         # Gold 未签收，gold_path 必须为 null（不可评分）
@@ -208,19 +210,19 @@ class TestDefinitions:
             assert hasattr(definition, "enabled"), eid
             assert isinstance(definition.enabled, bool), eid
 
-    def test_frozen_e1_e3_disabled_until_mode_switch_landed(self) -> None:
-        """E1/E2/E3 在 A 落地模式开关前显式 disabled。"""
+    def test_frozen_e1_e3_disabled_until_gold_signoff(self) -> None:
+        """E1/E2/E3 在真实 Gold 签收前保持 disabled。"""
         _, experiments, _ = load_definitions(DEFAULT_DEFINITIONS)
         assert experiments["E0"].enabled is True
         for eid in ("E1", "E2", "E3"):
             assert experiments[eid].enabled is False, eid
 
-    def test_frozen_bank_main_disabled_until_request_signed(self) -> None:
-        """bank_main 的 request fixture 未签收，case 标记 disabled。"""
+    def test_frozen_bank_main_enabled_after_request_signed(self) -> None:
+        """bank_main 的 request fixture 已补齐，case 可运行但 Gold 仍为 null。"""
         cases, _, _ = load_definitions(DEFAULT_DEFINITIONS)
         case_map = {c.case_id: c for c in cases}
         assert case_map["food_main"].enabled is True
-        assert case_map["bank_main"].enabled is False
+        assert case_map["bank_main"].enabled is True
 
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="does not exist"):

@@ -37,6 +37,7 @@ class RunMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     run_id: str = Field(min_length=1, pattern=r"^RUN-[A-Za-z0-9][A-Za-z0-9._-]*$")
+    mode: str = Field(default="rule-engine", min_length=1)
     started_at: datetime
     finished_at: datetime | None = None
     status: Literal["running", "success", "partial", "failed"]

@@ -29,7 +29,21 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Use the real OpenAI-compatible LLM transport (requires FINCOUNCIL_MODEL_* env)",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["rule-engine", "E1", "E2", "E3"],
+        default="rule-engine",
+        help="Run mode: rule-engine (default), E1, E2, or E3 experiment mode",
+    )
     args = parser.parse_args(argv)
+
+    if args.mode in {"E1", "E2", "E3"} and not args.llm:
+        print(
+            "E300 module=cli: --mode E1/E2/E3 requires --llm; refusing to "
+            "fake an experiment with the rule-engine",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         request_payload = json.loads(args.request.read_text(encoding="utf-8"))
@@ -41,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
                 transport=create_openai_compatible_transport(),
                 cache=JsonFileCache(cache_path),
             )
-        report = run_research(request, model_provider=model_provider)
+        report = run_research(request, model_provider=model_provider, mode=args.mode)
     except ModelProviderError as exc:
         print(
             f"{exc}. file={args.request}. "
@@ -71,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "run_id": report.run_id,
+                "mode": args.mode,
                 "report_path": str(report_path.resolve()),
                 "report_md_path": str(markdown_path.resolve()),
                 "metadata_path": str(metadata_path.resolve()),

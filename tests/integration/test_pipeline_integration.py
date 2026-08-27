@@ -254,6 +254,39 @@ def test_bank_pipeline_loads_different_industry_config(tmp_path, banking_manifes
     )
 
 
+def test_bank_migration_writes_json_markdown_and_run_metadata(
+    tmp_path, banking_manifest
+):
+    # Arrange
+    request = make_request(tmp_path, banking_manifest, industry="banking")
+
+    # Act
+    state = run_pipeline(request)
+
+    # Assert: the banking migration chain produces all three artefacts.
+    report_path = Path(request.output_dir) / "report.json"
+    markdown_path = Path(request.output_dir) / "report.md"
+    metadata_path = (
+        tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
+    )
+    assert report_path.exists()
+    assert markdown_path.stat().st_size > 0
+    assert metadata_path.exists()
+
+    saved_report = ResearchReport.model_validate_json(report_path.read_text(encoding="utf-8"))
+    assert saved_report.industry_id == "banking"
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["status"] == "success"
+    assert metadata["mode"] == "rule-engine"
+    assert metadata["model_provider"] == "rule-engine"
+    assert metadata["errors"] == []
+
+    # The bank config must drive evidence location, not the food config.
+    located_texts = "\n".join(item.fact_text for item in state.evidence)
+    assert any(keyword in located_texts for keyword in {"净息差", "不良", "拨备"})
+
+
 def test_llm_mode_rejects_evidence_not_sent_to_node(tmp_path, food_manifest):
     # Arrange
     request = make_request(tmp_path, food_manifest, industry="food_beverage")

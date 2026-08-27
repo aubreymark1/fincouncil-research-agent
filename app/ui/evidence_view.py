@@ -14,8 +14,16 @@ def format_evidence(evidence: dict[str, Any]) -> str:
     lines = [
         f"- **Evidence**: `{evidence.get('evidence_id', '')}`",
         f"  - 文档：`{evidence.get('doc_id', '')}`",
+        f"  - 文本块：`{evidence.get('chunk_id', '')}`",
         f"  - 位置：{evidence.get('locator', '') or '未提供'}",
+        f"  - 页码：{evidence.get('page', '') or '未提供'}",
+        f"  - 章节：{evidence.get('section', '') or '未提供'}",
         f"  - 发布日期：{evidence.get('published_at', '') or '未提供'}",
+        f"  - 事实：{evidence.get('fact_text', '') or '未提供'}",
+        f"  - 证据类型：{evidence.get('evidence_type', '') or '未提供'}",
+        f"  - 定位置信度：{evidence.get('confidence', '')}",
+        f"  - 公司/行业：{evidence.get('company_name', '') or '未提供'} / "
+        f"{evidence.get('industry_id', '') or '未提供'}",
         f"  - 状态：{evidence.get('review_status', '')}",
     ]
     quote = evidence.get("quote") or evidence.get("fact_text")

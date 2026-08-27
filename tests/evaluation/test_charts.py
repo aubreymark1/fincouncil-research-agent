@@ -134,3 +134,42 @@ def test_empty_results_generates_no_data_charts(tmp_path: Path) -> None:
 
     content = (out / "coverage.svg").read_text(encoding="utf-8")
     assert "no data" in content
+
+
+def test_blank_success_metric_is_not_plotted_as_zero(tmp_path: Path) -> None:
+    results = tmp_path / "results.json"
+    results.write_text(
+        json.dumps(
+            [
+                {
+                    "experiment_id": "E0",
+                    "status": "success",
+                    "metrics": {"key_factor_coverage_rate": ""},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "charts"
+
+    generate_charts(results, out)
+
+    content = (out / "coverage.svg").read_text(encoding="utf-8")
+    assert "no data" in content
+    assert "0.00" not in content
+
+
+def test_charts_use_metric_value_from_results_csv(tmp_path: Path) -> None:
+    results = tmp_path / "results.csv"
+    results.write_text(
+        "experiment_id,name,case_id,status,key_factor_coverage_rate\n"
+        "E0,manual_baseline,food_main,success,0.75\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "charts"
+
+    generate_charts(results, out)
+
+    content = (out / "coverage.svg").read_text(encoding="utf-8")
+    assert "0.75" in content
+    assert ">E0<" in content

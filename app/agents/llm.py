@@ -351,11 +351,33 @@ def _validate_claim_node_output(
                         )
 
 
-def _merge_claims(claims: list[Claim]) -> list[Claim]:
-    """Merge duplicate claim_ids by unioning evidence_ids.
+def _validate_batch_evidence_isolation(
+    prompt_name: str,
+    claims: list[Claim],
+    batch_evidence_by_id: dict[str, Evidence],
+) -> None:
+    """Ensure a model never references evidence outside its current batch."""
 
-    Later batches may provide additional supporting evidence for the same
-    logical Claim; dropping them would silently weaken the support set.
+    for claim in claims:
+        missing = [
+            evidence_id
+            for evidence_id in claim.evidence_ids
+            if evidence_id not in batch_evidence_by_id
+        ]
+        if missing:
+            raise ModelProviderError(
+                f"E301 module=agents.llm: {prompt_name} node referenced evidence "
+                f"IDs that were not in the current batch: {missing}"
+            )
+
+
+def _merge_claims(claims: list[Claim]) -> list[Claim]:
+    """Merge duplicate claim_ids using conservative reporting semantics.
+
+    - evidence_ids and industry_metric_ids are unioned;
+    - review status wins over pass;
+    - text conflicts force review;
+    - confidence takes the minimum (most conservative).
     """
 
     merged: dict[str, Claim] = {}
@@ -367,8 +389,22 @@ def _merge_claims(claims: list[Claim]) -> list[Claim]:
         combined_evidence = list(
             dict.fromkeys([*existing.evidence_ids, *claim.evidence_ids])
         )
+        combined_metrics = list(
+            dict.fromkeys([*existing.industry_metric_ids, *claim.industry_metric_ids])
+        )
+        text_conflict = existing.text != claim.text
+        merged_status = (
+            "review"
+            if text_conflict or existing.status == "review" or claim.status == "review"
+            else existing.status
+        )
         merged[claim.claim_id] = existing.model_copy(
-            update={"evidence_ids": combined_evidence}
+            update={
+                "evidence_ids": combined_evidence,
+                "industry_metric_ids": combined_metrics,
+                "status": merged_status,
+                "confidence": min(existing.confidence, claim.confidence),
+            }
         )
     return list(merged.values())
 
@@ -403,6 +439,12 @@ def _run_claim_node_single(
     )
     if not isinstance(result, ClaimList):
         raise TypeError("E301 module=agents.llm: expected ClaimList response")
+    batch_evidence_by_id = {item.evidence_id: item for item in evidence}
+    _validate_batch_evidence_isolation(
+        prompt_name,
+        result.claims,
+        batch_evidence_by_id,
+    )
     return result.claims
 
 

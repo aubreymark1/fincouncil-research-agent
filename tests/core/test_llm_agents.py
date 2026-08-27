@@ -506,7 +506,7 @@ def test_claim_referencing_evidence_not_sent_to_node_is_rejected() -> None:
     evidence = [make_evidence()]
     config = make_config()
 
-    with pytest.raises(ModelProviderError, match="not sent"):
+    with pytest.raises(ModelProviderError, match="current batch"):
         analyze_fundamentals_llm(provider, request, evidence, config)
 
 
@@ -658,10 +658,24 @@ def make_tiny_risk_evidence(evidence_id: str, evidence_type: str, text: str) -> 
 
 def test_risk_claim_can_combine_evidence_across_batches(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
-    calls: list[str] = []
+    call_count = 0
 
     def transport(prompt: str, _config: ModelConfig) -> dict:
-        calls.append(prompt)
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "claims": [
+                    make_claim_payload(
+                        claim_id="CL-RISK-CROSS",
+                        claim_type="risk",
+                        risk_severity="medium",
+                        status="review",
+                        evidence_ids=["EV-R-FIN"],
+                        industry_metric_ids=["inventory", "revenue_growth"],
+                    )
+                ]
+            }
         return {
             "claims": [
                 make_claim_payload(
@@ -669,7 +683,7 @@ def test_risk_claim_can_combine_evidence_across_batches(monkeypatch) -> None:
                     claim_type="risk",
                     risk_severity="medium",
                     status="review",
-                    evidence_ids=["EV-R-FIN", "EV-R-OP"],
+                    evidence_ids=["EV-R-OP"],
                     industry_metric_ids=["inventory", "revenue_growth"],
                 )
             ]
@@ -685,7 +699,7 @@ def test_risk_claim_can_combine_evidence_across_batches(monkeypatch) -> None:
 
     claims = analyze_risks_llm(provider, request, evidence, config)
 
-    assert len(calls) >= 2
+    assert call_count >= 2
     assert len(claims) == 1
     assert claims[0].claim_id == "CL-RISK-CROSS"
     assert set(claims[0].evidence_ids) == {"EV-R-FIN", "EV-R-OP"}
@@ -728,6 +742,82 @@ def test_duplicate_claim_ids_merge_evidence_ids(monkeypatch) -> None:
 
     assert call_count >= 2
     assert len(claims) == 1
+    assert set(claims[0].evidence_ids) == {"EV-A", "EV-B"}
+
+
+def test_claim_referencing_evidence_from_other_batch_is_rejected(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    call_count = 0
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        nonlocal call_count
+        call_count += 1
+        return {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-CROSS-BAD",
+                    evidence_ids=["EV-B"],
+                )
+            ]
+        }
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    evidence = [
+        make_tiny_metric_evidence("EV-A"),
+        make_tiny_metric_evidence("EV-B"),
+    ]
+
+    with pytest.raises(ModelProviderError, match="current batch"):
+        analyze_fundamentals_llm(provider, request, evidence, config)
+
+    assert call_count == 1
+
+
+def test_duplicate_claim_ids_merge_is_conservative(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    call_count = 0
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "claims": [
+                    make_claim_payload(
+                        claim_id="CL-CONS",
+                        status="pass",
+                        confidence=0.9,
+                        evidence_ids=["EV-A"],
+                    )
+                ]
+            }
+        return {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-CONS",
+                    status="review",
+                    confidence=0.5,
+                    evidence_ids=["EV-B"],
+                )
+            ]
+        }
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    evidence = [
+        make_tiny_metric_evidence("EV-A"),
+        make_tiny_metric_evidence("EV-B"),
+    ]
+
+    claims = analyze_fundamentals_llm(provider, request, evidence, config)
+
+    assert call_count >= 2
+    assert len(claims) == 1
+    assert claims[0].status == "review"
+    assert claims[0].confidence == 0.5
     assert set(claims[0].evidence_ids) == {"EV-A", "EV-B"}
 
 

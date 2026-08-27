@@ -298,7 +298,7 @@ def test_llm_mode_rejects_evidence_not_sent_to_node(tmp_path, food_manifest):
     provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
 
     # Act / Assert: node-level evidence isolation rejects the bad ID.
-    with pytest.raises(ModelProviderError, match="not sent"):
+    with pytest.raises(ModelProviderError, match="current batch"):
         run_pipeline(request, model_provider=provider)
 
     metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"

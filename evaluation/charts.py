@@ -32,7 +32,7 @@ METRIC_KEYS = (
 )
 
 
-def _load_rows(path: str | Path) -> list[dict[str, Any]]:
+def load_results(path: str | Path) -> list[dict[str, Any]]:
     """Load experiment result rows from results.json or results.csv."""
     results_path = Path(path)
     if not results_path.exists():
@@ -50,6 +50,9 @@ def _load_rows(path: str | Path) -> list[dict[str, Any]]:
     raise ValueError(f"unsupported results file type: {results_path.suffix}")
 
 
+_load_rows = load_results
+
+
 def _metrics(row: dict[str, Any]) -> dict[str, Any]:
     raw = row.get("metrics")
     if isinstance(raw, dict):
@@ -64,6 +67,16 @@ def _as_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _optional_float(value: Any) -> float | None:
+    """Parse a measured value, keeping missing/invalid values as no data."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _duration_minutes(started_at: Any, finished_at: Any) -> float | None:
@@ -221,8 +234,11 @@ def _experiment_series(
         metrics = _metrics(row)
         if metric_key not in metrics or metrics[metric_key] is None:
             continue
+        value = _optional_float(metrics[metric_key])
+        if value is None:
+            continue
         labels.append(experiment_id)
-        values.append(_as_float(metrics[metric_key]))
+        values.append(value)
     return labels, values
 
 
@@ -231,7 +247,7 @@ def generate_charts(results_path: str | Path, output_dir: str | Path) -> list[Pa
 
     Returns the list of created SVG paths.
     """
-    rows = _load_rows(results_path)
+    rows = load_results(results_path)
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -339,8 +355,11 @@ def generate_charts(results_path: str | Path, output_dir: str | Path) -> list[Pa
         metrics = _metrics(row)
         if "industry_metric_coverage_rate" not in metrics or metrics["industry_metric_coverage_rate"] is None:
             continue
+        value = _optional_float(metrics["industry_metric_coverage_rate"])
+        if value is None:
+            continue
         bank_labels.append(str(row.get("experiment_id", "")))
-        bank_values.append(_as_float(metrics["industry_metric_coverage_rate"]))
+        bank_values.append(value)
     bank_path = out / "bank_migration_coverage.svg"
     bank_path.write_text(
         _bar_chart_svg(

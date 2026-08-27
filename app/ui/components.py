@@ -27,6 +27,22 @@ def metric_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
     return rows
 
 
+def experiment_status_message(row: dict[str, Any]) -> str:
+    """Return an explicit status message for one persisted experiment row."""
+    experiment_id = str(row.get("experiment_id", "未知实验"))
+    status = row.get("status")
+    error = str(row.get("error") or "").strip()
+    if status == "disabled":
+        return f"{experiment_id} 已禁用" + (f"：{error}" if error else "")
+    if status == "failed":
+        return f"{experiment_id} 失败" + (f"：{error}" if error else "")
+    if status == "running":
+        return f"{experiment_id} 运行中"
+    if status == "success":
+        return f"{experiment_id} 已完成"
+    return f"{experiment_id} 状态：{status or '未知'}"
+
+
 def formal_claims(report: dict[str, Any]) -> list[dict[str, Any]]:
     """Return pass claims eligible for the formal conclusion section."""
     return [

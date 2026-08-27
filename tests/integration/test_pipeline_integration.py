@@ -331,7 +331,7 @@ def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):
     assert metadata["status"] == "failed"
     assert metadata["errors"][0].startswith("E300 module=model: transport failed")
     assert metadata["input_hashes"]["request"].startswith("sha256:")
-    assert metadata["module_versions"]["cache"] == "v1-json"
+    assert metadata["module_versions"]["cache"] == "v1-memory"
 
 
 def test_missing_manifest_fails_fast_with_manifest_error(tmp_path):

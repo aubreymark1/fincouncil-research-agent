@@ -26,7 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from .cache import ModelCache, hash_cache_key, make_cache_key
+from .cache import InMemoryCache, JsonFileCache, ModelCache, hash_cache_key, make_cache_key
 
 
 MAX_RETRIES = 5
@@ -175,6 +175,17 @@ class ModelProvider:
     def has_cache(self) -> bool:
         """Return whether a model cache is configured."""
         return self.cache is not None
+
+    @property
+    def cache_version(self) -> str:
+        """Return the audit version for the configured cache type."""
+        if self.cache is None:
+            return "none"
+        if isinstance(self.cache, JsonFileCache):
+            return "v1-json"
+        if isinstance(self.cache, InMemoryCache):
+            return "v1-memory"
+        return f"v1-{type(self.cache).__name__.lower()}"
 
     @classmethod
     def from_env(

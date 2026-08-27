@@ -277,7 +277,7 @@ def _write_failed_metadata(
         prompt_versions = get_prompt_versions()
         agents_version = "v1-llm"
         model_version = "v1-transport"
-        cache_version = "v1-json" if model_provider.has_cache else "none"
+        cache_version = model_provider.cache_version
 
     metadata = RunMetadata(
         run_id=request.run_id,
@@ -400,7 +400,7 @@ def run_pipeline(
         prompt_versions = get_prompt_versions()
         agents_version = "v1-llm"
         model_version = "v1-transport"
-        cache_version = "v1-json" if model_provider.has_cache else "none"
+        cache_version = model_provider.cache_version
 
     state.metadata = RunMetadata(
         run_id=request.run_id,

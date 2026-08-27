@@ -117,6 +117,11 @@ def test_has_cache_property_reflects_configured_cache() -> None:
         transport=lambda _prompt, _config: '{"answer": "ok"}',
         cache=InMemoryCache(),
     )
+    json_cached = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: '{"answer": "ok"}',
+        cache=JsonFileCache("unused-cache.json"),
+    )
     uncached = ModelProvider(
         ModelConfig(max_retries=0),
         transport=lambda _prompt, _config: '{"answer": "ok"}',
@@ -124,8 +129,11 @@ def test_has_cache_property_reflects_configured_cache() -> None:
 
     assert cached.cache is not None
     assert cached.has_cache is True
+    assert cached.cache_version == "v1-memory"
+    assert json_cached.cache_version == "v1-json"
     assert uncached.cache is None
     assert uncached.has_cache is False
+    assert uncached.cache_version == "none"
 
 
 def test_model_provider_error_exposes_code() -> None:

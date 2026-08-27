@@ -62,6 +62,8 @@ def test_run_case_llm_preserves_e300_in_stderr(monkeypatch, capsys) -> None:
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "E300 module=model.transport" in captured.err
+    assert "file=" in captured.err
+    assert "Check FINCOUNCIL_MODEL_*" in captured.err
     assert "E500" not in captured.err
 
 
@@ -81,4 +83,6 @@ def test_run_case_llm_preserves_e301_in_stderr(monkeypatch, capsys) -> None:
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "E301 module=model.transport" in captured.err
+    assert "file=" in captured.err
+    assert "Check FINCOUNCIL_MODEL_*" in captured.err
     assert "E500" not in captured.err

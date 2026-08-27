@@ -43,7 +43,12 @@ def main(argv: list[str] | None = None) -> int:
             )
         report = run_research(request, model_provider=model_provider)
     except ModelProviderError as exc:
-        print(str(exc), file=sys.stderr)
+        print(
+            f"{exc}. file={args.request}. "
+            "Check FINCOUNCIL_MODEL_* environment variables, network "
+            "connectivity, and model output format.",
+            file=sys.stderr,
+        )
         return 2
     except Exception as exc:
         print(

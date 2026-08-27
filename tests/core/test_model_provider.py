@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
 
 from app.model import InMemoryCache, JsonFileCache, ModelConfig, ModelProvider, ModelProviderError
+from app.model.cache import CacheError
 
 
 class ExampleOutput(BaseModel):
@@ -238,6 +240,47 @@ def test_json_file_cache_round_trips_without_credentials(tmp_path: Path) -> None
     assert cache.get("key") == {"answer": "cached"}
     assert "fixture-only" not in cache_path.read_text(encoding="utf-8")
     assert json.loads(cache_path.read_text(encoding="utf-8")) == {"key": {"answer": "cached"}}
+
+
+def test_json_file_cache_atomic_write_leaves_no_temp_or_lock(tmp_path: Path) -> None:
+    cache_path = tmp_path / "model-cache.json"
+    cache = JsonFileCache(cache_path)
+    cache.set("key", {"answer": "cached"})
+
+    assert cache.get("key") == {"answer": "cached"}
+    assert not (tmp_path / "model-cache.json.tmp").exists()
+    assert not (tmp_path / "model-cache.json.lock").exists()
+
+
+def test_json_file_cache_recovers_from_corrupt_file(tmp_path: Path) -> None:
+    cache_path = tmp_path / "model-cache.json"
+    cache_path.write_text("{not-json", encoding="utf-8")
+    cache = JsonFileCache(cache_path)
+
+    with pytest.raises(CacheError):
+        cache.get("key")
+
+    cache.set("key", {"answer": "repaired"})
+
+    assert cache.get("key") == {"answer": "repaired"}
+    assert json.loads(cache_path.read_text(encoding="utf-8")) == {
+        "key": {"answer": "repaired"}
+    }
+
+
+def test_json_file_cache_concurrent_sets_preserve_all_keys(tmp_path: Path) -> None:
+    cache_path = tmp_path / "model-cache.json"
+    cache = JsonFileCache(cache_path)
+
+    def set_item(index: int) -> None:
+        cache.set(f"key-{index:03d}", {"index": index})
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(set_item, range(20)))
+
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    assert len(payload) == 20
+    assert payload["key-019"] == {"index": 19}
 
 
 def test_missing_transport_has_coded_error() -> None:

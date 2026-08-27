@@ -83,6 +83,7 @@ def test_all_public_schemas_are_importable_and_fixtures_validate() -> None:
     )
 
     assert request.run_id == "RUN-DEMO"
+    assert metadata.mode == "rule-engine"
     assert document.doc_id.startswith("DOC-")
     assert chunk.doc_id == document.doc_id
     assert evidence.chunk_id == chunk.chunk_id
@@ -267,4 +268,13 @@ def test_risk_ids_must_be_unique() -> None:
     payload["risk_rules"].append(dict(payload["risk_rules"][0]))
     with pytest.raises(ValidationError, match="risk_id must be unique"):
         IndustryConfig.model_validate(payload)
+
+
+def test_bank_request_fixture_is_valid() -> None:
+    request = ResearchRequest.model_validate(load_fixture("bank_request.json"))
+    assert request.run_id == "RUN-BANK"
+    assert request.company_name == "中国工商银行股份有限公司"
+    assert request.ticker == "601398.SH"
+    assert request.industry_id == "banking"
+    assert request.source_manifest_path == "data/manifests/bank_case.csv"
 

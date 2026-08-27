@@ -251,3 +251,128 @@ def test_failed_llm_metadata_records_json_cache_version(tmp_path):
     metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["module_versions"]["cache"] == "v1-json"
+
+
+@pytest.mark.parametrize("mode", ["E1", "E2", "E3"])
+def test_experiment_modes_require_model_provider(tmp_path, mode):
+    request = make_request(tmp_path)
+
+    with pytest.raises(ModelProviderError, match="requires a model provider"):
+        run_pipeline(request, mode=mode)
+
+
+def test_e1_runs_generic_agent_without_config(tmp_path):
+    request = make_request(tmp_path)
+    captured: list[str] = []
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        captured.append(prompt)
+        return {
+            "claims": [
+                {
+                    "claim_id": "CL-GENERIC-001",
+                    "text": "资料显示公司经营稳健。",
+                    "claim_type": "analysis",
+                    "risk_severity": None,
+                    "evidence_ids": ["EV-RAW-UNIT-P1"],
+                    "calculation": None,
+                    "confidence": 0.5,
+                    "industry_metric_ids": [],
+                    "status": "pass",
+                }
+            ]
+        }
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+    state = run_pipeline(
+        request,
+        manifest_loader=fake_manifest_loader,
+        text_extractor=fake_text_extractor,
+        industry_loader=load_industry_config,
+        model_provider=provider,
+        mode="E1",
+    )
+
+    assert state.metadata.mode == "E1"
+    assert state.config is None
+    assert state.evidence
+    assert all(item.review_status == "pending" for item in state.evidence)
+    assert state.report.claims
+    # Pending evidence must never produce a formal pass claim.
+    assert state.report.claims[0].status == "review"
+    assert "通用投研分析 Agent" in captured[0]
+
+
+def test_e1_generic_agent_batches_evidence(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 500)
+    request = make_request(tmp_path)
+    captured: list[str] = []
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        captured.append(_prompt)
+        return {"claims": []}
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+    run_pipeline(
+        request,
+        manifest_loader=fake_manifest_loader,
+        text_extractor=fake_text_extractor,
+        industry_loader=load_industry_config,
+        model_provider=provider,
+        mode="E1",
+    )
+
+    assert len(captured) >= 2
+
+
+def test_e2_loads_config_without_time_lock(tmp_path):
+    request = make_request(tmp_path)
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        return {"claims": []}
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+    state = run_pipeline(
+        request,
+        manifest_loader=fake_manifest_loader,
+        text_extractor=fake_text_extractor,
+        industry_loader=load_industry_config,
+        model_provider=provider,
+        mode="E2",
+    )
+
+    assert state.metadata.mode == "E2"
+    assert state.config is not None
+    assert state.config.industry_id == "food_beverage"
+    assert state.report is not None
+
+
+def test_e3_runs_full_chain_with_model_provider(tmp_path):
+    request = make_request(tmp_path)
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        if "行业 Critic 提示词" in prompt:
+            return {"issues": []}
+        return {"claims": []}
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+    state = run_pipeline(
+        request,
+        manifest_loader=fake_manifest_loader,
+        text_extractor=fake_text_extractor,
+        industry_loader=load_industry_config,
+        model_provider=provider,
+        mode="E3",
+    )
+
+    assert state.metadata.mode == "E3"
+    assert state.config is not None
+    assert state.report is not None
+    assert any(item.review_status == "verified" for item in state.evidence)
+
+
+def test_unknown_mode_is_rejected(tmp_path):
+    request = make_request(tmp_path)
+
+    with pytest.raises(ValueError, match="unknown mode"):
+        run_pipeline(request, mode="E4")

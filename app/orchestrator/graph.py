@@ -24,6 +24,7 @@ from app.agents import (
     run_critic_llm,
 )
 from app.agents.aggregation import run_analysis
+from app.agents.generic import build_raw_evidence, run_generic_analysis
 from app.industry.checklist import check_required_metrics
 from app.industry.loader import load_industry_config
 from app.industry.metric_rules import apply_metric_rules
@@ -47,6 +48,7 @@ from app.schemas import (
 from app.validators import apply_time_lock
 
 from .evidence_policy import apply_evidence_policy
+from .modes import EXPERIMENT_MODES, normalize_mode
 from .state import ResearchState
 
 
@@ -258,6 +260,7 @@ def _write_failed_metadata(
     started_at: datetime,
     error: Exception,
     model_provider: ModelProvider | None,
+    mode: str,
 ) -> None:
     """Persist a failed RunMetadata audit record before re-raising."""
 
@@ -265,22 +268,27 @@ def _write_failed_metadata(
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
 
     if model_provider is None:
-        model_provider_name = "rule-engine"
-        model_name = "a008-rules"
+        model_provider_name = "rule-engine" if mode == "rule-engine" else "not-configured"
+        model_name = "a008-rules" if mode == "rule-engine" else "none"
         prompt_versions: dict[str, str] = {}
-        agents_version = "v1-aggregation"
+        agents_version = "v1-aggregation" if mode == "rule-engine" else "v1-generic"
         model_version = "v1-provider"
         cache_version = "none"
     else:
         model_provider_name = model_provider.config.provider_name
         model_name = model_provider.config.model_name
-        prompt_versions = get_prompt_versions()
-        agents_version = "v1-llm"
+        if mode in {"E1", "E2"}:
+            prompt_versions = {"generic": "v1"}
+            agents_version = "v1-generic"
+        else:
+            prompt_versions = get_prompt_versions()
+            agents_version = "v1-llm"
         model_version = "v1-transport"
         cache_version = model_provider.cache_version
 
     metadata = RunMetadata(
         run_id=request.run_id,
+        mode=mode,
         started_at=started_at,
         finished_at=datetime.now(timezone.utc),
         status="failed",
@@ -312,11 +320,26 @@ def run_pipeline(
     text_extractor: TextExtractor | None = None,
     industry_loader: IndustryLoader | None = None,
     model_provider: ModelProvider | None = None,
+    mode: str = "rule-engine",
 ) -> ResearchState:
-    """Run the research pipeline over real B/C modules and persist outputs."""
+    """Run the research pipeline over real B/C modules and persist outputs.
+
+    ``mode`` selects the frozen E1/E2/E3 experiment behaviour or the default
+    ``rule-engine`` chain. E1/E2/E3 require a ``ModelProvider`` so the CLI can
+    never silently substitute deterministic rules for an experiment run.
+    """
 
     started_at = datetime.now(timezone.utc)
-    state = ResearchState(request=request)
+    mode = normalize_mode(mode)
+    if mode in EXPERIMENT_MODES and model_provider is None:
+        exc = ModelProviderError(
+            f"E300 module=orchestrator: mode {mode} requires a model provider; "
+            "refusing to fake an experiment with the rule-engine"
+        )
+        _write_failed_metadata(request, started_at, exc, None, mode)
+        raise exc
+
+    state = ResearchState(request=request, mode=mode)
     resolve_manifest = manifest_loader or load_manifest
     resolve_industry = industry_loader or load_industry_config
 
@@ -325,65 +348,118 @@ def run_pipeline(
     state.validation_issues.extend(manifest_issues)
     state.documents = _manifest_blocked_documents(state.documents, manifest_issues)
 
-    state.documents, time_lock_issues = apply_time_lock(
-        state.documents,
-        request.cutoff_date,
-    )
-    state.validation_issues.extend(time_lock_issues)
-
     extract_text = text_extractor or _extract_document_text
-    for document in state.documents:
-        state.chunks.extend(extract_text(document))
-    state.chunks = chunk_text(state.chunks, CHUNK_MAX_CHARS)
 
-    state.config = resolve_industry(request.industry_id)
-
-    located = _locate_config_evidence(
-        chunks=state.chunks,
-        config=state.config,
-        documents=state.documents,
-    )
-    state.evidence, policy_issues = apply_evidence_policy(
-        located,
-        state.documents,
-        request=request,
-    )
-    state.validation_issues.extend(policy_issues)
-
-    try:
-        state.claims = run_analysis(
-            request,
-            state.evidence,
-            state.config,
-            documents=state.documents,
-            provider=model_provider,
-        )
-
-        industry_issues = [
-            *check_required_metrics(state.evidence, state.config, documents=state.documents),
-            *apply_metric_rules(state.evidence, state.config, documents=state.documents),
+    if mode in {"E1", "E2"}:
+        # E1/E2 intentionally skip the formal time-lock and evidence chain.
+        # E1 is a generic agent with no industry configuration; E2 adds the
+        # loaded industry configuration as context only.
+        # Red-team and rejected material is never fed to the generic agent.
+        state.documents = [
+            document
+            for document in state.documents
+            if document.review_status not in {"red_team", "rejected"}
         ]
-        state.validation_issues.extend(industry_issues)
+        for document in state.documents:
+            state.chunks.extend(extract_text(document))
+        state.chunks = chunk_text(state.chunks, CHUNK_MAX_CHARS)
 
-        critic_issues = run_critic(request, state.claims, state.evidence, state.config)
-        if model_provider is not None:
-            critic_issues = [
-                *critic_issues,
-                *run_critic_llm(
-                    model_provider,
-                    request,
-                    state.claims,
-                    state.evidence,
-                    state.config,
-                ),
+        if mode == "E2":
+            state.config = resolve_industry(request.industry_id)
+
+        state.evidence, raw_issues = build_raw_evidence(
+            state.chunks,
+            state.documents,
+        )
+        state.validation_issues.extend(raw_issues)
+
+        try:
+            state.claims = run_generic_analysis(
+                model_provider,
+                request,
+                state.evidence,
+                config=state.config,
+            )
+        except ModelProviderError as exc:
+            _write_failed_metadata(request, started_at, exc, model_provider, mode)
+            raise
+
+        generated_at = datetime.now(timezone.utc)
+        state.report = render_report(
+            request,
+            state.claims,
+            state.evidence,
+            state.validation_issues,
+        )
+    else:
+        # rule-engine and E3 share the full formal chain. rule-engine may run
+        # without a model provider; E3 is the full-system experiment mode and
+        # therefore requires one (enforced above).
+        state.documents, time_lock_issues = apply_time_lock(
+            state.documents,
+            request.cutoff_date,
+        )
+        state.validation_issues.extend(time_lock_issues)
+
+        for document in state.documents:
+            state.chunks.extend(extract_text(document))
+        state.chunks = chunk_text(state.chunks, CHUNK_MAX_CHARS)
+
+        state.config = resolve_industry(request.industry_id)
+
+        located = _locate_config_evidence(
+            chunks=state.chunks,
+            config=state.config,
+            documents=state.documents,
+        )
+        state.evidence, policy_issues = apply_evidence_policy(
+            located,
+            state.documents,
+            request=request,
+        )
+        state.validation_issues.extend(policy_issues)
+
+        try:
+            state.claims = run_analysis(
+                request,
+                state.evidence,
+                state.config,
+                documents=state.documents,
+                provider=model_provider,
+            )
+
+            industry_issues = [
+                *check_required_metrics(state.evidence, state.config, documents=state.documents),
+                *apply_metric_rules(state.evidence, state.config, documents=state.documents),
             ]
-        state.validation_issues.extend(_drop_duplicated_metric_issues(critic_issues, industry_issues))
-    except ModelProviderError as exc:
-        _write_failed_metadata(request, started_at, exc, model_provider)
-        raise
+            state.validation_issues.extend(industry_issues)
 
-    generated_at = datetime.now(timezone.utc)
-    state.report = render_report(request, state.claims, state.evidence, state.validation_issues)
+            critic_issues = run_critic(request, state.claims, state.evidence, state.config)
+            if model_provider is not None:
+                critic_issues = [
+                    *critic_issues,
+                    *run_critic_llm(
+                        model_provider,
+                        request,
+                        state.claims,
+                        state.evidence,
+                        state.config,
+                    ),
+                ]
+            state.validation_issues.extend(
+                _drop_duplicated_metric_issues(critic_issues, industry_issues)
+            )
+        except ModelProviderError as exc:
+            _write_failed_metadata(request, started_at, exc, model_provider, mode)
+            raise
+
+        generated_at = datetime.now(timezone.utc)
+        state.report = render_report(
+            request,
+            state.claims,
+            state.evidence,
+            state.validation_issues,
+        )
 
     input_hashes = _compute_input_hashes(request)
 
@@ -397,13 +473,18 @@ def run_pipeline(
     else:
         model_provider_name = model_provider.config.provider_name
         model_name = model_provider.config.model_name
-        prompt_versions = get_prompt_versions()
-        agents_version = "v1-llm"
+        if mode in {"E1", "E2"}:
+            prompt_versions = {"generic": "v1"}
+            agents_version = "v1-generic"
+        else:
+            prompt_versions = get_prompt_versions()
+            agents_version = "v1-llm"
         model_version = "v1-transport"
         cache_version = model_provider.cache_version
 
     state.metadata = RunMetadata(
         run_id=request.run_id,
+        mode=mode,
         started_at=started_at,
         finished_at=generated_at,
         status="success",

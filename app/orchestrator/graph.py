@@ -270,12 +270,14 @@ def _write_failed_metadata(
         prompt_versions: dict[str, str] = {}
         agents_version = "v1-aggregation"
         model_version = "v1-provider"
+        cache_version = "none"
     else:
         model_provider_name = model_provider.config.provider_name
         model_name = model_provider.config.model_name
         prompt_versions = get_prompt_versions()
         agents_version = "v1-llm"
         model_version = "v1-transport"
+        cache_version = model_provider.cache_version
 
     metadata = RunMetadata(
         run_id=request.run_id,
@@ -293,6 +295,7 @@ def _write_failed_metadata(
             "industry": "v1-c-merged",
             "agents": agents_version,
             "model": model_version,
+            "cache": cache_version,
         },
         errors=[str(error)],
     )
@@ -390,12 +393,14 @@ def run_pipeline(
         prompt_versions: dict[str, str] = {}
         agents_version = "v1-aggregation"
         model_version = "v1-provider"
+        cache_version = "none"
     else:
         model_provider_name = model_provider.config.provider_name
         model_name = model_provider.config.model_name
         prompt_versions = get_prompt_versions()
         agents_version = "v1-llm"
         model_version = "v1-transport"
+        cache_version = model_provider.cache_version
 
     state.metadata = RunMetadata(
         run_id=request.run_id,
@@ -413,6 +418,7 @@ def run_pipeline(
             "industry": "v1-c-merged",
             "agents": agents_version,
             "model": model_version,
+            "cache": cache_version,
         },
         errors=[],
     )

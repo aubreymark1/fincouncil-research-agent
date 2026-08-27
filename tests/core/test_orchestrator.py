@@ -12,7 +12,10 @@ import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from app.industry.loader import load_industry_config
+from app.model import JsonFileCache, ModelConfig, ModelProvider, ModelProviderError
 from app.orchestrator import run_pipeline
 from app.schemas import ResearchReport, ResearchRequest, SourceDocument, TextChunk
 
@@ -111,6 +114,7 @@ def test_run_research_writes_report_md_and_metadata_from_real_chain(tmp_path):
     assert saved_metadata["model_name"] == "a008-rules"
     assert saved_metadata["errors"] == []
     assert saved_metadata["module_versions"]["orchestrator"] == "v1-a008"
+    assert saved_metadata["module_versions"]["cache"] == "none"
 
 
 def test_pass_claim_cites_verified_financial_evidence_only(tmp_path):
@@ -219,3 +223,31 @@ def test_empty_manifest_yields_unresolved_claims_without_evidence(tmp_path):
     assert not state.report.claims
     assert all(claim.claim_type == "unresolved" for claim in state.report.unresolved_items)
     assert state.report.unresolved_items
+
+
+def test_failed_llm_metadata_records_json_cache_version(tmp_path):
+    # Arrange
+    request = make_request(tmp_path)
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        raise ModelProviderError("E300 module=model.transport: test failure")
+
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=transport,
+        cache=JsonFileCache(tmp_path / "model-cache.json"),
+    )
+
+    # Act / Assert
+    with pytest.raises(ModelProviderError, match="E300"):
+        run_pipeline(
+            request,
+            manifest_loader=fake_manifest_loader,
+            text_extractor=fake_text_extractor,
+            industry_loader=load_industry_config,
+            model_provider=provider,
+        )
+
+    metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["module_versions"]["cache"] == "v1-json"

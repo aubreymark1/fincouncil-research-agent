@@ -53,6 +53,7 @@ class JsonFileCache:
         return self.path.with_name(self.path.name + ".lock")
 
     def _acquire_lock(self, timeout: float = 5.0) -> Path:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         lock_path = self._lock_path()
         deadline = time.time() + timeout
         stale_after = 30.0

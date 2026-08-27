@@ -252,6 +252,17 @@ def test_json_file_cache_atomic_write_leaves_no_temp_or_lock(tmp_path: Path) -> 
     assert not (tmp_path / "model-cache.json.lock").exists()
 
 
+def test_json_file_cache_creates_missing_parent_directory(tmp_path: Path) -> None:
+    cache_path = tmp_path / "nested" / "does" / "not" / "exist" / "model-cache.json"
+    cache = JsonFileCache(cache_path)
+    cache.set("key", {"answer": "cached"})
+
+    assert cache.get("key") == {"answer": "cached"}
+
+    second_cache = JsonFileCache(cache_path)
+    assert second_cache.get("key") == {"answer": "cached"}
+
+
 def test_json_file_cache_recovers_from_corrupt_file(tmp_path: Path) -> None:
     cache_path = tmp_path / "model-cache.json"
     cache_path.write_text("{not-json", encoding="utf-8")

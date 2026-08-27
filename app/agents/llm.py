@@ -393,9 +393,19 @@ def _merge_claims(claims: list[Claim]) -> list[Claim]:
             dict.fromkeys([*existing.industry_metric_ids, *claim.industry_metric_ids])
         )
         text_conflict = existing.text != claim.text
+        semantic_conflict = (
+            existing.claim_type != claim.claim_type
+            or existing.risk_severity != claim.risk_severity
+            or existing.calculation != claim.calculation
+        )
         merged_status = (
             "review"
-            if text_conflict or existing.status == "review" or claim.status == "review"
+            if (
+                text_conflict
+                or semantic_conflict
+                or existing.status == "review"
+                or claim.status == "review"
+            )
             else existing.status
         )
         merged[claim.claim_id] = existing.model_copy(

@@ -821,6 +821,54 @@ def test_duplicate_claim_ids_merge_is_conservative(monkeypatch) -> None:
     assert set(claims[0].evidence_ids) == {"EV-A", "EV-B"}
 
 
+def test_duplicate_claim_ids_merge_detects_semantic_conflict(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    call_count = 0
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "claims": [
+                    make_claim_payload(
+                        claim_id="CL-CONFLICT",
+                        claim_type="fact",
+                        status="pass",
+                        confidence=0.9,
+                        evidence_ids=["EV-A"],
+                    )
+                ]
+            }
+        return {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-CONFLICT",
+                    claim_type="risk",
+                    risk_severity="medium",
+                    status="pass",
+                    confidence=0.9,
+                    evidence_ids=["EV-B"],
+                )
+            ]
+        }
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    evidence = [
+        make_tiny_metric_evidence("EV-A"),
+        make_tiny_metric_evidence("EV-B"),
+    ]
+
+    claims = analyze_fundamentals_llm(provider, request, evidence, config)
+
+    assert call_count >= 2
+    assert len(claims) == 1
+    assert claims[0].status == "review"
+    assert set(claims[0].evidence_ids) == {"EV-A", "EV-B"}
+
+
 def test_prompt_versions_are_loaded() -> None:
     versions = get_prompt_versions()
 

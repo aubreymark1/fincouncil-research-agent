@@ -38,6 +38,11 @@ JsonTransport = Callable[[str, "ModelConfig"], Any]
 class ModelProviderError(RuntimeError):
     """A safe, coded error that does not expose prompt or credential contents."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        prefix = message.split(" ", 1)[0]
+        self.code = prefix if (len(prefix) == 4 and prefix[0] == "E" and prefix[1:].isdigit()) else None
+
 
 def _parse_float(env: Mapping[str, str], name: str, default: float) -> float:
     value = env.get(name)
@@ -238,7 +243,7 @@ class ModelProvider:
             except Exception as exc:
                 last_transport_error_type = type(exc).__name__
                 if attempt == attempts - 1:
-                    if isinstance(exc, ModelProviderError) and str(exc).startswith("E301 "):
+                    if isinstance(exc, ModelProviderError) and exc.code == "E301":
                         raise
                     raise ModelProviderError(
                         f"E300 module=model: transport failed after {attempts} attempts "

@@ -128,6 +128,11 @@ def test_has_cache_property_reflects_configured_cache() -> None:
     assert uncached.has_cache is False
 
 
+def test_model_provider_error_exposes_code() -> None:
+    error = ModelProviderError("E301 module=model.transport: response missing chat content")
+    assert error.code == "E301"
+
+
 def test_transport_e301_is_preserved_after_retries() -> None:
     attempts: list[int] = []
 

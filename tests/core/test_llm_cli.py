@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import scripts.run_case as run_case
+from app.model import JsonFileCache
 from app.schemas import ResearchReport
 
 
@@ -41,3 +42,5 @@ def test_run_case_llm_flag_constructs_provider(monkeypatch) -> None:
 
     assert exit_code == 0
     assert captured["model_provider"] is not None
+    assert isinstance(captured["model_provider"]._cache, JsonFileCache)
+    assert captured["model_provider"]._cache.path.name == "model_cache.json"

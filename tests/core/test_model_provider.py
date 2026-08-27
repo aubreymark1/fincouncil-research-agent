@@ -111,6 +111,27 @@ def test_invalid_structured_output_is_retried_and_then_rejected() -> None:
     assert len(attempts) == 2
 
 
+def test_transport_e301_is_preserved_after_retries() -> None:
+    attempts: list[int] = []
+
+    def transport(_prompt: str, _config: ModelConfig) -> str:
+        attempts.append(1)
+        raise ModelProviderError(
+            "E301 module=model.transport: response missing chat content"
+        )
+
+    provider = ModelProvider(
+        ModelConfig(max_retries=1),
+        transport=transport,
+        sleep_fn=lambda _seconds: None,
+    )
+
+    with pytest.raises(ModelProviderError, match=r"E301 module=model\.transport"):
+        provider.generate_json("return JSON")
+
+    assert len(attempts) == 2
+
+
 def test_cache_write_failure_does_not_retry_or_discard_model_result() -> None:
     attempts: list[int] = []
 

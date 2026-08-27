@@ -351,6 +351,28 @@ def _validate_claim_node_output(
                         )
 
 
+def _merge_claims(claims: list[Claim]) -> list[Claim]:
+    """Merge duplicate claim_ids by unioning evidence_ids.
+
+    Later batches may provide additional supporting evidence for the same
+    logical Claim; dropping them would silently weaken the support set.
+    """
+
+    merged: dict[str, Claim] = {}
+    for claim in claims:
+        existing = merged.get(claim.claim_id)
+        if existing is None:
+            merged[claim.claim_id] = claim
+            continue
+        combined_evidence = list(
+            dict.fromkeys([*existing.evidence_ids, *claim.evidence_ids])
+        )
+        merged[claim.claim_id] = existing.model_copy(
+            update={"evidence_ids": combined_evidence}
+        )
+    return list(merged.values())
+
+
 def _run_claim_node_single(
     provider: ModelProvider,
     prompt_name: str,
@@ -363,8 +385,6 @@ def _run_claim_node_single(
     total_batches: int,
     documents: list[SourceDocument] | None = None,
 ) -> list[Claim]:
-    evidence_by_id = {item.evidence_id: item for item in evidence}
-
     context: dict[str, Any] = {
         "request": request.model_dump(mode="json"),
         "evidence": _evidence_payload(evidence),
@@ -383,13 +403,6 @@ def _run_claim_node_single(
     )
     if not isinstance(result, ClaimList):
         raise TypeError("E301 module=agents.llm: expected ClaimList response")
-    _validate_claim_node_output(
-        prompt_name,
-        result.claims,
-        config,
-        evidence_by_id,
-        full_evidence_by_id,
-    )
     return result.claims
 
 
@@ -408,24 +421,30 @@ def _run_claim_node(
     full_evidence_by_id = {item.evidence_id: item for item in filtered}
     batches = _split_evidence_batches(filtered)
 
-    claims: list[Claim] = []
-    seen_claim_ids: set[str] = set()
+    raw_claims: list[Claim] = []
     for batch_index, batch in enumerate(batches, start=1):
-        batch_claims = _run_claim_node_single(
-            provider,
-            prompt_name,
-            request=request,
-            evidence=batch,
-            config=config,
-            full_evidence_by_id=full_evidence_by_id,
-            batch_index=batch_index,
-            total_batches=len(batches),
-            documents=documents,
+        raw_claims.extend(
+            _run_claim_node_single(
+                provider,
+                prompt_name,
+                request=request,
+                evidence=batch,
+                config=config,
+                full_evidence_by_id=full_evidence_by_id,
+                batch_index=batch_index,
+                total_batches=len(batches),
+                documents=documents,
+            )
         )
-        for claim in batch_claims:
-            if claim.claim_id not in seen_claim_ids:
-                claims.append(claim)
-                seen_claim_ids.add(claim.claim_id)
+
+    claims = _merge_claims(raw_claims)
+    _validate_claim_node_output(
+        prompt_name,
+        claims,
+        config,
+        full_evidence_by_id,
+        full_evidence_by_id,
+    )
     return claims
 
 

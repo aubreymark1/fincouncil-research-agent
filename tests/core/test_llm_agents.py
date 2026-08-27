@@ -637,6 +637,100 @@ def test_risk_claim_with_unreferenced_exclude_evidence_is_rejected() -> None:
         analyze_risks_llm(provider, request, evidence, config)
 
 
+def make_tiny_risk_evidence(evidence_id: str, evidence_type: str, text: str) -> Evidence:
+    return Evidence(
+        evidence_id=evidence_id,
+        doc_id="DOC-FOOD-001",
+        chunk_id="CHUNK-FOOD-001",
+        fact_text=text,
+        quote=text,
+        published_at="2026-03-30",
+        page=1,
+        section="s",
+        locator="p1",
+        company_name="c",
+        industry_id="food_beverage",
+        evidence_type=evidence_type,
+        confidence=0.5,
+        review_status="verified",
+    )
+
+
+def test_risk_claim_can_combine_evidence_across_batches(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    calls: list[str] = []
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        calls.append(prompt)
+        return {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-RISK-CROSS",
+                    claim_type="risk",
+                    risk_severity="medium",
+                    status="review",
+                    evidence_ids=["EV-R-FIN", "EV-R-OP"],
+                    industry_metric_ids=["inventory", "revenue_growth"],
+                )
+            ]
+        }
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    evidence = [
+        make_tiny_risk_evidence("EV-R-FIN", "financial", "存货增速高于收入增速"),
+        make_tiny_risk_evidence("EV-R-OP", "operating", "渠道库存压力上升"),
+    ]
+
+    claims = analyze_risks_llm(provider, request, evidence, config)
+
+    assert len(calls) >= 2
+    assert len(claims) == 1
+    assert claims[0].claim_id == "CL-RISK-CROSS"
+    assert set(claims[0].evidence_ids) == {"EV-R-FIN", "EV-R-OP"}
+
+
+def test_duplicate_claim_ids_merge_evidence_ids(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    call_count = 0
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "claims": [
+                    make_claim_payload(
+                        claim_id="CL-MERGE",
+                        evidence_ids=["EV-A"],
+                    )
+                ]
+            }
+        return {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-MERGE",
+                    evidence_ids=["EV-B"],
+                )
+            ]
+        }
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    evidence = [
+        make_tiny_metric_evidence("EV-A"),
+        make_tiny_metric_evidence("EV-B"),
+    ]
+
+    claims = analyze_fundamentals_llm(provider, request, evidence, config)
+
+    assert call_count >= 2
+    assert len(claims) == 1
+    assert set(claims[0].evidence_ids) == {"EV-A", "EV-B"}
+
+
 def test_prompt_versions_are_loaded() -> None:
     versions = get_prompt_versions()
 

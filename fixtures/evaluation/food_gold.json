@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "case_id": "food_main",
-  "fixture_notice": "A 基于真实年报生成的 draft signed Gold：销售费用率为计算值（销售费用/营业收入），food_safety 使用海天与茅台两家公司年报中的质量/食品安全表述；仍需人工复核后正式签收。",
+  "fixture_notice": "A 已人工复核并签收的真实食品饮料 Gold Standard；销售费用率采用销售费用/营业收入计算值，food_safety 采用海天与茅台双来源口径。",
   "status": "signed",
   "required_metric_ids_source": "configs/food_beverage.yaml@a55f757",
   "required_metric_ids": [

@@ -554,6 +554,89 @@ def test_critic_llm_records_omitted_evidence(monkeypatch) -> None:
     assert "omitted_evidence_ids" in captured[0]
 
 
+def make_tiny_metric_evidence(evidence_id: str) -> Evidence:
+    return Evidence(
+        evidence_id=evidence_id,
+        doc_id="DOC-FOOD-001",
+        chunk_id="CHUNK-FOOD-001",
+        fact_text="存货 a",
+        quote="存货 a",
+        published_at="2026-03-30",
+        page=1,
+        section="s",
+        locator="p1",
+        company_name="c",
+        industry_id="food_beverage",
+        evidence_type="financial",
+        confidence=0.5,
+        review_status="verified",
+    )
+
+
+def test_analysis_batches_large_evidence_pool(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    calls: list[str] = []
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        calls.append(prompt)
+        return {"claims": []}
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    evidence = [
+        make_tiny_metric_evidence(f"EV-BATCH-{index:03d}")
+        for index in range(3)
+    ]
+
+    claims = analyze_fundamentals_llm(provider, request, evidence, config)
+
+    assert len(calls) >= 2
+    assert claims == []
+
+
+def test_risk_claim_with_unreferenced_exclude_evidence_is_rejected() -> None:
+    provider = make_provider(
+        lambda _prompt, _config: {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-RISK-EXCL-FULL",
+                    claim_type="risk",
+                    risk_severity="medium",
+                    status="review",
+                    evidence_ids=["EV-FIN-001", "EV-OP-001"],
+                    industry_metric_ids=["inventory", "revenue_growth"],
+                )
+            ]
+        }
+    )
+    request = make_request()
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FIN-001",
+            evidence_type="financial",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+        ),
+        make_evidence(
+            evidence_id="EV-OP-001",
+            evidence_type="operating",
+            fact_text="公司披露渠道库存压力上升。",
+            quote="渠道库存压力上升。",
+        ),
+        make_evidence(
+            evidence_id="EV-EXCL-001",
+            evidence_type="operating",
+            fact_text="公司披露库存压力已缓解。",
+            quote="库存压力已缓解。",
+        ),
+    ]
+    config = make_config()
+
+    with pytest.raises(ModelProviderError, match="full rule-relevant evidence"):
+        analyze_risks_llm(provider, request, evidence, config)
+
+
 def test_prompt_versions_are_loaded() -> None:
     versions = get_prompt_versions()
 

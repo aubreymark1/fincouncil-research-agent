@@ -6,14 +6,13 @@ orchestrator remains rule-engine unless a caller injects a ``ModelProvider``.
 
 The LLM path is intentionally defensive:
 - each node filters evidence by evidence_type and node-specific relevance;
-- a hard character budget prevents context overflow; analysis nodes refuse to
-  silently truncate, while the LLM Critic records omitted evidence IDs because
-  the deterministic Critic still performs full hard validation;
+- evidence is split into budget-sized batches so real RUN-DEMO pools are fully
+  covered instead of failing or silently truncating;
 - the request/company context is included so target-company applicability can
   be judged;
 - node-specific Claim constraints, config-aware metric/risk semantics,
-  trigger/exclude signals, and evidence-ID isolation are validated after model
-  output;
+  trigger/exclude signals (including full-pool exclude evidence), and
+  evidence-ID isolation are validated after model output;
 - the provider's default cache key includes the full prompt text, so prompt
   edits invalidate cached responses.
 """
@@ -110,7 +109,7 @@ def _relevance_filter(
     evidence: list[Evidence],
     config: IndustryConfig,
 ) -> list[Evidence]:
-    """Drop evidence unlikely to matter for one node before the budget cut."""
+    """Drop evidence unlikely to matter for one node before batching."""
 
     if prompt_name == "fundamental":
         keywords = [
@@ -146,11 +145,7 @@ def _budget_evidence(
     evidence: list[Evidence],
     max_chars: int | None = None,
 ) -> tuple[list[Evidence], list[str]]:
-    """Return evidence that fits the budget and IDs omitted by the budget.
-
-    If a single evidence item is already too large, fail clearly instead of
-    silently truncating the source of a Claim.
-    """
+    """Return evidence that fits the budget and IDs omitted by the budget."""
 
     limit = MAX_PROMPT_EVIDENCE_CHARS if max_chars is None else max_chars
     selected: list[Evidence] = []
@@ -169,6 +164,45 @@ def _budget_evidence(
         total_chars += item_chars
     omitted_ids = [item.evidence_id for item in evidence[len(selected):]]
     return selected, omitted_ids
+
+
+def _split_evidence_batches(
+    evidence: list[Evidence],
+    max_chars: int | None = None,
+) -> list[list[Evidence]]:
+    """Split evidence into prompt-sized batches without dropping any ID."""
+
+    limit = MAX_PROMPT_EVIDENCE_CHARS if max_chars is None else max_chars
+    batches: list[list[Evidence]] = []
+    current: list[Evidence] = []
+    total_chars = 0
+    for item in evidence:
+        serialized = json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
+        item_chars = len(serialized)
+        if item_chars > limit:
+            raise ModelProviderError(
+                "E301 module=agents.llm: a single evidence item exceeds the "
+                "LLM prompt evidence budget"
+            )
+        if current and total_chars + item_chars > limit:
+            batches.append(current)
+            current = []
+            total_chars = 0
+        current.append(item)
+        total_chars += item_chars
+    if current or not batches:
+        batches.append(current)
+    return batches
+
+
+def _evidence_matches_rule_terms(item: Evidence, rule: Any) -> bool:
+    """Return True when evidence is relevant to one RiskRule."""
+
+    text = _evidence_text(item)
+    terms: list[str] = []
+    terms.extend(rule.trigger_terms)
+    terms.extend(rule.exclude_terms)
+    return any(term.casefold() in text for term in terms if term)
 
 
 def _known_metric_ids(config: IndustryConfig) -> set[str]:
@@ -195,6 +229,7 @@ def _validate_claim_node_output(
     claims: list[Claim],
     config: IndustryConfig,
     evidence_by_id: dict[str, Evidence],
+    full_evidence_by_id: dict[str, Evidence] | None = None,
 ) -> None:
     """Enforce node-specific and config-aware Claim constraints."""
 
@@ -295,6 +330,68 @@ def _validate_claim_node_output(
                         "does not satisfy trigger/exclude semantics"
                     )
 
+                if full_evidence_by_id is not None:
+                    full_rule_evidence = [
+                        item
+                        for item in full_evidence_by_id.values()
+                        if _evidence_matches_rule_terms(item, rule)
+                    ]
+                    full_text = "\n".join(_evidence_text(item) for item in full_rule_evidence)
+                    full_exclude_hit = any(
+                        term.casefold() in full_text for term in rule.exclude_terms
+                    )
+                    full_trigger_hit = any(
+                        term.casefold() in full_text for term in rule.trigger_terms
+                    )
+                    if full_exclude_hit or not full_trigger_hit:
+                        raise ModelProviderError(
+                            f"E301 module=agents.llm: risk claim for {rule.risk_id} "
+                            "is inconsistent with the full rule-relevant evidence "
+                            "pool (exclude signal present or no trigger signal)"
+                        )
+
+
+def _run_claim_node_single(
+    provider: ModelProvider,
+    prompt_name: str,
+    *,
+    request: ResearchRequest,
+    evidence: list[Evidence],
+    config: IndustryConfig,
+    full_evidence_by_id: dict[str, Evidence] | None,
+    batch_index: int,
+    total_batches: int,
+    documents: list[SourceDocument] | None = None,
+) -> list[Claim]:
+    evidence_by_id = {item.evidence_id: item for item in evidence}
+
+    context: dict[str, Any] = {
+        "request": request.model_dump(mode="json"),
+        "evidence": _evidence_payload(evidence),
+        "evidence_truncated": False,
+        "omitted_evidence_ids": [],
+        "batch_index": batch_index,
+        "total_batches": total_batches,
+        "config": config.model_dump(mode="json"),
+    }
+    if documents is not None:
+        context["documents"] = [document.model_dump(mode="json") for document in documents]
+
+    result = provider.generate_json(
+        _build_prompt(prompt_name, context=context),
+        response_model=ClaimList,
+    )
+    if not isinstance(result, ClaimList):
+        raise TypeError("E301 module=agents.llm: expected ClaimList response")
+    _validate_claim_node_output(
+        prompt_name,
+        result.claims,
+        config,
+        evidence_by_id,
+        full_evidence_by_id,
+    )
+    return result.claims
+
 
 def _run_claim_node(
     provider: ModelProvider,
@@ -308,33 +405,28 @@ def _run_claim_node(
 ) -> list[Claim]:
     filtered = _filter_evidence_types(evidence, config, allowed_types)
     filtered = _relevance_filter(prompt_name, filtered, config)
-    selected, omitted_ids = _budget_evidence(filtered)
-    if omitted_ids:
-        raise ModelProviderError(
-            "E301 module=agents.llm: "
-            f"{prompt_name} node evidence pool exceeds the LLM prompt budget; "
-            "refusing silent truncation"
+    full_evidence_by_id = {item.evidence_id: item for item in filtered}
+    batches = _split_evidence_batches(filtered)
+
+    claims: list[Claim] = []
+    seen_claim_ids: set[str] = set()
+    for batch_index, batch in enumerate(batches, start=1):
+        batch_claims = _run_claim_node_single(
+            provider,
+            prompt_name,
+            request=request,
+            evidence=batch,
+            config=config,
+            full_evidence_by_id=full_evidence_by_id,
+            batch_index=batch_index,
+            total_batches=len(batches),
+            documents=documents,
         )
-    evidence_by_id = {item.evidence_id: item for item in selected}
-
-    context: dict[str, Any] = {
-        "request": request.model_dump(mode="json"),
-        "evidence": _evidence_payload(selected),
-        "evidence_truncated": False,
-        "omitted_evidence_ids": [],
-        "config": config.model_dump(mode="json"),
-    }
-    if documents is not None:
-        context["documents"] = [document.model_dump(mode="json") for document in documents]
-
-    result = provider.generate_json(
-        _build_prompt(prompt_name, context=context),
-        response_model=ClaimList,
-    )
-    if not isinstance(result, ClaimList):
-        raise TypeError("E301 module=agents.llm: expected ClaimList response")
-    _validate_claim_node_output(prompt_name, result.claims, config, evidence_by_id)
-    return result.claims
+        for claim in batch_claims:
+            if claim.claim_id not in seen_claim_ids:
+                claims.append(claim)
+                seen_claim_ids.add(claim.claim_id)
+    return claims
 
 
 def analyze_fundamentals_llm(

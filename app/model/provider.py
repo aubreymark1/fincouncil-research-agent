@@ -161,6 +161,11 @@ class ModelProvider:
         self._sleep = sleep_fn
         self.last_cache_error: str | None = None
 
+    @property
+    def has_cache(self) -> bool:
+        """Return whether a model cache is configured."""
+        return self._cache is not None
+
     @classmethod
     def from_env(
         cls,

@@ -111,6 +111,21 @@ def test_invalid_structured_output_is_retried_and_then_rejected() -> None:
     assert len(attempts) == 2
 
 
+def test_has_cache_property_reflects_configured_cache() -> None:
+    cached = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: '{"answer": "ok"}',
+        cache=InMemoryCache(),
+    )
+    uncached = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: '{"answer": "ok"}',
+    )
+
+    assert cached.has_cache is True
+    assert uncached.has_cache is False
+
+
 def test_transport_e301_is_preserved_after_retries() -> None:
     attempts: list[int] = []
 

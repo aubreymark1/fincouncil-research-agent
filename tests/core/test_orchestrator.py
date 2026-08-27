@@ -111,6 +111,7 @@ def test_run_research_writes_report_md_and_metadata_from_real_chain(tmp_path):
     assert saved_metadata["model_name"] == "a008-rules"
     assert saved_metadata["errors"] == []
     assert saved_metadata["module_versions"]["orchestrator"] == "v1-a008"
+    assert saved_metadata["module_versions"]["cache"] == "none"
 
 
 def test_pass_claim_cites_verified_financial_evidence_only(tmp_path):

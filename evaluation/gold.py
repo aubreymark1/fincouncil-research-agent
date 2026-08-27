@@ -193,6 +193,13 @@ def load_gold_standard(gold_path: str, industry_id: str) -> GoldStandard:
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
         raise ValueError("Gold Standard root must be an object containing an items list")
 
+    status = payload.get("status", "signed")
+    if status != "signed":
+        raise ValueError(
+            f"Gold Standard is not signed for scoring: status={status!r}; "
+            "only signed Gold Standards can be used to evaluate reports"
+        )
+
     raw_required_metric_ids = payload.get("required_metric_ids")
     if not isinstance(raw_required_metric_ids, list) or not raw_required_metric_ids:
         raise ValueError(
@@ -274,6 +281,8 @@ def load_gold_standard(gold_path: str, industry_id: str) -> GoldStandard:
             evidence_requirement=evidence_requirement,
         )
         items.append(item)
+    if not items:
+        raise ValueError("Gold Standard must contain at least one item")
     return GoldStandard(
         items=tuple(items),
         required_metric_ids=frozenset(required_metric_ids),

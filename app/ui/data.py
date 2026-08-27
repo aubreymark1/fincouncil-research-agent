@@ -13,6 +13,10 @@ from typing import Any
 
 from app.schemas import ResearchReport, RunMetadata
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_REPORT_PATH = PROJECT_ROOT / "fixtures" / "evaluation" / "report_sample.json"
+DEFAULT_METADATA_PATH: Path | None = None
+
 
 def _read_json(path: str | Path) -> dict[str, Any]:
     p = Path(path)

@@ -8,8 +8,13 @@ from pathlib import Path
 import pytest
 
 from app.schemas import ResearchReport
-from app.ui.components import claim_markdown, metric_rows
-from app.ui.data import build_ui_model, load_report
+from app.ui.components import (
+    claim_markdown,
+    formal_claims,
+    metric_rows,
+    non_formal_claims,
+)
+from app.ui.data import DEFAULT_REPORT_PATH, build_ui_model, load_report
 from app.ui.evidence_view import claim_evidence_markdown, evidence_by_id, format_evidence
 
 
@@ -103,3 +108,33 @@ def test_claim_markdown_includes_id_status_and_text() -> None:
     assert claim["claim_id"] in markdown
     assert claim["status"] in markdown
     assert claim["text"] in markdown
+
+
+def test_default_report_path_is_committed_fixture() -> None:
+    assert DEFAULT_REPORT_PATH.exists()
+    assert "fixtures" in DEFAULT_REPORT_PATH.parts
+    assert "outputs" not in DEFAULT_REPORT_PATH.parts
+
+
+def test_formal_claims_only_include_pass_claims() -> None:
+    report = load_report(REPORT_FIXTURE).model_dump(mode="json")
+    report["claims"].append(
+        {
+            "claim_id": "CL-REVIEW",
+            "text": "待确认结论",
+            "claim_type": "analysis",
+            "risk_severity": None,
+            "evidence_ids": ["EV-SYN-REV"],
+            "calculation": None,
+            "confidence": 0.5,
+            "industry_metric_ids": ["revenue_growth"],
+            "status": "review",
+        }
+    )
+
+    formal = formal_claims(report)
+    non_formal = non_formal_claims(report)
+
+    assert all(claim["status"] == "pass" for claim in formal)
+    assert all(claim["status"] != "pass" for claim in non_formal)
+    assert any(claim["claim_id"] == "CL-REVIEW" for claim in non_formal)

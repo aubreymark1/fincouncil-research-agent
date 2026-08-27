@@ -15,14 +15,23 @@ from pathlib import Path
 
 import streamlit as st
 
-from app.ui.components import claim_markdown, metric_rows
-from app.ui.data import build_ui_model, load_metrics, load_report, load_run_metadata
+from app.ui.components import (
+    claim_markdown,
+    formal_claims,
+    metric_rows,
+    non_formal_claims,
+)
+from app.ui.data import (
+    DEFAULT_METADATA_PATH,
+    DEFAULT_REPORT_PATH,
+    build_ui_model,
+)
 from app.ui.evidence_view import claim_evidence_markdown
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_REPORT = PROJECT_ROOT / "outputs" / "reports" / "RUN-DEMO" / "report.json"
-DEFAULT_METADATA = PROJECT_ROOT / "outputs" / "logs" / "RUN-DEMO" / "run_metadata.json"
+DEFAULT_REPORT = DEFAULT_REPORT_PATH
+DEFAULT_METADATA = str(DEFAULT_METADATA_PATH) if DEFAULT_METADATA_PATH else ""
 
 
 def _resolve(value: str) -> Path:
@@ -76,21 +85,18 @@ def main() -> None:
     for line in report.get("summary", []):
         st.write(line)
 
-    st.markdown("### 结论")
-    for claim in report.get("claims", []):
+    st.markdown("### 结论（正式）")
+    for claim in formal_claims(report):
         st.markdown(claim_markdown(claim))
         with st.expander("查看证据"):
             st.markdown(claim_evidence_markdown(claim, report))
 
-    st.markdown("### 风险")
-    for claim in report.get("risks", []):
+    st.markdown("### 非正式结论 / 待人工确认")
+    for claim in [*non_formal_claims(report), *report.get("unresolved_items", [])]:
         st.markdown(claim_markdown(claim))
-        with st.expander("查看证据"):
-            st.markdown(claim_evidence_markdown(claim, report))
-
-    st.markdown("### 待确认项")
-    for claim in report.get("unresolved_items", []):
-        st.markdown(claim_markdown(claim))
+        if claim.get("evidence_ids"):
+            with st.expander("查看证据"):
+                st.markdown(claim_evidence_markdown(claim, report))
 
     st.markdown("### 校验问题")
     for issue in report.get("validation_issues", []):

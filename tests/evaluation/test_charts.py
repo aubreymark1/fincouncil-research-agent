@@ -19,6 +19,8 @@ def _write_results(path: Path) -> Path:
             "status": "success",
             "started_at": "2026-08-27T09:00:00+08:00",
             "finished_at": "2026-08-27T09:30:00+08:00",
+            "error_count": 0,
+            "validation_issue_count": 1,
             "metrics": {
                 "key_factor_coverage_rate": 0.8,
                 "evidence_validity_rate": 0.9,
@@ -38,23 +40,13 @@ def _write_results(path: Path) -> Path:
             "name": "full_system",
             "case_id": "food_main",
             "status": "success",
+            "error_count": 0,
+            "validation_issue_count": 2,
             "metrics": {
                 "key_factor_coverage_rate": 0.6,
                 "evidence_validity_rate": 0.7,
                 "cutoff_violation_count": 1,
                 "industry_metric_coverage_rate": 0.8,
-            },
-        },
-        {
-            "experiment_id": "E3",
-            "name": "bank_full_system",
-            "case_id": "bank_main",
-            "status": "success",
-            "metrics": {
-                "key_factor_coverage_rate": 0.5,
-                "evidence_validity_rate": 0.6,
-                "cutoff_violation_count": 0,
-                "industry_metric_coverage_rate": 0.9,
             },
         },
     ]
@@ -80,6 +72,43 @@ def test_generate_charts_writes_five_svg_files(tmp_path: Path) -> None:
     for path in written:
         assert path.exists()
         assert path.read_text(encoding="utf-8").startswith("<svg")
+
+
+def test_disabled_rows_are_not_plotted_as_zero(tmp_path: Path) -> None:
+    results = _write_results(tmp_path / "results.json")
+    out = tmp_path / "charts"
+
+    generate_charts(results, out)
+
+    coverage = (out / "coverage.svg").read_text(encoding="utf-8")
+    # E1 disabled 不应出现为 0 的柱子；应只有 E0/E3 两个 bar 标签。
+    assert coverage.count("<rect") == 2
+    assert "E1" not in coverage
+
+
+def test_bank_missing_data_renders_no_data_not_zero(tmp_path: Path) -> None:
+    results = _write_results(tmp_path / "results.json")
+    out = tmp_path / "charts"
+
+    generate_charts(results, out)
+
+    bank = (out / "bank_migration_coverage.svg").read_text(encoding="utf-8")
+    assert "no data" in bank
+    assert "0.00" not in bank
+
+
+def test_errors_chart_includes_cutoff_failure_and_validation_counts(
+    tmp_path: Path,
+) -> None:
+    results = _write_results(tmp_path / "results.json")
+    out = tmp_path / "charts"
+
+    generate_charts(results, out)
+
+    errors = (out / "errors_and_cutoff.svg").read_text(encoding="utf-8")
+    assert "cutoff 违规" in errors
+    assert "失败运行" in errors
+    assert "ValidationIssue" in errors
 
 
 def test_missing_results_file_raises(tmp_path: Path) -> None:

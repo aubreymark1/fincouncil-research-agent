@@ -3,7 +3,8 @@
 Charts are intentionally dependency-free: they read ``results.json`` or
 ``results.csv`` produced by D-003 and emit standalone SVG files.  No chart
 value is hand-written; missing data is rendered as an explicit "no data"
-state.
+state.  Rows that did not run successfully (disabled/failed) are not plotted
+as measured zero values.
 """
 
 from __future__ import annotations
@@ -20,6 +21,15 @@ BAR_MAX_HEIGHT = 220
 MARGIN_LEFT = 48
 MARGIN_BOTTOM = 48
 MARGIN_TOP = 32
+
+METRIC_KEYS = (
+    "key_factor_coverage_rate",
+    "evidence_validity_rate",
+    "citation_location_accuracy_rate",
+    "numeric_error_rate",
+    "cutoff_violation_count",
+    "industry_metric_coverage_rate",
+)
 
 
 def _load_rows(path: str | Path) -> list[dict[str, Any]]:
@@ -38,16 +48,6 @@ def _load_rows(path: str | Path) -> list[dict[str, Any]]:
             rows = list(reader)
         return rows
     raise ValueError(f"unsupported results file type: {results_path.suffix}")
-
-
-METRIC_KEYS = (
-    "key_factor_coverage_rate",
-    "evidence_validity_rate",
-    "citation_location_accuracy_rate",
-    "numeric_error_rate",
-    "cutoff_violation_count",
-    "industry_metric_coverage_rate",
-)
 
 
 def _metrics(row: dict[str, Any]) -> dict[str, Any]:
@@ -137,6 +137,76 @@ def _bar_chart_svg(
     return "\n".join(parts)
 
 
+def _grouped_bar_chart_svg(
+    title: str,
+    labels: Sequence[str],
+    series: Sequence[tuple[str, Sequence[float]]],
+    *,
+    y_label: str = "数量",
+) -> str:
+    """Render a grouped vertical bar chart (used for error/intercept counts)."""
+    n = max(1, len(labels))
+    group_count = max(1, len(series))
+    slot = (CHART_WIDTH - MARGIN_LEFT - 24) / n
+    bar_width = max(4.0, (slot * 0.7) / group_count)
+    all_values = [value for _, values in series for value in values] or [0.0]
+    max_value = max([max(all_values), 1.0])
+    baseline = CHART_HEIGHT - MARGIN_BOTTOM
+
+    colors = ("#E15759", "#F28E2B", "#59A14F", "#4C78A8")
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{CHART_WIDTH}" '
+        f'height="{CHART_HEIGHT}" viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}">',
+        f"<text x=\"{MARGIN_LEFT}\" y=\"20\" font-size=\"16\" font-weight=\"bold\">"
+        f"{_svg_escape(title)}</text>",
+        f'<text x="{MARGIN_LEFT - 4}" y="{baseline + 20}" text-anchor="end" '
+        f'font-size="10">{_svg_escape(y_label)}</text>',
+    ]
+    if not labels:
+        parts.append(
+            f'<text x="{CHART_WIDTH / 2}" y="{CHART_HEIGHT / 2}" text-anchor="middle" '
+            'font-size="14" fill="#888">no data</text>'
+        )
+        parts.append("</svg>")
+        return "\n".join(parts)
+
+    for index, label in enumerate(labels):
+        group_x = MARGIN_LEFT + index * slot + (slot - group_count * bar_width) / 2
+        for series_index, (_, values) in enumerate(series):
+            value = values[index] if index < len(values) else 0.0
+            x = group_x + series_index * bar_width
+            height = max(0.0, (value / max_value) * BAR_MAX_HEIGHT)
+            y = baseline - height
+            color = colors[series_index % len(colors)]
+            parts.append(
+                f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_width:.1f}" '
+                f'height="{height:.1f}" fill="{color}"/>'
+            )
+            parts.append(
+                f'<text x="{x + bar_width / 2:.1f}" y="{y - 3:.1f}" text-anchor="middle" '
+                f'font-size="8">{value:.0f}</text>'
+            )
+        parts.append(
+            f'<text x="{group_x + group_count * bar_width / 2:.1f}" y="{baseline + 14:.1f}" '
+            f'text-anchor="middle" font-size="10">{_svg_escape(str(label))}</text>'
+        )
+
+    legend_x = MARGIN_LEFT
+    legend_y = CHART_HEIGHT - 8
+    for series_index, (name, _) in enumerate(series):
+        color = colors[series_index % len(colors)]
+        parts.append(
+            f'<rect x="{legend_x}" y="{legend_y - 10}" width="10" height="10" fill="{color}"/>'
+        )
+        parts.append(
+            f'<text x="{legend_x + 14}" y="{legend_y}" font-size="10">{_svg_escape(name)}</text>'
+        )
+        legend_x += 14 + 12 * len(name) + 20
+
+    parts.append("</svg>")
+    return "\n".join(parts)
+
+
 def _experiment_series(
     rows: Iterable[dict[str, Any]], metric_key: str
 ) -> tuple[list[str], list[float]]:
@@ -146,8 +216,13 @@ def _experiment_series(
         experiment_id = str(row.get("experiment_id", ""))
         if experiment_id not in {"E0", "E1", "E2", "E3"}:
             continue
+        if row.get("status") != "success":
+            continue
+        metrics = _metrics(row)
+        if metric_key not in metrics or metrics[metric_key] is None:
+            continue
         labels.append(experiment_id)
-        values.append(_as_float(_metrics(row).get(metric_key)))
+        values.append(_as_float(metrics[metric_key]))
     return labels, values
 
 
@@ -181,17 +256,40 @@ def generate_charts(results_path: str | Path, output_dir: str | Path) -> list[Pa
         path.write_text(_bar_chart_svg(title, labels, values, y_label=y_label), encoding="utf-8")
         written.append(path)
 
-    # 错误与拦截：cutoff 违规数 + 失败运行数（如存在）。
-    cutoff_labels = [str(row.get("experiment_id", "")) for row in rows if row.get("experiment_id")]
-    cutoff_values = [_as_float(_metrics(row).get("cutoff_violation_count")) for row in rows if row.get("experiment_id")]
+    # 错误与 Critic 拦截：使用结果行中持久化的 error_count / validation_issue_count，
+    # 以及指标中的 cutoff_violation_count。没有数据的行不绘制。
+    error_labels: list[str] = []
+    cutoff_values: list[float] = []
+    error_values: list[float] = []
+    validation_values: list[float] = []
+    for row in rows:
+        experiment_id = str(row.get("experiment_id", ""))
+        if not experiment_id:
+            continue
+        if row.get("status") != "success":
+            continue
+        metrics = _metrics(row)
+        if (
+            "cutoff_violation_count" not in metrics
+            and "error_count" not in row
+            and "validation_issue_count" not in row
+        ):
+            continue
+        error_labels.append(experiment_id)
+        cutoff_values.append(_as_float(metrics.get("cutoff_violation_count", 0)))
+        error_values.append(_as_float(row.get("error_count", 0)))
+        validation_values.append(_as_float(row.get("validation_issue_count", 0)))
     errors_path = out / "errors_and_cutoff.svg"
     errors_path.write_text(
-        _bar_chart_svg(
-            "错误与 cutoff 拦截",
-            cutoff_labels,
-            cutoff_values,
-            y_label="cutoff 违规数",
-            format_value="{:.0f}",
+        _grouped_bar_chart_svg(
+            "错误与 Critic 拦截",
+            error_labels,
+            (
+                ("cutoff 违规", cutoff_values),
+                ("失败运行", error_values),
+                ("ValidationIssue", validation_values),
+            ),
+            y_label="数量",
         ),
         encoding="utf-8",
     )
@@ -203,9 +301,13 @@ def generate_charts(results_path: str | Path, output_dir: str | Path) -> list[Pa
     for row in rows:
         if row.get("experiment_id") != "E0":
             continue
+        if row.get("status") != "success":
+            continue
         duration = _duration_minutes(row.get("started_at"), row.get("finished_at"))
+        if duration is None:
+            continue
         manual_labels.append("E0")
-        manual_values.append(duration if duration is not None else 0.0)
+        manual_values.append(duration)
     manual_path = out / "manual_time.svg"
     manual_path.write_text(
         _bar_chart_svg(
@@ -219,15 +321,23 @@ def generate_charts(results_path: str | Path, output_dir: str | Path) -> list[Pa
     )
     written.append(manual_path)
 
-    # 银行迁移指标覆盖：bank_main 或 banking case 的行业必查覆盖率。
+    # 银行迁移指标覆盖：没有银行结果时保持 no-data，不绘制 0。
     bank_rows = [
         row
         for row in rows
         if str(row.get("case_id", "")).startswith("bank")
         or "bank" in str(row.get("gold_path", "")).lower()
     ]
-    bank_labels = [str(row.get("experiment_id", "")) for row in bank_rows] or ["bank"]
-    bank_values = [_as_float(_metrics(row).get("industry_metric_coverage_rate")) for row in bank_rows] or [0.0]
+    bank_labels: list[str] = []
+    bank_values: list[float] = []
+    for row in bank_rows:
+        if row.get("status") != "success":
+            continue
+        metrics = _metrics(row)
+        if "industry_metric_coverage_rate" not in metrics or metrics["industry_metric_coverage_rate"] is None:
+            continue
+        bank_labels.append(str(row.get("experiment_id", "")))
+        bank_values.append(_as_float(metrics["industry_metric_coverage_rate"]))
     bank_path = out / "bank_migration_coverage.svg"
     bank_path.write_text(
         _bar_chart_svg(

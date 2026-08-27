@@ -378,6 +378,8 @@ def run_experiment(
         "input_hashes": None,
         "gold_path": str(gold_path) if gold_path else None,
         "metrics": None,
+        "error_count": 0,
+        "validation_issue_count": 0,
         "error": None,
     }
 
@@ -394,6 +396,7 @@ def run_experiment(
         metadata_path = _find_metadata(request)
         report = _read_report(report_path)
         metadata = _read_metadata(metadata_path)
+        result["validation_issue_count"] = len(report.validation_issues)
 
         metrics: dict[str, float] | None = None
         if gold_path:
@@ -421,6 +424,7 @@ def run_experiment(
         result["finished_at"] = finished_at.isoformat()
         result["status"] = "failed"
         result["error"] = f"{type(exc).__name__}: {exc}"
+        result["error_count"] = 1
         _collect_run_outputs(
             experiment_dir,
             request,
@@ -511,6 +515,8 @@ def import_manual_baseline(
         "input_hashes": None,
         "metrics": None,
         "gold_path": None,
+        "error_count": 0,
+        "validation_issue_count": 0,
         "error": None,
         "report_path": None,
     }
@@ -518,6 +524,7 @@ def import_manual_baseline(
     try:
         input_hashes = compute_input_hash(request, request.source_manifest_path)
         result["input_hashes"] = input_hashes
+        result["validation_issue_count"] = len(report.validation_issues)
 
         metrics: dict[str, float] | None = None
         resolved_gold: str | None = None
@@ -553,6 +560,7 @@ def import_manual_baseline(
         result["finished_at"] = finished_now.isoformat()
         result["status"] = "failed"
         result["error"] = f"{type(exc).__name__}: {exc}"
+        result["error_count"] = 1
         _collect_run_outputs(
             experiment_dir,
             request,
@@ -692,6 +700,8 @@ def _write_aggregate(
         "numeric_error_rate",
         "cutoff_violation_count",
         "industry_metric_coverage_rate",
+        "error_count",
+        "validation_issue_count",
         "gold_path",
         "error",
     ]
@@ -713,6 +723,8 @@ def _write_aggregate(
             str(metrics.get("numeric_error_rate", "")),
             str(metrics.get("cutoff_violation_count", "")),
             str(metrics.get("industry_metric_coverage_rate", "")),
+            str(row.get("error_count", 0)),
+            str(row.get("validation_issue_count", 0)),
             str(row.get("gold_path", "")),
             str(row.get("error", "") or ""),
         ]

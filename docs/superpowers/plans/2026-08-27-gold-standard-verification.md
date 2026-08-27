@@ -10,6 +10,8 @@
 
 **Spec:** `docs/task_board.md` 中的 GOLD-B-001、GOLD-C-001、GOLD-D-001。
 
+**Deadline:** 2026-08-28 12:00（Asia/Shanghai）；B 在 09:00 前、C 在 10:00 前、D 在 11:30 前分别提交交付物，A 在 12:00 前完成最终签收判断。
+
 ## Global Constraints
 
 - 不修改 `data/raw/` 下的原始 PDF。
@@ -235,4 +237,3 @@ feat(evaluation): assemble verified food and bank gold standards
 - [ ] **Step 3: Only after confirmation, change Gold status to `signed`**
 - [ ] **Step 4: Set the signed Gold paths in experiment definitions**
 - [ ] **Step 5: Run the first scored experiment and record the result**
-

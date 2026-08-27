@@ -19,11 +19,20 @@
 
 详细执行步骤见：[Gold Standard Verification Plan](superpowers/plans/2026-08-27-gold-standard-verification.md)
 
+**专项总 DDL：2026-08-28 12:00（Asia/Shanghai）**
+
+| 时间 | 交付节点 | 负责人 |
+|---|---|---|
+| 2026-08-28 09:00 | 原文、页码、数字和来源核验表 | B |
+| 2026-08-28 10:00 | 指标定义、单位、公式和评分兼容性说明 | C |
+| 2026-08-28 11:30 | 两个 Gold 文件、测试和组装记录 | D |
+| 2026-08-28 12:00 | 统一复核并决定是否签收 | A |
+
 | 任务 ID | 负责人 | 任务 | 读取范围 | 交付文件 | 状态 | 验收门 |
 |---|---|---|---|---|---|---|
-| GOLD-B-001 | B | 核验 10 个必查指标的原文、数值、页码、来源和 hash | `data/manifests/`、`data/raw/`、`configs/` | `docs/gold_review/B_source_verification.md` | 待开始 | 每项有原文或明确缺失记录；multiple 来源独立 |
-| GOLD-C-001 | C | 核对指标定义、单位、Evidence 类型、公式和评分器兼容性 | `configs/`、`docs/CONTRACTS.md`、B 交付物 | `docs/gold_review/C_metric_definition_review.md` | 待开始 | 食品/银行各 5 项口径明确；派生项和多来源项无歧义 |
-| GOLD-D-001 | D | 根据 B/C 结果组装 Gold JSON、补来源校验测试、记录组装过程 | B/C 交付物、`evaluation/gold.py`、`evaluation/metrics.py` | `fixtures/evaluation/food_gold.json`、`fixtures/evaluation/bank_gold.json`、`tests/evaluation/test_gold_schema.py`、`docs/gold_review/D_gold_assembly_log.md` | 待开始 | JSON 可加载、来源可追溯、计算可复现；A 签收前不得标记 signed |
+| GOLD-B-001 | B | 核验 10 个必查指标的原文、数值、页码、来源和 hash | `data/manifests/`、`data/raw/`、`configs/` | `docs/gold_review/B_source_verification.md` | 8/28 09:00 | 每项有原文或明确缺失记录；multiple 来源独立 |
+| GOLD-C-001 | C | 核对指标定义、单位、Evidence 类型、公式和评分器兼容性 | `configs/`、`docs/CONTRACTS.md`、B 交付物 | `docs/gold_review/C_metric_definition_review.md` | 8/28 10:00 | 食品/银行各 5 项口径明确；派生项和多来源项无歧义 |
+| GOLD-D-001 | D | 根据 B/C 结果组装 Gold JSON、补来源校验测试、记录组装过程 | B/C 交付物、`evaluation/gold.py`、`evaluation/metrics.py` | `fixtures/evaluation/food_gold.json`、`fixtures/evaluation/bank_gold.json`、`tests/evaluation/test_gold_schema.py`、`docs/gold_review/D_gold_assembly_log.md` | 8/28 11:30 | JSON 可加载、来源可追溯、计算可复现；A 签收前不得标记 signed |
 
 专项规则：原始 PDF 和 manifest 只读不改；任何未确认内容标为 `pending_signoff`；Gold 未经 A 签收不得接入正式 E0—E3 评分。
 

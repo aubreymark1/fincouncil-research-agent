@@ -1,0 +1,23 @@
+# FinCouncil anonymous workbench reverse proxy.
+# DEMO_HOST is injected from .env, e.g. fincouncil.43-165-172-190.sslip.io
+{$DEMO_HOST} {
+	encode gzip
+
+	# API requests go to the FastAPI backend.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else is served as the React static SPA.
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+}

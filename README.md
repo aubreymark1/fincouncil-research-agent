@@ -2,6 +2,15 @@
 
 岭院商业策划比赛项目：证据链与行业适配的 A 股投研 Agent。
 
+## 匿名体验版投研工作台
+
+- 前端：`frontend/`（React + TypeScript + Vite）
+- 后端：`backend/`（FastAPI，复用 `app.main.run_research`）
+- 部署：`Dockerfile`、`docker-compose.yml`、`Caddyfile`、`DEPLOYMENT.md`
+- 支持案例：`food_main`（食品饮料行业样本）、`bank_main`（中国工商银行样本）
+- 默认运行确定性 `rule-engine`；AI 增强仅当 `FINCOUNCIL_ENABLE_LLM_DEMO=true` 且 DeepSeek 环境变量完整时开放。
+- 详细部署步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
 ## 项目范围
 
 比赛阶段完成食品饮料完整主案例和银行迁移案例，重点验证：

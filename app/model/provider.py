@@ -162,9 +162,14 @@ class ModelProvider:
         self.last_cache_error: str | None = None
 
     @property
+    def cache(self) -> ModelCache | None:
+        """Return the configured model cache, if any."""
+        return self._cache
+
+    @property
     def has_cache(self) -> bool:
         """Return whether a model cache is configured."""
-        return self._cache is not None
+        return self.cache is not None
 
     @classmethod
     def from_env(

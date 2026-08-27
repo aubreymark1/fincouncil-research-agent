@@ -42,8 +42,8 @@ def test_run_case_llm_flag_constructs_provider(monkeypatch) -> None:
 
     assert exit_code == 0
     assert captured["model_provider"] is not None
-    assert isinstance(captured["model_provider"]._cache, JsonFileCache)
-    assert captured["model_provider"]._cache.path.name == "model_cache.json"
+    assert isinstance(captured["model_provider"].cache, JsonFileCache)
+    assert captured["model_provider"].cache.path.name == "model_cache.json"
 
 
 def test_run_case_llm_preserves_e301_in_stderr(monkeypatch, capsys) -> None:

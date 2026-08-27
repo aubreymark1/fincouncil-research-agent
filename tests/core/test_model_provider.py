@@ -122,7 +122,9 @@ def test_has_cache_property_reflects_configured_cache() -> None:
         transport=lambda _prompt, _config: '{"answer": "ok"}',
     )
 
+    assert cached.cache is not None
     assert cached.has_cache is True
+    assert uncached.cache is None
     assert uncached.has_cache is False
 
 

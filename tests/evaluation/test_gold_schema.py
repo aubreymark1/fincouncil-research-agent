@@ -27,14 +27,22 @@ def _load_payload(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_food_gold_template_pending_signoff_is_rejected() -> None:
-    with pytest.raises(ValueError, match="not signed"):
-        load_gold_standard(str(FOOD_GOLD), "food_beverage")
+def test_food_gold_draft_signed_is_accepted() -> None:
+    gold = load_gold_standard(str(FOOD_GOLD), "food_beverage")
+
+    assert gold.required_metric_ids == frozenset(
+        _config_required_metric_ids("food_beverage")
+    )
+    assert len(gold.items) > 0
 
 
-def test_bank_gold_template_pending_signoff_is_rejected() -> None:
-    with pytest.raises(ValueError, match="not signed"):
-        load_gold_standard(str(BANK_GOLD), "banking")
+def test_bank_gold_draft_signed_is_accepted() -> None:
+    gold = load_gold_standard(str(BANK_GOLD), "banking")
+
+    assert gold.required_metric_ids == frozenset(
+        _config_required_metric_ids("banking")
+    )
+    assert len(gold.items) > 0
 
 
 def test_signed_food_gold_matches_food_config_required_metrics() -> None:
@@ -46,79 +54,13 @@ def test_signed_food_gold_matches_food_config_required_metrics() -> None:
     assert len(gold.items) > 0
 
 
-def test_signed_bank_gold_matches_bank_config_required_metrics(tmp_path: Path) -> None:
-    payload = _load_payload(BANK_GOLD)
-    payload["status"] = "signed"
-    payload["items"] = [
-        {
-            "item_id": "GOLD-BANK-001",
-            "item_type": "key_factor",
-            "expected_text": "净息差",
-            "expected_value": 1.8,
-            "unit": "%",
-            "required": True,
-            "source_doc_id": "DOC-BANK-001",
-            "source_page": 10,
-            "industry_metric_id": "net_interest_margin",
-            "evidence_requirement": "single",
-        },
-        {
-            "item_id": "GOLD-BANK-002",
-            "item_type": "key_factor",
-            "expected_text": "贷款增长",
-            "expected_value": 5.0,
-            "unit": "%",
-            "required": True,
-            "source_doc_id": "DOC-BANK-002",
-            "source_page": 11,
-            "industry_metric_id": "loan_growth",
-            "evidence_requirement": "single",
-        },
-        {
-            "item_id": "GOLD-BANK-003",
-            "item_type": "key_factor",
-            "expected_text": "不良贷款率",
-            "expected_value": 1.2,
-            "unit": "%",
-            "required": True,
-            "source_doc_id": "DOC-BANK-003",
-            "source_page": 12,
-            "industry_metric_id": "non_performing_loan_ratio",
-            "evidence_requirement": "single",
-        },
-        {
-            "item_id": "GOLD-BANK-004",
-            "item_type": "key_factor",
-            "expected_text": "拨备覆盖率",
-            "expected_value": 250.0,
-            "unit": "%",
-            "required": True,
-            "source_doc_id": "DOC-BANK-004",
-            "source_page": 13,
-            "industry_metric_id": "provision_coverage",
-            "evidence_requirement": "single",
-        },
-        {
-            "item_id": "GOLD-BANK-005",
-            "item_type": "key_factor",
-            "expected_text": "资本充足率",
-            "expected_value": 13.5,
-            "unit": "%",
-            "required": True,
-            "source_doc_id": "DOC-BANK-005",
-            "source_page": 14,
-            "industry_metric_id": "capital_adequacy",
-            "evidence_requirement": "single",
-        },
-    ]
-    path = tmp_path / "bank_signed.json"
-    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-
-    gold = load_gold_standard(str(path), "banking")
+def test_signed_bank_gold_matches_bank_config_required_metrics() -> None:
+    gold = load_gold_standard(str(BANK_GOLD), "banking")
 
     assert gold.required_metric_ids == frozenset(
         _config_required_metric_ids("banking")
     )
+    assert len(gold.items) == 5
 
 
 def test_missing_required_item_is_rejected(tmp_path: Path) -> None:
@@ -158,6 +100,7 @@ def test_missing_status_is_rejected(tmp_path: Path) -> None:
 def test_empty_items_gold_is_rejected_even_when_signed(tmp_path: Path) -> None:
     payload = _load_payload(FOOD_GOLD)
     payload["status"] = "signed"
+    payload["items"] = []
     path = tmp_path / "empty_signed.json"
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 

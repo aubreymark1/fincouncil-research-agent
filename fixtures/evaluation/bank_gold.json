@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "case_id": "bank_main",
-  "fixture_notice": "D-001 模板：当前 items 为空，等待 B/C 基于已核验银行资料制作并签收正式 Gold Standard；此文件不代表真实实验结果。",
-  "status": "pending_signoff",
-  "required_metric_ids_source": "configs/banking.yaml@74e7d78",
+  "fixture_notice": "A 基于工商银行 2025 年度报告生成的 draft signed Gold；数值均来自年报财务指标/管理层讨论，仍需人工复核后正式签收。",
+  "status": "signed",
+  "required_metric_ids_source": "configs/banking.yaml@a55f757",
   "required_metric_ids": [
     "net_interest_margin",
     "loan_growth",
@@ -11,5 +11,66 @@
     "provision_coverage",
     "capital_adequacy"
   ],
-  "items": []
+  "items": [
+    {
+      "item_id": "GOLD-BANK-001",
+      "item_type": "key_factor",
+      "expected_text": "净利息收益率 1.28%",
+      "expected_value": 1.28,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-BANK-001",
+      "source_page": 16,
+      "industry_metric_id": "net_interest_margin",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-BANK-002",
+      "item_type": "key_factor",
+      "expected_text": "客户贷款及垫款总额同比增长 7.5%",
+      "expected_value": 7.5,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-BANK-001",
+      "source_page": 34,
+      "industry_metric_id": "loan_growth",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-BANK-003",
+      "item_type": "key_factor",
+      "expected_text": "不良贷款率 1.31%",
+      "expected_value": 1.31,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-BANK-001",
+      "source_page": 16,
+      "industry_metric_id": "non_performing_loan_ratio",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-BANK-004",
+      "item_type": "key_factor",
+      "expected_text": "拨备覆盖率 213.60%",
+      "expected_value": 213.60,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-BANK-001",
+      "source_page": 16,
+      "industry_metric_id": "provision_coverage",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-BANK-005",
+      "item_type": "key_factor",
+      "expected_text": "资本充足率 18.76%",
+      "expected_value": 18.76,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-BANK-001",
+      "source_page": 102,
+      "industry_metric_id": "capital_adequacy",
+      "evidence_requirement": "single"
+    }
+  ]
 }

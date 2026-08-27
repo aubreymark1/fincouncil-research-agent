@@ -13,7 +13,7 @@
 - D-001 Gold Standard 格式与校验已提交：`food_gold.json`/`bank_gold.json` 为待 B/C 签收模板，真实 Gold 内容仍缺。
 - D-005 图表、D-006 Streamlit 页面、D-007 报告模板：已提交 PR 待审查。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
-- 当前有 1 个 open PR（D-001/D-005/D-006/D-007 合并提交）。
+- 当前有 1 个 open PR（#32，D-001/D-005/D-006/D-007 合并提交）。
 
 ## 二、里程碑
 
@@ -68,13 +68,13 @@
 
 | ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
-| D-001 | Gold Standard 格式和真实 Gold | 进行中 | `evaluation/gold.py` 与 `food_gold.json`/`bank_gold.json` 模板已提交；真实 Gold 内容待 B/C 签收 |
+| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #32：`evaluation/gold.py` 与 `food_gold.json`/`bank_gold.json` 模板已提交；真实 Gold 内容待 B/C 签收 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
 | D-003 | 实验运行器 | 已完成 | PR #31 已合并；`pytest tests/evaluation -q` 60 passed、全量 335 passed |
 | D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
-| D-005 | 图表 | 待审查 | `evaluation/charts.py` 与测试已提交；读取 results.csv/json 生成 SVG |
-| D-006 | Streamlit 页面 | 待审查 | `app/ui/` 已提交；只读展示 report/run_metadata/metrics |
-| D-007 | 报告模板 | 待审查 | `reports/template.md.j2`、`reports/report_sections.md`、`docs/submission_checklist.md` 已提交 |
+| D-005 | 图表 | 待审查 | PR #32：`evaluation/charts.py` 与测试已提交；读取 results.csv/json 生成 SVG |
+| D-006 | Streamlit 页面 | 待审查 | PR #32：`app/ui/` 已提交；只读展示 report/run_metadata/metrics |
+| D-007 | 报告模板 | 待审查 | PR #32：`reports/template.md.j2`、`reports/report_sections.md`、`docs/submission_checklist.md` 已提交 |
 
 ### 集成与交付门
 

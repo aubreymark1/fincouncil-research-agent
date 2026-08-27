@@ -2,6 +2,10 @@
 
 from .cache import InMemoryCache, JsonFileCache, ModelCache
 from .provider import ModelConfig, ModelProvider, ModelProviderError
+from .transport import (
+    create_openai_compatible_transport,
+    openai_compatible_transport,
+)
 
 __all__ = [
     "InMemoryCache",
@@ -10,4 +14,6 @@ __all__ = [
     "ModelConfig",
     "ModelProvider",
     "ModelProviderError",
+    "create_openai_compatible_transport",
+    "openai_compatible_transport",
 ]

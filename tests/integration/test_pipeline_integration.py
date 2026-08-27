@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from app.main import run_research
+from app.model import ModelConfig, ModelProvider, ModelProviderError
 from app.orchestrator import run_pipeline
 from app.schemas import ResearchReport, ResearchRequest, SourceDocument
 from app.ingestion.manifest import ManifestError
@@ -251,6 +252,81 @@ def test_bank_pipeline_loads_different_industry_config(tmp_path, banking_manifes
     assert any(keyword in located_texts for keyword in bank_keywords), (
         "synthetic banking filings contain at least one configured metric keyword"
     )
+
+
+def test_llm_mode_rejects_evidence_not_sent_to_node(tmp_path, food_manifest):
+    # Arrange
+    request = make_request(tmp_path, food_manifest, industry="food_beverage")
+
+    def bad_claim(**updates: object) -> dict:
+        payload = {
+            "claim_id": "CL-LLM-BAD-001",
+            "text": "LLM 引用了未发送给节点的证据。",
+            "claim_type": "fact",
+            "risk_severity": None,
+            "evidence_ids": ["EV-NOPE-001"],
+            "calculation": None,
+            "confidence": 0.9,
+            "industry_metric_ids": ["revenue_growth"],
+            "status": "pass",
+        }
+        payload.update(updates)
+        return payload
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        if "行业 Critic 提示词" in prompt:
+            return {"issues": []}
+        if "新闻与政策分析提示词" in prompt:
+            return {
+                "claims": [
+                    bad_claim(claim_type="change", status="review")
+                ]
+            }
+        if "风险分析提示词" in prompt:
+            return {
+                "claims": [
+                    bad_claim(
+                        claim_type="unresolved",
+                        status="review",
+                        evidence_ids=[],
+                        industry_metric_ids=[],
+                    )
+                ]
+            }
+        return {"claims": [bad_claim()]}
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+
+    # Act / Assert: node-level evidence isolation rejects the bad ID.
+    with pytest.raises(ModelProviderError, match="current batch"):
+        run_pipeline(request, model_provider=provider)
+
+    metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["status"] == "failed"
+    assert metadata["errors"][0].startswith("E301 module=agents.llm")
+
+
+def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):
+    # Arrange
+    request = make_request(tmp_path, food_manifest, industry="food_beverage")
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        raise ModelProviderError("E300 module=model.transport: test failure")
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+
+    # Act / Assert
+    with pytest.raises(ModelProviderError, match="E300"):
+        run_pipeline(request, model_provider=provider)
+
+    metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["status"] == "failed"
+    assert metadata["errors"][0].startswith("E300 module=model: transport failed")
+    assert metadata["input_hashes"]["request"].startswith("sha256:")
 
 
 def test_missing_manifest_fails_fast_with_manifest_error(tmp_path):

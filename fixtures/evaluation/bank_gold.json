@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "bank_main",
+  "fixture_notice": "D-001 模板：当前 items 为空，等待 B/C 基于已核验银行资料制作并签收正式 Gold Standard；此文件不代表真实实验结果。",
+  "status": "pending_signoff",
+  "required_metric_ids_source": "configs/banking.yaml@74e7d78",
+  "required_metric_ids": [
+    "net_interest_margin",
+    "loan_growth",
+    "non_performing_loan_ratio",
+    "provision_coverage",
+    "capital_adequacy"
+  ],
+  "items": []
+}

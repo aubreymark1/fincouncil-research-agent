@@ -26,4 +26,4 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Run all tests
-        run: pytest tests/core tests/ingestion tests/industry tests/evaluation -q
+        run: pytest tests/core tests/ingestion tests/industry tests/evaluation tests/integration -q

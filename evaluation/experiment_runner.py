@@ -30,8 +30,12 @@ import yaml
 from app.schemas import ResearchReport, ResearchRequest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DEFINITIONS = PROJECT_ROOT / "evaluation" / "experiment_definitions.yaml"
-DEFAULT_GOLD_DIR = PROJECT_ROOT / "fixtures" / "evaluation"
+# 模块加载时确定的仓库根，用于解析冻结定义里的相对路径。
+# 测试 monkeypatch PROJECT_ROOT 来隔离 outputs 写入，但相对路径解析
+# 必须始终指向真实仓库根，否则 fixtures/shared/*.json 会解析到 tmp 目录。
+_REPO_ROOT = PROJECT_ROOT
+DEFAULT_DEFINITIONS = _REPO_ROOT / "evaluation" / "experiment_definitions.yaml"
+DEFAULT_GOLD_DIR = _REPO_ROOT / "fixtures" / "evaluation"
 
 EXPECTED_EXPERIMENTS = ("E0", "E1", "E2", "E3")
 
@@ -47,6 +51,7 @@ class ExperimentDefinition:
     name: str
     description: str
     run_command: str | None
+    enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -116,11 +121,15 @@ def _parse_experiments(raw: dict[str, Any]) -> dict[str, ExperimentDefinition]:
             not isinstance(run_command, str) or not run_command.strip()
         ):
             raise ValueError(f"{where}: run_command must be null or a non-empty string")
+        enabled = item.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ValueError(f"{where}: enabled must be a boolean")
         experiments[experiment_id] = ExperimentDefinition(
             experiment_id=experiment_id,
             name=_require_str(item, where, "name"),
             description=_require_str(item, where, "description"),
             run_command=run_command.strip() if run_command else None,
+            enabled=enabled,
         )
     return experiments
 
@@ -141,7 +150,7 @@ def load_definitions(
     if not isinstance(payload, dict):
         raise ValueError("experiment definitions root must be an object")
 
-    root = defs_path.resolve().parent
+    root = _REPO_ROOT
     cases = _parse_cases(payload, root)
     experiments = _parse_experiments(payload)
 
@@ -176,7 +185,7 @@ def compute_input_hash(request: ResearchRequest, manifest_path: Path | str) -> d
     )
     manifest = Path(manifest_path)
     if not manifest.is_absolute():
-        manifest = PROJECT_ROOT / manifest
+        manifest = _REPO_ROOT / manifest
     return {
         "request": f"sha256:{request_hash}",
         "manifest": f"sha256:{_sha256(manifest.read_bytes().decode('utf-8'))}",
@@ -331,13 +340,18 @@ def run_experiment(
         raise ValueError(
             f"unknown experiment {experiment_id!r}; expected one of {sorted(experiments)}"
         )
+    if not definition.enabled:
+        raise ValueError(
+            f"{experiment_id} is disabled in the frozen definitions; "
+            f"reason: {definition.description}"
+        )
 
     started_at = datetime.now(timezone.utc)
     case = case_id or "default"
     experiment_dir = (
         PROJECT_ROOT / "outputs" / "experiments" / case / experiment_id
     )
-    input_hashes = compute_input_hash(request, request.source_manifest_path)
+    experiment_dir.mkdir(parents=True, exist_ok=True)
 
     result = {
         "experiment_id": experiment_id,
@@ -346,13 +360,15 @@ def run_experiment(
         "started_at": started_at.isoformat(),
         "finished_at": None,
         "status": "running",
-        "input_hashes": input_hashes,
+        "input_hashes": None,
         "gold_path": str(gold_path) if gold_path else None,
         "metrics": None,
         "error": None,
     }
 
     try:
+        input_hashes = compute_input_hash(request, request.source_manifest_path)
+        result["input_hashes"] = input_hashes
         code, output = _run_experiment_definition(
             experiment_id, definition, request, executor=executor
         )
@@ -404,14 +420,14 @@ def run_experiment(
 def _find_report(request: ResearchRequest) -> Path:
     output_dir = Path(request.output_dir)
     if not output_dir.is_absolute():
-        output_dir = PROJECT_ROOT / output_dir
+        output_dir = _REPO_ROOT / output_dir
     return output_dir / "report.json"
 
 
 def _find_metadata(request: ResearchRequest) -> Path:
     output_dir = Path(request.output_dir)
     if not output_dir.is_absolute():
-        output_dir = PROJECT_ROOT / output_dir
+        output_dir = _REPO_ROOT / output_dir
     outputs_root = next(
         (parent for parent in (output_dir, *output_dir.parents) if parent.name.lower() == "outputs"),
         PROJECT_ROOT / "outputs",
@@ -432,12 +448,15 @@ def import_manual_baseline(
     sources_used: list[str] | None = None,
     definitions: str | Path = DEFAULT_DEFINITIONS,
     case_id: str | None = None,
+    gold_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Import an E0 manual briefing into a validated ResearchReport.
 
     The human text is preserved verbatim (it is never rewritten) and the
     resulting record carries the timing and source metadata recorded by the
-    manual author.
+    manual author.  When ``gold_path`` is provided the E0 report is scored
+    with the same Gold Standard as E1-E3, so E0 participates in the
+    comparison metrics.
     """
     _, experiments, _ = load_definitions(definitions)
     definition = experiments.get("E0")
@@ -464,6 +483,14 @@ def import_manual_baseline(
     experiment_dir = PROJECT_ROOT / "outputs" / "experiments" / case / "E0"
     input_hashes = compute_input_hash(request, request.source_manifest_path)
 
+    metrics: dict[str, float] | None = None
+    resolved_gold: str | None = None
+    if gold_path:
+        from evaluation.metrics import evaluate_report
+
+        resolved_gold = str(gold_path)
+        metrics = evaluate_report(report, resolved_gold)
+
     metadata: dict[str, Any] = {
         "experiment_id": "E0",
         "name": definition.name,
@@ -480,7 +507,7 @@ def import_manual_baseline(
     _write_json(experiment_dir / "request.json", request.model_dump(mode="json"))
     _write_json(experiment_dir / "report.json", report.model_dump(mode="json"))
     _write_json(experiment_dir / "run_metadata.json", metadata)
-    _write_json(experiment_dir / "metrics.json", {"status": "success", "metrics": None})
+    _write_json(experiment_dir / "metrics.json", {"status": "success", "metrics": metrics})
 
     return {
         "experiment_id": "E0",
@@ -490,8 +517,8 @@ def import_manual_baseline(
         "input_hashes": input_hashes,
         "started_at": metadata["started_at"],
         "finished_at": metadata["finished_at"],
-        "metrics": None,
-        "gold_path": None,
+        "metrics": metrics,
+        "gold_path": resolved_gold,
         "error": None,
         "report_path": str(experiment_dir / "report.json"),
     }
@@ -518,6 +545,46 @@ def run_case_experiments(
         if experiment_id not in experiment_defs:
             raise ValueError(f"unknown experiment {experiment_id!r}")
         if experiment_id == "E0":
+            e0_dir = PROJECT_ROOT / "outputs" / "experiments" / case_id / "E0"
+            metadata_path = e0_dir / "run_metadata.json"
+            if metadata_path.exists():
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                metrics_path = e0_dir / "metrics.json"
+                metrics_payload = (
+                    json.loads(metrics_path.read_text(encoding="utf-8"))
+                    if metrics_path.exists()
+                    else {"metrics": None}
+                )
+                rows.append(
+                    {
+                        "experiment_id": "E0",
+                        "name": experiment_defs["E0"].name,
+                        "case_id": case_id,
+                        "status": metadata.get("status", "success"),
+                        "started_at": metadata.get("started_at"),
+                        "finished_at": metadata.get("finished_at"),
+                        "input_hashes": metadata.get("input_hashes"),
+                        "gold_path": effective_gold,
+                        "metrics": metrics_payload.get("metrics"),
+                        "error": None,
+                    }
+                )
+            continue
+        if not experiment_defs[experiment_id].enabled:
+            rows.append(
+                {
+                    "experiment_id": experiment_id,
+                    "name": experiment_defs[experiment_id].name,
+                    "case_id": case_id,
+                    "status": "disabled",
+                    "started_at": None,
+                    "finished_at": None,
+                    "input_hashes": None,
+                    "gold_path": effective_gold,
+                    "metrics": None,
+                    "error": f"disabled: {experiment_defs[experiment_id].description}",
+                }
+            )
             continue
         row = run_experiment(
             experiment_id,

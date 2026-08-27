@@ -10,7 +10,7 @@
 - B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
 - C-001～C-007：已全部完成并合并。
 - D-002 指标计算与 D-004 红蓝测试：已完成并合并；D-001 正式 Gold Standard 仍只有合成样例，真实食品饮料/银行 Gold 尚未签收。
-- D-003 实验运行器：本 PR 首次提交（`evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py`）；含 `{python}` 占位符替换修复与测试输出目录隔离改造，48 项评测测试通过，待审查。
+- D-003 实验运行器：本 PR 首次提交（`evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py`）；含 `{python}` 占位符替换修复、相对路径解析修复、E0 Gold 评分、聚合纳入 E0、hash 异常捕获、E1-E3 disabled 标记，56 项评测测试通过，待审查。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
 - 当前有 1 个 open PR（D-003，本 PR 首次提交，含 `{python}` 替换修复与测试隔离改造）。
 
@@ -69,7 +69,7 @@
 |---|---|---|---|
 | D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #19 只有合成 `metrics_gold_sample.json`；`food_gold.json`/`bank_gold.json` 及 B/C 签收仍缺 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
-| D-003 | 实验运行器 | 待审查 | `evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py` 已提交 PR；含 `{python}` 占位符替换修复与测试输出目录隔离改造，48 项评测测试通过 |
+| D-003 | 实验运行器 | 待审查 | `evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py` 已提交 PR；含 `{python}` 替换、相对路径解析、E0 Gold 评分、聚合纳入 E0、hash 异常捕获、E1-E3 disabled 标记，56 项评测测试通过 |
 | D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
 | D-005 | 图表 | 待开始 | `evaluation/charts.py` 尚未提交 |
 | D-006 | Streamlit 页面 | 待开始 | `app/ui/` 尚未提交 |
@@ -120,7 +120,7 @@
 | D-002 | `pytest tests/evaluation/test_metrics.py -q` | 合成 fixture 确定性测试已合并；PR #19 |
 | C-006～C-007 | `prompts/` 四个文件和 `docs/manual_review_checklist.md` 进入主分支 | 已合并；PR #25/#26 |
 | D-004 | `pytest tests/evaluation/test_red_team.py -q`；全量 `python -m pytest -q` | 11 项红队场景测试通过；全量 285 passed；PR #27 |
-| D-003 | `pytest tests/evaluation -q` | 48 passed（含 experiment runner 定义/hash/失败保留/E0 导入/聚合输出/`{python}` 占位符替换真实执行路径/输出目录隔离）；PR 待合并 |
+| D-003 | `pytest tests/evaluation -q` | 56 passed（定义/hash/失败保留/E0 导入/聚合输出/`{python}` 占位符替换真实执行路径/输出目录隔离/相对路径解析/缺失 manifest 失败捕获/E0 Gold 评分/聚合纳入 E0/disabled 标记）；全量 331 passed；PR 待合并 |
 | 当前主分支 | `python -m pytest -q` | PR #29 合并后全量复核 305 passed |
 | A-008 / INT-001 / INT-002 | `pytest tests/integration -q`；真实 RUN-DEMO 冒烟抽查 | 5 passed；三件套产出且红队/cutoff 后/rejected 资料零进入索引；PR #29 |
 

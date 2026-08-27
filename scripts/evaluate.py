@@ -122,6 +122,9 @@ def _run(args: argparse.Namespace) -> int:
         if args.experiment is not None and args.experiment != "E0":
             raise ValueError("--import-manual only applies to E0")
         request = _load_request(request_path)
+        cases, _, _ = load_definitions(definitions_path)
+        case = next((c for c in cases if c.case_id == args.case), None)
+        gold_path = case.gold_path if case is not None else None
         row = import_manual_baseline(
             request,
             text=_manual_text(args),
@@ -130,6 +133,7 @@ def _run(args: argparse.Namespace) -> int:
             sources_used=args.sources_used,
             definitions=definitions_path,
             case_id=args.case,
+            gold_path=gold_path,
         )
         print(json.dumps(row, ensure_ascii=False, indent=2))
         return 0

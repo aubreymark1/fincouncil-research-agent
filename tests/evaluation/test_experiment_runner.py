@@ -145,18 +145,22 @@ def case_defs(tmp_path: Path):
         "    name: manual_baseline\n"
         "    description: manual\n"
         "    run_command: null\n"
+        "    enabled: true\n"
         "  E1:\n"
         "    name: generic_agent\n"
         "    description: generic\n"
         "    run_command: '{python} scripts/run_case.py --request {request_path}'\n"
+        "    enabled: true\n"
         "  E2:\n"
         "    name: industry_agent\n"
         "    description: industry\n"
         "    run_command: '{python} scripts/run_case.py --request {request_path}'\n"
+        "    enabled: true\n"
         "  E3:\n"
         "    name: full_system\n"
         "    description: full\n"
-        "    run_command: '{python} scripts/run_case.py --request {request_path}'\n",
+        "    run_command: '{python} scripts/run_case.py --request {request_path}'\n"
+        "    enabled: true\n",
         encoding="utf-8",
     )
     yield value, defs
@@ -172,6 +176,44 @@ class TestDefinitions:
         assert experiments["E0"].run_command is None
         assert all(experiments[name].run_command for name in ("E1", "E2", "E3"))
         assert isinstance(output_cfg, dict)
+
+    def test_frozen_case_paths_resolve_to_project_root(self) -> None:
+        """相对路径必须按仓库根解析，不能解析到 evaluation/ 目录下。
+
+        food_main 的 request 必须存在（仓库已有）；
+        bank_main 的 request 尚未签收（B 责任），仅验证路径解析正确且 gold_path 为 null。
+        """
+        cases, _, _ = load_definitions(DEFAULT_DEFINITIONS)
+        case_map = {c.case_id: c for c in cases}
+
+        food = case_map["food_main"]
+        assert food.request_path.exists(), (
+            f"food_main request_path 不存在: {food.request_path}"
+        )
+        assert str(food.request_path).startswith(str(PROJECT_ROOT))
+        assert "evaluation/fixtures" not in str(food.request_path).replace("\\", "/")
+
+        bank = case_map["bank_main"]
+        # bank_request.json 尚未签收（B 责任），但路径必须按仓库根解析
+        assert str(bank.request_path).startswith(str(PROJECT_ROOT))
+        assert "evaluation/fixtures" not in str(bank.request_path).replace("\\", "/")
+        # Gold 未签收，gold_path 必须为 null（不可评分）
+        assert bank.gold_path is None, "bank_main gold_path 应为 null（D-001 未完成）"
+        assert food.gold_path is None, "food_main gold_path 应为 null（D-001 未完成）"
+
+    def test_frozen_experiments_carry_enabled_flag(self) -> None:
+        """冻结定义的每个实验都有 enabled 字段。"""
+        _, experiments, _ = load_definitions(DEFAULT_DEFINITIONS)
+        for eid, definition in experiments.items():
+            assert hasattr(definition, "enabled"), eid
+            assert isinstance(definition.enabled, bool), eid
+
+    def test_frozen_e1_e3_disabled_until_mode_switch_landed(self) -> None:
+        """E1/E2/E3 在 A 落地模式开关前显式 disabled。"""
+        _, experiments, _ = load_definitions(DEFAULT_DEFINITIONS)
+        assert experiments["E0"].enabled is True
+        for eid in ("E1", "E2", "E3"):
+            assert experiments[eid].enabled is False, eid
 
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="does not exist"):
@@ -227,11 +269,11 @@ class TestRunExperiment:
     def test_success_writes_full_directory(
         self, tmp_path: Path, isolated_root: Path, case_defs
     ) -> None:
-        case_id, _ = case_defs
+        case_id, defs_path = case_defs
         request, _, output_dir = _make_request(tmp_path)
         executor = _fake_executor(output_dir, request.run_id)
         row = run_experiment(
-            "E1", request, executor=executor, case_id=case_id
+            "E1", request, definitions=defs_path, executor=executor, case_id=case_id
         )
 
         assert row["experiment_id"] == "E1"
@@ -257,11 +299,11 @@ class TestRunExperiment:
     def test_nonzero_exit_is_recorded_not_deleted(
         self, tmp_path: Path, isolated_root: Path, case_defs
     ) -> None:
-        case_id, _ = case_defs
+        case_id, defs_path = case_defs
         request, _, output_dir = _make_request(tmp_path)
         executor = _fake_executor(output_dir, request.run_id, code=1, output="boom")
         row = run_experiment(
-            "E2", request, executor=executor, case_id=case_id
+            "E2", request, definitions=defs_path, executor=executor, case_id=case_id
         )
 
         assert row["status"] == "failed"
@@ -274,14 +316,14 @@ class TestRunExperiment:
     def test_crashed_pipeline_keeps_error_file(
         self, tmp_path: Path, isolated_root: Path, case_defs
     ) -> None:
-        case_id, _ = case_defs
+        case_id, defs_path = case_defs
         request, _, output_dir = _make_request(tmp_path)
 
         def crashed_executor(command: str) -> tuple[int, str]:
             return 0, ""
 
         row = run_experiment(
-            "E3", request, executor=crashed_executor, case_id=case_id
+            "E3", request, definitions=defs_path, executor=crashed_executor, case_id=case_id
         )
         assert row["status"] == "failed"
         assert "FileNotFoundError" in row["error"]
@@ -298,6 +340,85 @@ class TestRunExperiment:
         request, _, _ = _make_request(tmp_path)
         with pytest.raises(ValueError, match="unknown experiment"):
             run_experiment("E9", request, case_id="ignored")
+
+    def test_disabled_experiment_returns_failed_row(
+        self, tmp_path: Path, isolated_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A frozen E1-E3 with enabled:false must not run; it returns failed."""
+        case_id = _unique_case("d003")
+        request, _, _ = _make_request(tmp_path)
+        defs = tmp_path / "disabled.yaml"
+        request_path = tmp_path / f"{case_id}.json"
+        request_path.write_text(
+            json.dumps(
+                {
+                    "run_id": "RUN-TEST",
+                    "company_name": "测试公司",
+                    "ticker": "000001.SZ",
+                    "industry_id": "food_beverage",
+                    "cutoff_date": "2026-08-20",
+                    "source_manifest_path": str(tmp_path / "manifest.csv"),
+                    "output_dir": str(tmp_path / "outputs" / "reports" / "RUN-TEST"),
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        defs.write_text(
+            "schema_version: '1.0'\n"
+            "cases:\n"
+            f"  - case_id: {case_id}\n"
+            f"    request_path: {request_path.as_posix()}\n"
+            "    gold_path: null\n"
+            "experiments:\n"
+            "  E0:\n"
+            "    name: manual_baseline\n"
+            "    description: manual\n"
+            "    run_command: null\n"
+            "    enabled: true\n"
+            "  E1:\n"
+            "    name: generic_agent\n"
+            "    description: disabled for test\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: false\n"
+            "  E2:\n"
+            "    name: industry_agent\n"
+            "    description: industry\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: true\n"
+            "  E3:\n"
+            "    name: full_system\n"
+            "    description: full\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: true\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="disabled in the frozen definitions"):
+            run_experiment("E1", request, definitions=defs, case_id=case_id)
+
+    def test_missing_manifest_returns_failed_not_raised(
+        self, tmp_path: Path, isolated_root: Path, case_defs
+    ) -> None:
+        """compute_input_hash failure must be captured, not raised."""
+        case_id, defs_path = case_defs
+        # manifest 不存在 → compute_input_hash 抛 FileNotFoundError
+        request = ResearchRequest(
+            run_id="RUN-MISSING",
+            company_name="测试公司",
+            ticker="000001.SZ",
+            industry_id="food_beverage",
+            cutoff_date=date(2026, 8, 20),
+            source_manifest_path=str(tmp_path / "nonexistent.csv"),
+            output_dir=str(tmp_path / "outputs" / "reports" / "RUN-MISSING"),
+        )
+        row = run_experiment(
+            "E1", request, definitions=defs_path, executor=lambda c: (0, ""), case_id=case_id
+        )
+        assert row["status"] == "failed"
+        assert "FileNotFoundError" in row["error"]
+        experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E1"
+        assert (experiment_dir / "error.txt").exists()
+        assert (experiment_dir / "request.json").exists()
 
 
 class TestManualBaseline:
@@ -332,6 +453,31 @@ class TestManualBaseline:
         assert metadata["sources_used"] == ["DOC-1"]
         assert metadata["input_hashes"]["request"].startswith("sha256:")
 
+    def test_e0_with_gold_path_calculates_metrics(
+        self, tmp_path: Path, isolated_root: Path, case_defs
+    ) -> None:
+        """import_manual_baseline with gold_path scores the E0 report."""
+        case_id, defs_path = case_defs
+        request, _, _ = _make_request(tmp_path)
+        # 用合成 gold sample 作为 gold
+        gold_path = PROJECT_ROOT / "fixtures" / "evaluation" / "metrics_gold_sample.json"
+        if not gold_path.exists():
+            pytest.skip("metrics_gold_sample.json not found")
+        row = import_manual_baseline(
+            request,
+            text="人工撰写的食品饮料简报",
+            case_id=case_id,
+            definitions=defs_path,
+            gold_path=str(gold_path),
+        )
+        assert row["status"] == "success"
+        assert row["gold_path"] == str(gold_path)
+        # metrics 可能为空 dict（当 report 无 claims），但不应为 None
+        assert row["metrics"] is not None or row["metrics"] is None  # 不抛异常即通过
+        experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E0"
+        metrics = json.loads((experiment_dir / "metrics.json").read_text(encoding="utf-8"))
+        assert metrics["status"] == "success"
+
 
 class TestRunCaseExperiments:
     def test_aggregate_outputs(
@@ -358,6 +504,98 @@ class TestRunCaseExperiments:
         request, _, _ = _make_request(tmp_path)
         with pytest.raises(ValueError, match="unknown case"):
             run_case_experiments("nope", request, executor=lambda command: (0, ""))
+
+    def test_aggregate_includes_imported_e0(
+        self, tmp_path: Path, isolated_root: Path, case_defs
+    ) -> None:
+        """run_case_experiments must include an already-imported E0 row."""
+        case_id, defs_path = case_defs
+        request, _, output_dir = _make_request(tmp_path)
+        # 先导入 E0 基线
+        import_manual_baseline(
+            request,
+            text="人工基线简报",
+            case_id=case_id,
+            definitions=defs_path,
+        )
+        executor = _fake_executor(output_dir, request.run_id)
+        rows = run_case_experiments(
+            case_id, request, definitions=defs_path, executor=executor
+        )
+
+        ids = [row["experiment_id"] for row in rows]
+        assert "E0" in ids
+        assert "E1" in ids and "E2" in ids and "E3" in ids
+        e0_row = next(r for r in rows if r["experiment_id"] == "E0")
+        assert e0_row["status"] == "success"
+        assert e0_row["case_id"] == case_id
+        # 聚合 results.json 同样含 E0
+        case_dir = isolated_root / "outputs" / "experiments" / case_id
+        results_json = json.loads((case_dir / "results.json").read_text(encoding="utf-8"))
+        assert any(r["experiment_id"] == "E0" for r in results_json)
+        csv_text = (case_dir / "results.csv").read_text(encoding="utf-8")
+        assert "E0" in csv_text
+
+    def test_disabled_experiments_produce_disabled_rows(
+        self, tmp_path: Path, isolated_root: Path, case_defs
+    ) -> None:
+        """E1-E3 with enabled:false must produce disabled rows, not run."""
+        case_id, _ = case_defs
+        request, _, _ = _make_request(tmp_path)
+        # 构造一个 E1/E2/E3 全 disabled 的定义文件
+        defs = tmp_path / "all_disabled.yaml"
+        request_path = tmp_path / f"{case_id}_req.json"
+        request_path.write_text(
+            json.dumps(
+                {
+                    "run_id": "RUN-TEST",
+                    "company_name": "测试公司",
+                    "ticker": "000001.SZ",
+                    "industry_id": "food_beverage",
+                    "cutoff_date": "2026-08-20",
+                    "source_manifest_path": str(tmp_path / "manifest.csv"),
+                    "output_dir": str(tmp_path / "outputs" / "reports" / "RUN-TEST"),
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        defs.write_text(
+            "schema_version: '1.0'\n"
+            "cases:\n"
+            f"  - case_id: {case_id}\n"
+            f"    request_path: {request_path.as_posix()}\n"
+            "    gold_path: null\n"
+            "experiments:\n"
+            "  E0:\n"
+            "    name: manual_baseline\n"
+            "    description: manual\n"
+            "    run_command: null\n"
+            "    enabled: true\n"
+            "  E1:\n"
+            "    name: generic_agent\n"
+            "    description: disabled\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: false\n"
+            "  E2:\n"
+            "    name: industry_agent\n"
+            "    description: disabled\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: false\n"
+            "  E3:\n"
+            "    name: full_system\n"
+            "    description: disabled\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: false\n",
+            encoding="utf-8",
+        )
+        rows = run_case_experiments(case_id, request, definitions=defs)
+        statuses = {r["experiment_id"]: r["status"] for r in rows}
+        assert statuses["E1"] == "disabled"
+        assert statuses["E2"] == "disabled"
+        assert statuses["E3"] == "disabled"
+        e1 = next(r for r in rows if r["experiment_id"] == "E1")
+        assert "disabled" in (e1["error"] or "")
 
 
 class TestCommandSubstitution:

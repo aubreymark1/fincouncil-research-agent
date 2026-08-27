@@ -15,6 +15,7 @@ from app.main import run_research  # noqa: E402
 from app.model import (  # noqa: E402
     JsonFileCache,
     ModelProvider,
+    ModelProviderError,
     create_openai_compatible_transport,
 )
 from app.schemas import ResearchRequest  # noqa: E402
@@ -41,6 +42,9 @@ def main(argv: list[str] | None = None) -> int:
                 cache=JsonFileCache(cache_path),
             )
         report = run_research(request, model_provider=model_provider)
+    except ModelProviderError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     except Exception as exc:
         print(
             f"E500 module=cli file={args.request}: {exc}. "

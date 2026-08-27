@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import scripts.run_case as run_case
-from app.model import JsonFileCache
+from app.model import JsonFileCache, ModelProviderError
 from app.schemas import ResearchReport
 
 
@@ -44,3 +44,22 @@ def test_run_case_llm_flag_constructs_provider(monkeypatch) -> None:
     assert captured["model_provider"] is not None
     assert isinstance(captured["model_provider"]._cache, JsonFileCache)
     assert captured["model_provider"]._cache.path.name == "model_cache.json"
+
+
+def test_run_case_llm_preserves_e301_in_stderr(monkeypatch, capsys) -> None:
+    request_fixture = ROOT / "fixtures" / "shared" / "research_request.json"
+
+    def fake_run_research(request, *, model_provider=None):
+        del request, model_provider
+        raise ModelProviderError(
+            "E301 module=model.transport: response missing chat content"
+        )
+
+    monkeypatch.setattr(run_case, "run_research", fake_run_research)
+
+    exit_code = run_case.main(["--request", str(request_fixture), "--llm"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "E301 module=model.transport" in captured.err
+    assert "E500" not in captured.err

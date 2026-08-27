@@ -1,0 +1,46 @@
+# 冻结的实验定义（D-003）
+#
+# 所有实验使用相同资料包、cutoff 和报告模板。
+# E1—E3 额外保持相同模型、temperature 和提示词版本。
+# 运行后不得根据结果改组。
+#
+# E0 是人工基线：不调用模型，由指定成员使用同一资料包完成人工简报，
+# 通过 scripts/evaluate.py --case {case_id} --experiment E0 --import-manual 导入，
+# 记录开始时间、结束时间、使用资料和最终文本。
+
+schema_version: "1.0"
+
+cases:
+  - case_id: food_main
+    request_path: fixtures/shared/research_request.json
+    gold_path: fixtures/evaluation/food_gold.json
+  - case_id: bank_main
+    request_path: fixtures/shared/bank_request.json
+    gold_path: fixtures/evaluation/bank_gold.json
+
+experiments:
+  E0:
+    name: manual_baseline
+    description: 人工检索和整理；不调用模型
+    run_command: null
+  E1:
+    name: generic_agent
+    description: 通用 Agent，不加载行业配置
+    run_command: "{python} scripts/run_case.py --request {request_path}"
+  E2:
+    name: industry_agent
+    description: 通用 Agent 加载行业配置
+    run_command: "{python} scripts/run_case.py --request {request_path}"
+  E3:
+    name: full_system
+    description: 行业配置、时间锁、证据链和 Critic
+    run_command: "{python} scripts/run_case.py --request {request_path}"
+
+output:
+  root: outputs/experiments
+  files:
+    request: request.json
+    report: report.json
+    metadata: run_metadata.json
+    metrics: metrics.json
+    error: error.txt

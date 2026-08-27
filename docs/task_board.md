@@ -4,15 +4,15 @@
 > 同步基线：PR #29 合并后的主分支状态
 > 状态依据：GitHub 已合并 PR、主分支文件和已验证测试；未提交到 GitHub 的线下工作不作推测。
 > Roles 文档和 `docs/MASTER_PLAN.md` 定义任务范围，本看板记录当前执行状态。
-
 ## 一、当前结论
 
 - A-001～A-008：已全部完成并合并；主编排默认调用真实 B/C 链路，fixture/stub 已删除。
 - B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
 - C-001～C-007：已全部完成并合并。
 - D-002 指标计算与 D-004 红蓝测试：已完成并合并；D-001 正式 Gold Standard 仍只有合成样例，真实食品饮料/银行 Gold 尚未签收。
+- D-003 实验运行器：本 PR 首次提交（`evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py`）；含 `{python}` 占位符替换修复与测试输出目录隔离改造，48 项评测测试通过，待审查。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
-- 当前没有 open PR。
+- 当前有 1 个 open PR（D-003，本 PR 首次提交，含 `{python}` 替换修复与测试隔离改造）。
 
 ## 二、里程碑
 
@@ -21,7 +21,7 @@
 | G0 公共接口和最小链路 | 已完成 | 公共 Schema、最小 fixture/stub 链路已合并 |
 | G1 四个角色模块可独立测试 | 已完成 | A/B/C 模块和 D-002 指标均有独立测试；不等于端到端完成 |
 | G2 食品饮料端到端 | 已完成 | A-008 接入真实资料；RUN-DEMO 全链运行产出三件套并通过验收抽查 |
-| G3 实验、迁移和红蓝测试 | 进行中 | D-004 已完成并合并；D-003、MIG-001 尚未开始 |
+| G3 实验、迁移和红蓝测试 | 进行中 | D-004 已完成并合并；D-003 已提交 PR 待审查；MIG-001 尚未开始 |
 | G4 报告和演示可提交 | 待开始 | UI、图表、报告模板和完整输出尚未完成 |
 | G5 最终提交 | 待开始 | 需完成实验、验收和交付材料 |
 
@@ -69,7 +69,7 @@
 |---|---|---|---|
 | D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #19 只有合成 `metrics_gold_sample.json`；`food_gold.json`/`bank_gold.json` 及 B/C 签收仍缺 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
-| D-003 | 实验运行器 | 待开始 | `evaluation/experiment_runner.py`、`scripts/evaluate.py` 尚未提交 |
+| D-003 | 实验运行器 | 待审查 | `evaluation/experiment_runner.py`、`evaluation/experiment_definitions.yaml`、`scripts/evaluate.py`、`tests/evaluation/test_experiment_runner.py` 已提交 PR；含 `{python}` 占位符替换修复与测试输出目录隔离改造，48 项评测测试通过 |
 | D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
 | D-005 | 图表 | 待开始 | `evaluation/charts.py` 尚未提交 |
 | D-006 | Streamlit 页面 | 待开始 | `app/ui/` 尚未提交 |
@@ -81,7 +81,7 @@
 |---|---|---|---|
 | INT-001 | 真实 ingestion → industry → core 集成 | 已完成 | PR #29；`tests/integration` 五个用例（正式链/E202 单发/行业差异/E100/未知后缀） |
 | INT-002 | 食品饮料完整运行 | 已完成 | `python scripts/run_case.py --request fixtures/shared/research_request.json`；产出 report.json/report.md/run_metadata.json，1580 条索引证据全 verified 且 cutoff 后资料零泄漏 |
-| EXP-001 | E0—E3 可复现实验 | 待开始 | 依赖 INT-002、D-001、D-003 |
+| EXP-001 | E0—E3 可复现实验 | 待开始 | 依赖 INT-002、D-001、D-003；D-003 已就绪待合并，D-001 真实 Gold 仍缺 |
 | MIG-001 | 银行迁移检查 | 待开始 | 依赖 INT-002；目标是不改核心编排完成银行简版报告 |
 
 ## 四、当前阻塞与下一步
@@ -120,6 +120,7 @@
 | D-002 | `pytest tests/evaluation/test_metrics.py -q` | 合成 fixture 确定性测试已合并；PR #19 |
 | C-006～C-007 | `prompts/` 四个文件和 `docs/manual_review_checklist.md` 进入主分支 | 已合并；PR #25/#26 |
 | D-004 | `pytest tests/evaluation/test_red_team.py -q`；全量 `python -m pytest -q` | 11 项红队场景测试通过；全量 285 passed；PR #27 |
+| D-003 | `pytest tests/evaluation -q` | 48 passed（含 experiment runner 定义/hash/失败保留/E0 导入/聚合输出/`{python}` 占位符替换真实执行路径/输出目录隔离）；PR 待合并 |
 | 当前主分支 | `python -m pytest -q` | PR #29 合并后全量复核 305 passed |
 | A-008 / INT-001 / INT-002 | `pytest tests/integration -q`；真实 RUN-DEMO 冒烟抽查 | 5 passed；三件套产出且红队/cutoff 后/rejected 资料零进入索引；PR #29 |
 

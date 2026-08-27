@@ -16,7 +16,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.agents import render_markdown, render_report, run_critic
+from app.agents import (
+    get_prompt_versions,
+    render_markdown,
+    render_report,
+    run_critic,
+    run_critic_llm,
+)
 from app.agents.aggregation import run_analysis
 from app.industry.checklist import check_required_metrics
 from app.industry.loader import load_industry_config
@@ -26,6 +32,7 @@ from app.ingestion.evidence_locator import locate_evidence
 from app.ingestion.html_extractor import extract_html
 from app.ingestion.manifest import load_manifest, validate_manifest
 from app.ingestion.pdf_extractor import extract_pdf
+from app.model import ModelProvider
 from app.schemas import (
     Claim,
     Evidence,
@@ -232,6 +239,7 @@ def run_pipeline(
     manifest_loader: ManifestLoader | None = None,
     text_extractor: TextExtractor | None = None,
     industry_loader: IndustryLoader | None = None,
+    model_provider: ModelProvider | None = None,
 ) -> ResearchState:
     """Run the research pipeline over real B/C modules and persist outputs."""
 
@@ -270,7 +278,13 @@ def run_pipeline(
     )
     state.validation_issues.extend(policy_issues)
 
-    state.claims = run_analysis(request, state.evidence, state.config, documents=state.documents)
+    state.claims = run_analysis(
+        request,
+        state.evidence,
+        state.config,
+        documents=state.documents,
+        provider=model_provider,
+    )
 
     industry_issues = [
         *check_required_metrics(state.evidence, state.config, documents=state.documents),
@@ -278,7 +292,16 @@ def run_pipeline(
     ]
     state.validation_issues.extend(industry_issues)
 
-    critic_issues = run_critic(request, state.claims, state.evidence, state.config)
+    if model_provider is None:
+        critic_issues = run_critic(request, state.claims, state.evidence, state.config)
+    else:
+        critic_issues = run_critic_llm(
+            model_provider,
+            request,
+            state.claims,
+            state.evidence,
+            state.config,
+        )
     state.validation_issues.extend(_drop_duplicated_metric_issues(critic_issues, industry_issues))
 
     generated_at = datetime.now(timezone.utc)
@@ -296,14 +319,27 @@ def run_pipeline(
         manifest_path = PROJECT_ROOT / manifest_path
     manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
+    if model_provider is None:
+        model_provider_name = "rule-engine"
+        model_name = "a008-rules"
+        prompt_versions: dict[str, str] = {}
+        agents_version = "v1-aggregation"
+        model_version = "v1-provider"
+    else:
+        model_provider_name = model_provider.config.provider_name
+        model_name = model_provider.config.model_name
+        prompt_versions = get_prompt_versions()
+        agents_version = "v1-llm"
+        model_version = "v1-transport"
+
     state.metadata = RunMetadata(
         run_id=request.run_id,
         started_at=started_at,
         finished_at=generated_at,
         status="success",
-        model_provider="rule-engine",
-        model_name="a008-rules",
-        prompt_versions={},
+        model_provider=model_provider_name,
+        model_name=model_name,
+        prompt_versions=prompt_versions,
         input_hashes={
             "request": f"sha256:{request_hash}",
             "manifest": f"sha256:{manifest_hash}",
@@ -313,7 +349,8 @@ def run_pipeline(
             "validators": "v1-a002",
             "ingestion": "v1-b-merged",
             "industry": "v1-c-merged",
-            "agents": "v1-aggregation",
+            "agents": agents_version,
+            "model": model_version,
         },
         errors=[],
     )

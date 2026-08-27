@@ -1,0 +1,385 @@
+{
+  "task": "MIG-001 银行迁移检查（C 角色，8/27）",
+  "generated_at_utc": "2026-08-27T10:48:09+00:00",
+  "inputs": {
+    "manifest": "data/manifests/bank_case.csv",
+    "manifest_sha256": "sha256:620561b26e7b8195902b9dfcda86bb4d714b2654aaf23610f16ef309bac281ad",
+    "cutoff_date": "2026-08-26",
+    "chunk_max_chars": 2000,
+    "files_used": {
+      "DOC-BANK-001": "sha256:e2edab73032f143aad881f612382bc613c8b96b424bb197b125d64a0ef23c78b",
+      "DOC-BANK-002": "sha256:2273565ecbe1b32536631fd4a019a4f4a990f4c793cfd5b70eae90d44d3ff16c",
+      "DOC-BANK-003": "sha256:8ad7c2264a38441715cafd485a9214f0c180bc1eb037837bb0403013fadd586c",
+      "DOC-BANK-004": "sha256:9353f9a05d9cdf19cabef785e4c633fbd29ab63e7933dcd3c472ca02bc691d83"
+    },
+    "python": "3.14.0"
+  },
+  "modules_called_readonly": [
+    "app.ingestion.load_manifest",
+    "app.ingestion.validate_manifest",
+    "app.validators.apply_time_lock",
+    "app.ingestion.extract_pdf",
+    "app.ingestion.chunk_text",
+    "app.ingestion.locate_evidence",
+    "app.industry.load_industry_config",
+    "app.industry.build_industry_checklist",
+    "app.industry.check_required_metrics",
+    "app.industry.apply_metric_rules",
+    "app.industry.apply_risk_rules"
+  ],
+  "core_orchestration_modified": false,
+  "documents_in_after_time_lock": [
+    "DOC-BANK-001",
+    "DOC-BANK-002",
+    "DOC-BANK-003",
+    "DOC-BANK-004"
+  ],
+  "documents_withheld_by_time_lock": [
+    "DOC-BANK-101"
+  ],
+  "time_lock_issues": [
+    {
+      "issue_id": "ISSUE-TIME-BANK-101-MISSING-PUBLISHED-AT",
+      "check_name": "time_lock",
+      "severity": "warning",
+      "issue_type": "missing_published_at",
+      "message": "E102 DOC-BANK-101 lacks published_at and is held for manual verification.",
+      "claim_id": null,
+      "evidence_id": null,
+      "report_section": "source_filter",
+      "rerun_required": false,
+      "human_confirmation_required": true,
+      "status": "open"
+    }
+  ],
+  "chunks_total": 1483,
+  "pages_per_document": {
+    "DOC-BANK-001": 416,
+    "DOC-BANK-002": 289,
+    "DOC-BANK-003": 351,
+    "DOC-BANK-004": 427
+  },
+  "extraction_errors": [],
+  "manifest_issues": [],
+  "pre_review_retrieval_hits": {
+    "net_interest_margin": {
+      "channel": "financial",
+      "hit_count": 45,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "净利息收益率",
+        "净利息差"
+      ]
+    },
+    "loan_growth": {
+      "channel": "financial",
+      "hit_count": 71,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "（7）不良贷款余额除以客户贷款及垫款总额",
+        "费贷款增长 18.5%"
+      ]
+    },
+    "deposit_structure": {
+      "channel": "financial",
+      "hit_count": 35,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "活期存款增加 8,319.68 亿元，增长",
+        "定期存款增加 16,743.29 亿元，增长 8.2%"
+      ]
+    },
+    "non_performing_loan_ratio": {
+      "channel": "financial",
+      "hit_count": 50,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "不良贷款率",
+        "（7）不良贷款余额除以客户贷款及垫款总额"
+      ]
+    },
+    "provision_coverage": {
+      "channel": "financial",
+      "hit_count": 70,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "拨备覆盖率",
+        "拨备覆盖率"
+      ]
+    },
+    "capital_adequacy": {
+      "channel": "financial",
+      "hit_count": 96,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "资本充足率指标（%）",
+        "核心一级资本充足率"
+      ]
+    },
+    "liquidity": {
+      "channel": "financial",
+      "hit_count": 117,
+      "docs_covered": [
+        "DOC-BANK-001",
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "本行面临的主要风险是信用风险、市场风险、银行账簿利率风险、流动性风险、操作风",
+        "流动性充裕"
+      ]
+    },
+    "real_estate_exposure": {
+      "channel": "financial",
+      "hit_count": 12,
+      "docs_covered": [
+        "DOC-BANK-002",
+        "DOC-BANK-003",
+        "DOC-BANK-004"
+      ],
+      "sample_quotes": [
+        "强化预警分层管理，加强房地产风险管控和化解，压实重点领域前瞻管控",
+        "其中：住房按揭贷款 355,148 10.5% 0.28% 326,098 9.7% 0.47% -0.19 个百分点"
+      ]
+    }
+  },
+  "checklist_on_pending_evidence": {
+    "issue_count": 5,
+    "issues": [
+      {
+        "issue_id": "ISSUE-C002-NET-INTEREST-MARGIN-E70584EE3B",
+        "check_name": "required_metric_coverage",
+        "severity": "error",
+        "issue_type": "missing_metric",
+        "message": "E202 module=industry.checklist: required metric net_interest_margin (净息差) has no verified, source-traced evidence matching its keywords and evidence_types; missing_action=review",
+        "claim_id": null,
+        "evidence_id": null,
+        "report_section": null,
+        "rerun_required": true,
+        "human_confirmation_required": true,
+        "status": "open"
+      },
+      {
+        "issue_id": "ISSUE-C002-LOAN-GROWTH-10EDDAE590",
+        "check_name": "required_metric_coverage",
+        "severity": "error",
+        "issue_type": "missing_metric",
+        "message": "E202 module=industry.checklist: required metric loan_growth (贷款增长) has no verified, source-traced evidence matching its keywords and evidence_types; missing_action=review",
+        "claim_id": null,
+        "evidence_id": null,
+        "report_section": null,
+        "rerun_required": true,
+        "human_confirmation_required": true,
+        "status": "open"
+      },
+      {
+        "issue_id": "ISSUE-C002-NON-PERFORMING-LOAN-RATIO-09CC68E1C9",
+        "check_name": "required_metric_coverage",
+        "severity": "error",
+        "issue_type": "missing_metric",
+        "message": "E202 module=industry.checklist: required metric non_performing_loan_ratio (不良贷款率) has no verified, source-traced evidence matching its keywords and evidence_types; missing_action=review",
+        "claim_id": null,
+        "evidence_id": null,
+        "report_section": null,
+        "rerun_required": true,
+        "human_confirmation_required": true,
+        "status": "open"
+      },
+      {
+        "issue_id": "ISSUE-C002-PROVISION-COVERAGE-A8D7926598",
+        "check_name": "required_metric_coverage",
+        "severity": "error",
+        "issue_type": "missing_metric",
+        "message": "E202 module=industry.checklist: required metric provision_coverage (拨备覆盖率) has no verified, source-traced evidence matching its keywords and evidence_types; missing_action=review",
+        "claim_id": null,
+        "evidence_id": null,
+        "report_section": null,
+        "rerun_required": true,
+        "human_confirmation_required": true,
+        "status": "open"
+      },
+      {
+        "issue_id": "ISSUE-C002-CAPITAL-ADEQUACY-041F0153B2",
+        "check_name": "required_metric_coverage",
+        "severity": "error",
+        "issue_type": "missing_metric",
+        "message": "E202 module=industry.checklist: required metric capital_adequacy (资本充足率) has no verified, source-traced evidence matching its keywords and evidence_types; missing_action=review",
+        "claim_id": null,
+        "evidence_id": null,
+        "report_section": null,
+        "rerun_required": true,
+        "human_confirmation_required": true,
+        "status": "open"
+      }
+    ]
+  },
+  "metric_rules_on_pending_evidence": {
+    "issue_count": 0,
+    "issues": []
+  },
+  "risk_claims_on_pending_evidence": {
+    "claim_count": 4,
+    "claims": [
+      {
+        "claim_id": "CL-RISK-CREDIT-RISK-DETERIORATION-53E6879A50",
+        "text": "风险规则“信用风险恶化”仍缺少证据类型：financial, policy。",
+        "claim_type": "unresolved",
+        "risk_severity": "high",
+        "evidence_ids": [],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "non_performing_loan_ratio",
+          "provision_coverage"
+        ],
+        "status": "review"
+      },
+      {
+        "claim_id": "CL-RISK-NIM-PRESSURE-20231F7B41",
+        "text": "风险规则“净息差压力”仍缺少证据类型：financial。",
+        "claim_type": "unresolved",
+        "risk_severity": "medium",
+        "evidence_ids": [],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "net_interest_margin"
+        ],
+        "status": "review"
+      },
+      {
+        "claim_id": "CL-RISK-CAPITAL-ADEQUACY-CONCERN-19DDF93AB3",
+        "text": "风险规则“资本充足率风险”仍缺少证据类型：financial, policy。",
+        "claim_type": "unresolved",
+        "risk_severity": "high",
+        "evidence_ids": [],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "capital_adequacy"
+        ],
+        "status": "review"
+      },
+      {
+        "claim_id": "CL-RISK-REAL-ESTATE-CONCENTRATION-RISK-B7157342CC",
+        "text": "风险规则“房地产集中度风险”仍缺少证据类型：financial, news。",
+        "claim_type": "unresolved",
+        "risk_severity": "medium",
+        "evidence_ids": [],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "real_estate_exposure",
+          "loan_growth"
+        ],
+        "status": "review"
+      }
+    ]
+  },
+  "cross_role_gap_note": "B 的定位器固定产出 review_status=pending，而 C 的清单与风险规则只消费 verified；在跨角色复核机制落地前，正式结果按 pending 输入记录。下方 simulated 块仅在内存中将pending 复制为 verified 以演示复核后行为，不构成已核实数据，也不写入任何共享状态。",
+  "simulated_verified_run": {
+    "label": "内存模拟：pending→verified 复核机制落地后的预期表现",
+    "evidence_count": 496,
+    "checklist_issue_count": 0,
+    "checklist_issues": [],
+    "risk_claims": [
+      {
+        "claim_id": "CL-RISK-CREDIT-RISK-DETERIORATION-53E6879A50",
+        "text": "风险规则“信用风险恶化”仍缺少证据类型：policy。",
+        "claim_type": "unresolved",
+        "risk_severity": "high",
+        "evidence_ids": [
+          "EV-BANK-003-P48-financial-9aa3f8f1-1121"
+        ],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "non_performing_loan_ratio",
+          "provision_coverage"
+        ],
+        "status": "review"
+      },
+      {
+        "claim_id": "CL-RISK-NIM-PRESSURE-20231F7B41",
+        "text": "风险规则“净息差压力”已获得所需证据，需人工确认：净息差变化必须说明比较期间和资产端、负债端驱动因素。",
+        "claim_type": "risk",
+        "risk_severity": "medium",
+        "evidence_ids": [
+          "EV-BANK-002-P55-financial-08d0526f-246",
+          "EV-BANK-003-P8-financial-08d0526f-586",
+          "EV-BANK-003-P43-financial-a358e873-137",
+          "EV-BANK-003-P43-financial-08d0526f-138",
+          "EV-BANK-003-P45-financial-08d0526f-179",
+          "EV-BANK-003-P72-financial-a358e873-848"
+        ],
+        "calculation": null,
+        "confidence": 0.5,
+        "industry_metric_ids": [
+          "net_interest_margin"
+        ],
+        "status": "review"
+      },
+      {
+        "claim_id": "CL-RISK-CAPITAL-ADEQUACY-CONCERN-19DDF93AB3",
+        "text": "风险规则“资本充足率风险”仍缺少证据类型：financial, policy。",
+        "claim_type": "unresolved",
+        "risk_severity": "high",
+        "evidence_ids": [],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "capital_adequacy"
+        ],
+        "status": "review"
+      },
+      {
+        "claim_id": "CL-RISK-REAL-ESTATE-CONCENTRATION-RISK-B7157342CC",
+        "text": "风险规则“房地产集中度风险”仍缺少证据类型：news。",
+        "claim_type": "unresolved",
+        "risk_severity": "medium",
+        "evidence_ids": [
+          "EV-BANK-002-P54-financial-9aa3f8f1-671"
+        ],
+        "calculation": null,
+        "confidence": 0.0,
+        "industry_metric_ids": [
+          "real_estate_exposure",
+          "loan_growth"
+        ],
+        "status": "review"
+      }
+    ],
+    "resolved_risk_claim_count": 1
+  }
+}

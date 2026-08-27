@@ -292,16 +292,18 @@ def run_pipeline(
     ]
     state.validation_issues.extend(industry_issues)
 
-    if model_provider is None:
-        critic_issues = run_critic(request, state.claims, state.evidence, state.config)
-    else:
-        critic_issues = run_critic_llm(
-            model_provider,
-            request,
-            state.claims,
-            state.evidence,
-            state.config,
-        )
+    critic_issues = run_critic(request, state.claims, state.evidence, state.config)
+    if model_provider is not None:
+        critic_issues = [
+            *critic_issues,
+            *run_critic_llm(
+                model_provider,
+                request,
+                state.claims,
+                state.evidence,
+                state.config,
+            ),
+        ]
     state.validation_issues.extend(_drop_duplicated_metric_issues(critic_issues, industry_issues))
 
     generated_at = datetime.now(timezone.utc)

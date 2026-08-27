@@ -33,17 +33,24 @@ def run_analysis(
     """Run the fundamental, news/policy, and risk nodes over one evidence pool.
 
     The ``request`` parameter is accepted for contract alignment and future
-    node expansion; current nodes derive their scope from ``config`` and the
-    upstream-verified evidence pool. Cutoff enforcement remains an upstream
-    responsibility: callers must pass time-lock-checked evidence.
+    node expansion; LLM nodes receive it so target-company applicability can be
+    judged. Cutoff enforcement remains an upstream responsibility: callers must
+    pass time-lock-checked evidence.
     """
 
-    del request
     if provider is not None:
         claims: list[Claim] = []
-        claims.extend(analyze_fundamentals_llm(provider, evidence, config, documents=documents))
-        claims.extend(analyze_news_policy_llm(provider, evidence, config))
-        claims.extend(analyze_risks_llm(provider, evidence, config))
+        claims.extend(
+            analyze_fundamentals_llm(
+                provider,
+                request,
+                evidence,
+                config,
+                documents=documents,
+            )
+        )
+        claims.extend(analyze_news_policy_llm(provider, request, evidence, config))
+        claims.extend(analyze_risks_llm(provider, request, evidence, config))
         return claims
 
     claims = []

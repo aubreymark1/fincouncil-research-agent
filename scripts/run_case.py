@@ -12,18 +12,29 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.main import run_research  # noqa: E402
+from app.model import ModelProvider, create_openai_compatible_transport  # noqa: E402
 from app.schemas import ResearchRequest  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the minimum FinCouncil research case.")
     parser.add_argument("--request", required=True, type=Path, help="Path to a ResearchRequest JSON file")
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help="Use the real OpenAI-compatible LLM transport (requires FINCOUNCIL_MODEL_* env)",
+    )
     args = parser.parse_args(argv)
 
     try:
         request_payload = json.loads(args.request.read_text(encoding="utf-8"))
         request = ResearchRequest.model_validate(request_payload)
-        report = run_research(request)
+        model_provider = None
+        if args.llm:
+            model_provider = ModelProvider.from_env(
+                transport=create_openai_compatible_transport()
+            )
+        report = run_research(request, model_provider=model_provider)
     except Exception as exc:
         print(
             f"E500 module=cli file={args.request}: {exc}. "

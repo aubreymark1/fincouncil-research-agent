@@ -1,7 +1,7 @@
 # 项目任务看板
 
-> 更新时间：2026-08-26 21:45（Asia/Shanghai）
-> 同步基线：PR #24 合并后的主分支状态
+> 更新时间：2026-08-27（Asia/Shanghai）
+> 同步基线：PR #27 合并后的主分支状态
 > 状态依据：GitHub 已合并 PR、主分支文件和已验证测试；未提交到 GitHub 的线下工作不作推测。
 > Roles 文档和 `docs/MASTER_PLAN.md` 定义任务范围，本看板记录当前执行状态。
 
@@ -9,8 +9,8 @@
 
 - A-001～A-007：已完成并合并；A-004 仍明确是 fixture/stub 最小编排。
 - B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
-- C-001～C-005：已完成并合并；C-006 提示词要求、C-007 人工复核清单尚未提交。
-- D-002 指标计算：已完成并合并；D-001 正式 Gold Standard 仍只有合成样例，真实食品饮料/银行 Gold 尚未签收。
+- C-001～C-007：已全部完成并合并。
+- D-002 指标计算与 D-004 红蓝测试：已完成并合并；D-001 正式 Gold Standard 仍只有合成样例，真实食品饮料/银行 Gold 尚未签收。
 - A-008/INT-001 尚未开始：主编排仍使用 fixture/stub，尚未接入真实 B/C 链路。
 - 当前没有 open PR。
 
@@ -21,7 +21,7 @@
 | G0 公共接口和最小链路 | 已完成 | 公共 Schema、最小 fixture/stub 链路已合并 |
 | G1 四个角色模块可独立测试 | 已完成 | A/B/C 模块和 D-002 指标均有独立测试；不等于端到端完成 |
 | G2 食品饮料端到端 | 待开始 | 等待 A-008/INT-001 接入真实资料 |
-| G3 实验、迁移和红蓝测试 | 待开始 | D-003/D-004、MIG-001 尚未完成 |
+| G3 实验、迁移和红蓝测试 | 进行中 | D-004 已完成并合并；D-003、MIG-001 尚未开始 |
 | G4 报告和演示可提交 | 待开始 | UI、图表、报告模板和完整输出尚未完成 |
 | G5 最终提交 | 待开始 | 需完成实验、验收和交付材料 |
 
@@ -60,8 +60,8 @@
 | C-003 | 必查指标清单 | 已完成 | PR #17 |
 | C-004 | 指标规则 | 已完成 | PR #24 |
 | C-005 | 风险规则 | 已完成 | PR #20 |
-| C-006 | 分析提示词要求 | 待开始 | `prompts/` 尚未提交；按 `docs/roles/C.md` 执行 |
-| C-007 | 人工复核清单 | 待开始 | `docs/manual_review_checklist.md` 尚未提交 |
+| C-006 | 分析提示词要求 | 已完成 | PR #25；`prompts/` 四个节点提示词已合并 |
+| C-007 | 人工复核清单 | 已完成 | PR #26；`docs/manual_review_checklist.md` 已合并 |
 
 ### D：评测、实验与交付
 
@@ -70,7 +70,7 @@
 | D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #19 只有合成 `metrics_gold_sample.json`；`food_gold.json`/`bank_gold.json` 及 B/C 签收仍缺 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
 | D-003 | 实验运行器 | 待开始 | `evaluation/experiment_runner.py`、`scripts/evaluate.py` 尚未提交 |
-| D-004 | 红蓝测试 | 待审查 | PR #27；`evaluation/red_team.py` + `tests/evaluation/test_red_team.py` + `fixtures/evaluation/red_team/scenarios.json` 已实现，11 测试通过 |
+| D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
 | D-005 | 图表 | 待开始 | `evaluation/charts.py` 尚未提交 |
 | D-006 | Streamlit 页面 | 待开始 | `app/ui/` 尚未提交 |
 | D-007 | 报告模板 | 待开始 | `reports/` 和提交清单尚未提交 |
@@ -90,8 +90,7 @@
 |---|---|---|---|
 | P0 | 主编排仍使用 fixture/stub | A | 开始 A-008/INT-001，接入 B/C 正式函数并新增 integration tests |
 | P1 | 真实 Gold Standard 缺失 | B/C/D | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果 |
-| P1 | C-006/C-007 尚未提交 | C | 添加提示词要求和人工复核清单 |
-| P2 | 实验、UI、图表、模板未开始；红蓝测试已实现待审查 | D | 按 D-003、D-005～D-007 顺序推进 |
+| P2 | 实验、UI、图表、模板未开始 | D | 按 D-003、D-005～D-007 顺序推进 |
 
 ## 五、接口变更记录
 
@@ -118,7 +117,9 @@
 | C-004 | `pytest tests/industry/test_metric_rules.py -q` | 29 passed；PR #24 |
 | C-005 | `pytest tests/industry/test_risk_rules.py -q` | 已合并；PR #20 |
 | D-002 | `pytest tests/evaluation/test_metrics.py -q` | 合成 fixture 确定性测试已合并；PR #19 |
-| 当前主分支 | `python -m pytest -q` | PR #24 合并前全量复核 238 passed |
+| C-006～C-007 | `prompts/` 四个文件和 `docs/manual_review_checklist.md` 进入主分支 | 已合并；PR #25/#26 |
+| D-004 | `pytest tests/evaluation/test_red_team.py -q`；全量 `python -m pytest -q` | 11 项红队场景测试通过；全量 285 passed；PR #27 |
+| 当前主分支 | `python -m pytest -q` | PR #27 合并后全量复核 285 passed |
 
 ## 七、状态规则
 

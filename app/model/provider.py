@@ -229,7 +229,7 @@ class ModelProvider:
                 last_transport_error_type = type(exc).__name__
                 if attempt == attempts - 1:
                     if isinstance(exc, ModelProviderError) and str(exc).startswith("E301 "):
-                        raise ModelProviderError(str(exc)) from None
+                        raise
                     raise ModelProviderError(
                         f"E300 module=model: transport failed after {attempts} attempts "
                         f"(error_type={last_transport_error_type})"

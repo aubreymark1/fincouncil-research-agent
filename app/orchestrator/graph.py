@@ -1,18 +1,31 @@
-"""Minimum orchestration graph with fixture-backed B/C stubs.
+"""Real-B/C orchestration graph: manifest -> time lock -> extraction ->
+evidence location -> verification policy -> analysis -> Critic -> report.
 
-The loader and extractor callables are injectable so B and C can be connected
-after their PRs are merged without creating duplicate implementations here.
+The loader and extractor callables remain injectable so unit tests can use
+lightweight fakes while production runs use the real ingestion and industry
+modules by default.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.agents import render_markdown, render_report, run_critic
+from app.agents.aggregation import run_analysis
+from app.industry.checklist import check_required_metrics
+from app.industry.loader import load_industry_config
+from app.industry.metric_rules import apply_metric_rules
+from app.ingestion.chunker import chunk_text
+from app.ingestion.evidence_locator import locate_evidence
+from app.ingestion.html_extractor import extract_html
+from app.ingestion.manifest import load_manifest, validate_manifest
+from app.ingestion.pdf_extractor import extract_pdf
 from app.schemas import (
     Claim,
     Evidence,
@@ -22,95 +35,130 @@ from app.schemas import (
     RunMetadata,
     SourceDocument,
     TextChunk,
+    ValidationIssue,
 )
 from app.validators import apply_time_lock
 
+from .evidence_policy import apply_evidence_policy
 from .state import ResearchState
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SHARED_FIXTURES = PROJECT_ROOT / "fixtures" / "shared"
+
+CHUNK_MAX_CHARS = 400
+MANIFEST_BLOCKING_SEVERITIES = frozenset({"error", "critical"})
+_REQUIRED_METRIC_RE = re.compile(r"required metric (\S+)")
 
 ManifestLoader = Callable[[str], list[SourceDocument]]
 TextExtractor = Callable[[SourceDocument], list[TextChunk]]
 IndustryLoader = Callable[[str], IndustryConfig]
 
 
-def _read_fixture(name: str) -> dict[str, Any]:
-    path = SHARED_FIXTURES / name
-    return json.loads(path.read_text(encoding="utf-8"))
+def _extract_document_text(document: SourceDocument) -> list[TextChunk]:
+    """Dispatch real extraction on the source file suffix."""
+
+    suffix = Path(document.local_path).suffix.lower()
+    if suffix == ".pdf":
+        return extract_pdf(document)
+    if suffix in {".html", ".htm"}:
+        return extract_html(document)
+    raise ValueError(
+        f"E100 module=orchestrator: unsupported source format "
+        f"{suffix!r} for {document.doc_id}"
+    )
 
 
-def _stub_load_manifest(path: str) -> list[SourceDocument]:
-    """Load the shared source fixture until B-001 supplies a real loader."""
+def _merge_evidence(pools: list[list[Evidence]]) -> list[Evidence]:
+    """Merge located-evidence pools keeping the first item per evidence_id."""
 
-    del path
-    return [SourceDocument.model_validate(_read_fixture("source_document.json"))]
-
-
-def _stub_extract_pdf(document: SourceDocument) -> list[TextChunk]:
-    """Return one location-preserving fixture chunk without parsing a PDF."""
-
-    return [
-        TextChunk(
-            chunk_id=f"CHUNK-{document.doc_id.removeprefix('DOC-')}-STUB",
-            doc_id=document.doc_id,
-            text="A-003 fixture extraction stub.",
-            page=1,
-            section="fixture",
-            paragraph_index=0,
-            char_start=0,
-            char_end=31,
-        )
-    ]
+    merged: dict[str, Evidence] = {}
+    for pool in pools:
+        for item in pool:
+            merged.setdefault(item.evidence_id, item)
+    return list(merged.values())
 
 
-def _stub_load_industry_config(industry_id: str) -> IndustryConfig:
-    """Load the shared food configuration until C-001 supplies a loader."""
+def _locate_config_evidence(
+    *,
+    chunks: list[TextChunk],
+    config: IndustryConfig,
+    documents: list[SourceDocument],
+) -> list[Evidence]:
+    """Locate evidence through metric keywords, risk triggers, and leftovers."""
 
-    if industry_id != "food_beverage":
-        raise ValueError(f"E200 module=orchestrator: no fixture config for industry_id={industry_id}")
-    return IndustryConfig.model_validate(_read_fixture("food_config.json"))
+    pools: list[list[Evidence]] = []
 
-
-def _load_fixture_evidence() -> list[Evidence]:
-    return [Evidence.model_validate(_read_fixture("evidence.json"))]
-
-
-def _build_test_claim(state: ResearchState) -> list[Claim]:
-    """Build one deterministic Claim from the shared evidence fixture."""
-
-    if not state.evidence or state.config is None:
-        return [
-            Claim(
-                claim_id="CL-DEMO-UNRESOLVED",
-                text="测试证据或行业配置尚不可用。",
-                claim_type="unresolved",
-                evidence_ids=[],
-                calculation=None,
-                confidence=0.0,
-                industry_metric_ids=[],
-                status="review",
+    metric_keywords: set[str] = set()
+    for metric in config.required_metrics:
+        metric_keywords.update(metric.keywords)
+        for evidence_type in metric.evidence_types:
+            pools.append(
+                locate_evidence(
+                    chunks,
+                    metric.keywords,
+                    documents=documents,
+                    evidence_type=evidence_type,
+                )
             )
-        ]
 
-    evidence = state.evidence[0]
-    metric_id = state.config.required_metrics[0].metric_id
+    for rule in config.risk_rules:
+        for evidence_type in rule.required_evidence_types:
+            pools.append(
+                locate_evidence(
+                    chunks,
+                    rule.trigger_terms,
+                    documents=documents,
+                    evidence_type=evidence_type,
+                )
+            )
+
+    leftover = [
+        keyword
+        for keyword in config.retrieval_keywords
+        if keyword not in metric_keywords
+    ]
+    if leftover:
+        pools.append(
+            locate_evidence(chunks, leftover, documents=documents, evidence_type="other")
+        )
+
+    return _merge_evidence(pools)
+
+
+def _drop_duplicated_metric_issues(
+    critic_issues: list[ValidationIssue],
+    industry_issues: list[ValidationIssue],
+) -> list[ValidationIssue]:
+    """Remove Critic E202 entries already reported by the C002 checklist.
+
+    Both modules emit an E202-family issue per uncovered required metric.
+    The checklist version is authoritative (it owns ``check_name`` semantics
+    and human-confirmation flags), so matching Critic copies are dropped.
+    Matching relies on the stable ``required metric {metric_id}`` message
+    anchor shared by both emitters; if either message ever changes, this
+    degrades to duplicate lines rather than lost information.
+    """
+
+    def metric_of(issue: ValidationIssue) -> str | None:
+        match = _REQUIRED_METRIC_RE.search(issue.message)
+        return match.group(1) if match else None
+
+    already_reported = {
+        metric
+        for issue in industry_issues
+        if (metric := metric_of(issue)) is not None
+    }
     return [
-        Claim(
-            claim_id="CL-DEMO-001",
-            text=evidence.fact_text,
-            claim_type="fact",
-            evidence_ids=[evidence.evidence_id],
-            calculation=None,
-            confidence=evidence.confidence,
-            industry_metric_ids=[metric_id],
-            status="pass",
+        issue
+        for issue in critic_issues
+        if not (
+            issue.issue_type == "required_metric_missing"
+            and metric_of(issue) in already_reported
         )
     ]
 
 
-def _resolve_output_paths(request: ResearchRequest) -> tuple[Path, Path]:
+def _resolve_output_paths(request: ResearchRequest) -> tuple[Path, Path, Path]:
     output_dir = Path(request.output_dir)
     if not output_dir.is_absolute():
         output_dir = PROJECT_ROOT / output_dir
@@ -123,8 +171,9 @@ def _resolve_output_paths(request: ResearchRequest) -> tuple[Path, Path]:
     if outputs_root is None:
         raise ValueError("E500 module=orchestrator: output_dir is not below an outputs directory")
 
+    report_path = output_dir / "report.json"
     metadata_path = outputs_root / "logs" / request.run_id / "run_metadata.json"
-    return output_dir / "report.json", metadata_path
+    return report_path, report_path.with_suffix(".md"), metadata_path
 
 
 def _write_outputs(
@@ -132,19 +181,49 @@ def _write_outputs(
     request: ResearchRequest,
     report: ResearchReport,
     metadata: RunMetadata,
-) -> tuple[Path, Path]:
-    report_path, metadata_path = _resolve_output_paths(request)
+) -> tuple[Path, Path, Path]:
+    report_path, markdown_path, metadata_path = _resolve_output_paths(request)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(
         json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    markdown_path.write_text(render_markdown(report), encoding="utf-8")
     metadata_path.write_text(
         json.dumps(metadata.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return report_path, metadata_path
+    return report_path, markdown_path, metadata_path
+
+
+_MANIFEST_CODE_RE = re.compile(r"^E\d+ (\S+) ")
+
+
+def _manifest_blocked_documents(
+    documents: list[SourceDocument],
+    manifest_issues: list[ValidationIssue],
+) -> list[SourceDocument]:
+    """Drop documents flagged by error/critical manifest validation issues.
+
+    ADAPT-001: validation issues are never dropped; warning/info stay
+    informational while error/critical keep their document out of the time
+    lock and everything downstream. Issue messages open with a stable
+    ``E1xx {doc_id} `` anchor emitted by ingestion.
+    """
+
+    blocked_ids = {
+        match.group(1)
+        for issue in manifest_issues
+        if issue.severity in MANIFEST_BLOCKING_SEVERITIES
+        and (match := _MANIFEST_CODE_RE.match(issue.message))
+    }
+    known_ids = {document.doc_id for document in documents}
+    return [
+        document
+        for document in documents
+        if document.doc_id not in blocked_ids & known_ids
+    ]
 
 
 def run_pipeline(
@@ -154,47 +233,56 @@ def run_pipeline(
     text_extractor: TextExtractor | None = None,
     industry_loader: IndustryLoader | None = None,
 ) -> ResearchState:
-    """Run the minimum fixture-backed pipeline and persist its outputs."""
+    """Run the research pipeline over real B/C modules and persist outputs."""
 
     started_at = datetime.now(timezone.utc)
     state = ResearchState(request=request)
-    load_manifest = manifest_loader or _stub_load_manifest
-    extract_text = text_extractor or _stub_extract_pdf
-    load_industry = industry_loader or _stub_load_industry_config
+    resolve_manifest = manifest_loader or load_manifest
+    resolve_industry = industry_loader or load_industry_config
 
-    state.documents = load_manifest(request.source_manifest_path)
+    state.documents = resolve_manifest(request.source_manifest_path)
+    manifest_issues = validate_manifest(state.documents)
+    state.validation_issues.extend(manifest_issues)
+    state.documents = _manifest_blocked_documents(state.documents, manifest_issues)
+
     state.documents, time_lock_issues = apply_time_lock(
         state.documents,
         request.cutoff_date,
     )
     state.validation_issues.extend(time_lock_issues)
 
+    extract_text = text_extractor or _extract_document_text
     for document in state.documents:
         state.chunks.extend(extract_text(document))
+    state.chunks = chunk_text(state.chunks, CHUNK_MAX_CHARS)
 
-    state.config = load_industry(request.industry_id)
-    state.evidence = [
-        evidence
-        for evidence in _load_fixture_evidence()
-        if evidence.published_at <= request.cutoff_date
+    state.config = resolve_industry(request.industry_id)
+
+    located = _locate_config_evidence(
+        chunks=state.chunks,
+        config=state.config,
+        documents=state.documents,
+    )
+    state.evidence, policy_issues = apply_evidence_policy(
+        located,
+        state.documents,
+        request=request,
+    )
+    state.validation_issues.extend(policy_issues)
+
+    state.claims = run_analysis(request, state.evidence, state.config, documents=state.documents)
+
+    industry_issues = [
+        *check_required_metrics(state.evidence, state.config, documents=state.documents),
+        *apply_metric_rules(state.evidence, state.config, documents=state.documents),
     ]
-    state.claims = _build_test_claim(state)
+    state.validation_issues.extend(industry_issues)
+
+    critic_issues = run_critic(request, state.claims, state.evidence, state.config)
+    state.validation_issues.extend(_drop_duplicated_metric_issues(critic_issues, industry_issues))
 
     generated_at = datetime.now(timezone.utc)
-    state.report = ResearchReport(
-        run_id=request.run_id,
-        company_name=request.company_name,
-        industry_id=request.industry_id,
-        cutoff_date=request.cutoff_date,
-        summary=["A-003 fixture-backed minimum report."],
-        claims=state.claims,
-        risks=[],
-        unresolved_items=[claim for claim in state.claims if claim.claim_type == "unresolved"],
-        evidence_index=state.evidence,
-        validation_issues=state.validation_issues,
-        generated_at=generated_at,
-        report_version="v1-a003",
-    )
+    state.report = render_report(request, state.claims, state.evidence, state.validation_issues)
 
     request_hash = hashlib.sha256(
         json.dumps(
@@ -203,16 +291,30 @@ def run_pipeline(
             sort_keys=True,
         ).encode("utf-8")
     ).hexdigest()
+    manifest_path = Path(request.source_manifest_path)
+    if not manifest_path.is_absolute():
+        manifest_path = PROJECT_ROOT / manifest_path
+    manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
     state.metadata = RunMetadata(
         run_id=request.run_id,
         started_at=started_at,
         finished_at=generated_at,
         status="success",
-        model_provider="fixture",
-        model_name="a003-stub",
+        model_provider="rule-engine",
+        model_name="a008-rules",
         prompt_versions={},
-        input_hashes={"request": f"sha256:{request_hash}"},
-        module_versions={"orchestrator": "v1-a003", "validators": "v1-a002"},
+        input_hashes={
+            "request": f"sha256:{request_hash}",
+            "manifest": f"sha256:{manifest_hash}",
+        },
+        module_versions={
+            "orchestrator": "v1-a008",
+            "validators": "v1-a002",
+            "ingestion": "v1-b-merged",
+            "industry": "v1-c-merged",
+            "agents": "v1-aggregation",
+        },
         errors=[],
     )
     _write_outputs(request=request, report=state.report, metadata=state.metadata)

@@ -35,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     report_path = Path(request.output_dir) / "report.json"
     if not report_path.is_absolute():
         report_path = PROJECT_ROOT / report_path
+    markdown_path = report_path.with_suffix(".md")
     outputs_root = next(
         (parent for parent in (report_path.parent, *report_path.parent.parents) if parent.name.lower() == "outputs"),
         PROJECT_ROOT / "outputs",
@@ -45,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "run_id": report.run_id,
                 "report_path": str(report_path.resolve()),
+                "report_md_path": str(markdown_path.resolve()),
                 "metadata_path": str(metadata_path.resolve()),
             },
             ensure_ascii=False,

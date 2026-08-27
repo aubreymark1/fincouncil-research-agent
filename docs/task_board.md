@@ -1,7 +1,7 @@
 # 项目任务看板
 
 > 更新时间：2026-08-27（Asia/Shanghai）
-> 同步基线：PR #29 合并后的主分支状态
+> 同步基线：PR #32 合并后的主分支状态
 > 状态依据：GitHub 已合并 PR、主分支文件和已验证测试；未提交到 GitHub 的线下工作不作推测。
 > Roles 文档和 `docs/MASTER_PLAN.md` 定义任务范围，本看板记录当前执行状态。
 ## 一、当前结论
@@ -9,11 +9,11 @@
 - A-001～A-008：已全部完成并合并；主编排默认调用真实 B/C 链路，fixture/stub 已删除。
 - B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
 - C-001～C-007：已全部完成并合并。
-- D-002 指标计算、D-003 实验运行器、D-004 红蓝测试：已完成并合并。
-- D-001 Gold Standard 格式与校验已提交：`food_gold.json`/`bank_gold.json` 为待 B/C 签收模板，真实 Gold 内容仍缺。
-- D-005 图表、D-006 Streamlit 页面、D-007 报告模板：已提交 PR 待审查。
+- D-001 Gold Standard 格式与校验、D-002 指标计算、D-003 实验运行器、D-004 红蓝测试、D-005 图表、D-006 Streamlit 页面、D-007 报告模板的代码均已合并；D-001 的真实 Gold 内容仍缺。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
-- 当前有 1 个 open PR（#32，D-001/D-005/D-006/D-007 合并提交）。
+- PR #32 已合并；当前没有 open PR。
+- 当前主流程仍是 `rule-engine` 确定性链路，LLM transport adapter 和 Agent 节点接入（ADAPT-008）尚未完成；E1～E3 仍 disabled。
+- 按 A 的安排，以下剩余工程、资料签收、实验和最终交付事项统一由 A 负责，暂不再拆分角色。
 
 ## 二、里程碑
 
@@ -22,8 +22,8 @@
 | G0 公共接口和最小链路 | 已完成 | 公共 Schema、最小 fixture/stub 链路已合并 |
 | G1 四个角色模块可独立测试 | 已完成 | A/B/C 模块和 D-002 指标均有独立测试；不等于端到端完成 |
 | G2 食品饮料端到端 | 已完成 | A-008 接入真实资料；RUN-DEMO 全链运行产出三件套并通过验收抽查 |
-| G3 实验、迁移和红蓝测试 | 进行中 | D-003/D-004 已完成并合并；D-001 真实 Gold 待签收；MIG-001 尚未开始 |
-| G4 报告和演示可提交 | 待审查 | D-005 图表、D-006 UI、D-007 报告模板已提交 PR |
+| G3 实验、迁移和红蓝测试 | 进行中 | D-003/D-004 已完成并合并；ADAPT-008、D-001 真实 Gold、EXP-001、MIG-001 尚未完成 |
+| G4 报告和演示可提交 | 进行中 | D-005/D-006/D-007 代码已合并；尚需 LLM 结果、真实实验输出和工作台演示整合 |
 | G5 最终提交 | 待开始 | 需完成实验、验收和交付材料 |
 
 ## 三、任务状态
@@ -40,6 +40,15 @@
 | A-006 | Critic | 已完成 | PR #11 |
 | A-007 | 正式报告生成 | 已完成 | PR #13 |
 | A-008 | 第一次真实 B/C 集成 | 已完成 | PR #29；主编排默认真实 ingestion/industry 链路＋显式验证策略＋report.md 落盘，`_stub_*` 全部移除 |
+
+### A 统一负责的后续工程
+
+| ID | 任务 | 状态 | 依据/备注 |
+|---|---|---|---|
+| ADAPT-008 | 真实 LLM transport adapter 与 Agent 节点接入 | 待开始 | `app/model/` 已有 SDK-neutral Provider；需接入真实 transport、prompts、结构化输出、E300/E301、缓存和 RunMetadata |
+| EXP-001 | E0～E3 可复现实验 | 待开始 | 需先完成 ADAPT-008、真实 Gold 和 E1～E3 模式开关；所有实验统一由 A 运行 |
+| MIG-001 | 银行迁移检查 | 待开始 | 需补齐银行 request fixture、真实 Gold，并验证 banking 配置不改核心编排 |
+| FINAL-001 | 工作台整合与最终提交 | 待开始 | 运行真实结果、生成图表/报告、更新演示和提交材料 |
 
 ### B：资料处理与证据
 
@@ -68,13 +77,13 @@
 
 | ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
-| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #32：`evaluation/gold.py` 与 `food_gold.json`/`bank_gold.json` 模板已提交；真实 Gold 内容待 B/C 签收 |
+| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #32 已合并格式与校验；`food_gold.json`/`bank_gold.json` 仍为 `pending_signoff` 空模板，真实内容统一由 A 推进签收 |
 | D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
 | D-003 | 实验运行器 | 已完成 | PR #31 已合并；`pytest tests/evaluation -q` 60 passed、全量 335 passed |
 | D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
-| D-005 | 图表 | 待审查 | PR #32：`evaluation/charts.py` 与测试已提交；读取 results.csv/json 生成 SVG |
-| D-006 | Streamlit 页面 | 待审查 | PR #32：`app/ui/` 已提交；只读展示 report/run_metadata/metrics |
-| D-007 | 报告模板 | 待审查 | PR #32：`reports/template.md.j2`、`reports/report_sections.md`、`docs/submission_checklist.md` 已提交 |
+| D-005 | 图表 | 已完成 | PR #32 已合并；`evaluation/charts.py` 读取 results.csv/json 生成 5 类 SVG，并区分 disabled/no-data |
+| D-006 | Streamlit 页面 | 已完成 | PR #32 已合并；`app/ui/` 只读展示 report/run_metadata/metrics，并分流正式/非正式 Claim |
+| D-007 | 报告模板 | 已完成 | PR #32 已合并；模板、章节说明和提交清单已进入主分支 |
 
 ### 集成与交付门
 
@@ -82,16 +91,19 @@
 |---|---|---|---|
 | INT-001 | 真实 ingestion → industry → core 集成 | 已完成 | PR #29；`tests/integration` 五个用例（正式链/E202 单发/行业差异/E100/未知后缀） |
 | INT-002 | 食品饮料完整运行 | 已完成 | `python scripts/run_case.py --request fixtures/shared/research_request.json`；产出 report.json/report.md/run_metadata.json，1580 条索引证据全 verified 且 cutoff 后资料零泄漏 |
-| EXP-001 | E0—E3 可复现实验 | 待开始 | 依赖 INT-002、D-001、D-003；D-003 已就绪待合并，D-001 真实 Gold 仍缺 |
-| MIG-001 | 银行迁移检查 | 待开始 | 依赖 INT-002；目标是不改核心编排完成银行简版报告 |
+| ADAPT-008 | 真实 LLM 接入 | 待开始 | A 负责；Provider 骨架已在 PR #5，当前编排仍为 rule-engine |
+| EXP-001 | E0—E3 可复现实验 | 待开始 | A 负责；依赖 ADAPT-008、D-001 真实 Gold、E1～E3 模式开关 |
+| MIG-001 | 银行迁移检查 | 待开始 | A 负责；依赖银行 request fixture、真实 Gold 和 banking 配置运行 |
 
 ## 四、当前阻塞与下一步
 
 | 优先级 | 事项 | 负责人 | 下一步 |
 |---|---|---|---|
-| P1 | 真实 Gold Standard 缺失 | B/C/D | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果；链路已解锁（rule-engine v1-a008 口径） |
-| P1 | MIG-001 银行迁移检查 | C/A | 用 bank_case 资料跑 `python scripts/run_case.py`（request 指向银行 manifest 与 banking 配置），验证不改核心编排 |
-| P2 | 实验、UI、图表、模板推进 | D | D-005～D-007 已提交 PR 待审查；EXP-001 仍差 D-001 真实 Gold |
+| P0 | LLM transport 与 Agent 接入 | A | 完成 ADAPT-008：真实 transport、prompts、结构化输出、错误处理、缓存、日志和 mock 测试；否则不能完整体现 AI Agent 主题 |
+| P1 | 真实 Gold Standard 缺失 | A | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果 |
+| P1 | E1～E3 模式开关与 EXP-001 | A | 明确通用/行业/完整合规三种模式，统一资料、cutoff、模型和提示词版本后运行 E0～E3 |
+| P1 | MIG-001 银行迁移检查 | A | 补齐 bank request fixture，运行 banking 配置并验证不改核心编排 |
+| P2 | 工作台和最终交付整合 | A | 将输入、运行、证据审查、人工确认、实验图表和报告导出整合为可演示工作台 |
 
 ## 五、接口变更记录
 
@@ -121,7 +133,8 @@
 | D-002 | `pytest tests/evaluation/test_metrics.py -q` | 合成 fixture 确定性测试已合并；PR #19 |
 | C-006～C-007 | `prompts/` 四个文件和 `docs/manual_review_checklist.md` 进入主分支 | 已合并；PR #25/#26 |
 | D-004 | `pytest tests/evaluation/test_red_team.py -q`；全量 `python -m pytest -q` | 11 项红队场景测试通过；全量 285 passed；PR #27 |
-| D-003 | `pytest tests/evaluation -q` | 60 passed（定义/hash/失败保留/E0 导入/聚合输出/`{python}` 占位符替换真实执行路径/输出目录隔离/相对路径解析/缺失 manifest 失败捕获/E0 Gold 评分/聚合纳入 E0/disabled 标记/bank_main disabled case/单实验 CLI disabled/E0 失败持久化）；全量 335 passed；PR 待合并 |
+| D-003 | `pytest tests/evaluation -q` | 60 passed（定义/hash/失败保留/E0 导入/聚合输出/`{python}` 占位符替换真实执行路径/输出目录隔离/相对路径解析/缺失 manifest 失败捕获/E0 Gold 评分/聚合纳入 E0/disabled 标记/bank_main disabled case/单实验 CLI disabled/E0 失败持久化）；PR #31 已合并 |
+| D-005～D-007 | `pytest tests/evaluation -q`；全量 `python -m pytest -q` | PR #32 已合并；评测 90 passed、全量 365 passed；CI run 33060944176 success |
 | 当前主分支 | `python -m pytest -q` | PR #29 合并后全量复核 305 passed |
 | A-008 / INT-001 / INT-002 | `pytest tests/integration -q`；真实 RUN-DEMO 冒烟抽查 | 5 passed；三件套产出且红队/cutoff 后/rejected 资料零进入索引；PR #29 |
 
@@ -132,4 +145,5 @@
 - “待开始”不代表没有代码依赖，而是尚未形成可验收提交。
 - fixture、mock、合成 Gold 和 stub 不能写成真实实验结果。
 - 角色手册和总方案定义范围；本看板只同步 GitHub 可验证的执行状态。
+
 

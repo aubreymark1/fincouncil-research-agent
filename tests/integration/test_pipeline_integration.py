@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from app.main import run_research
-from app.model import ModelConfig, ModelProvider, ModelProviderError
+from app.model import InMemoryCache, ModelConfig, ModelProvider, ModelProviderError
 from app.orchestrator import run_pipeline
 from app.schemas import ResearchReport, ResearchRequest, SourceDocument
 from app.ingestion.manifest import ManifestError
@@ -315,7 +315,11 @@ def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):
     def transport(_prompt: str, _config: ModelConfig) -> dict:
         raise ModelProviderError("E300 module=model.transport: test failure")
 
-    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=transport,
+        cache=InMemoryCache(),
+    )
 
     # Act / Assert
     with pytest.raises(ModelProviderError, match="E300"):
@@ -327,6 +331,7 @@ def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):
     assert metadata["status"] == "failed"
     assert metadata["errors"][0].startswith("E300 module=model: transport failed")
     assert metadata["input_hashes"]["request"].startswith("sha256:")
+    assert metadata["module_versions"]["cache"] == "v1-json"
 
 
 def test_missing_manifest_fails_fast_with_manifest_error(tmp_path):

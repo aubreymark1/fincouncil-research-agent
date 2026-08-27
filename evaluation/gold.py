@@ -283,6 +283,19 @@ def load_gold_standard(gold_path: str, industry_id: str) -> GoldStandard:
         items.append(item)
     if not items:
         raise ValueError("Gold Standard must contain at least one item")
+
+    covered_required_metric_ids = {
+        item.industry_metric_id
+        for item in items
+        if item.required and item.industry_metric_id is not None
+    }
+    missing_required_items = sorted(config_required_metric_ids - covered_required_metric_ids)
+    if missing_required_items:
+        raise ValueError(
+            "Gold Standard is missing a required item for metric_id(s): "
+            + ", ".join(missing_required_items)
+        )
+
     return GoldStandard(
         items=tuple(items),
         required_metric_ids=frozenset(required_metric_ids),

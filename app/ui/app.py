@@ -18,6 +18,7 @@ import streamlit as st
 from app.ui.components import (
     claim_markdown,
     formal_claims,
+    formal_risks,
     metric_rows,
     non_formal_claims,
 )
@@ -90,6 +91,12 @@ def main() -> None:
         st.markdown(claim_markdown(claim))
         with st.expander("查看证据"):
             st.markdown(claim_evidence_markdown(claim, report))
+
+    st.markdown("### 风险（正式）")
+    for risk in formal_risks(report):
+        st.markdown(claim_markdown(risk))
+        with st.expander("查看证据"):
+            st.markdown(claim_evidence_markdown(risk, report))
 
     st.markdown("### 非正式结论 / 待人工确认")
     for claim in [*non_formal_claims(report), *report.get("unresolved_items", [])]:

@@ -28,11 +28,20 @@ def metric_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
 
 
 def formal_claims(report: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return claims/risks eligible for the formal body (status=pass)."""
+    """Return pass claims eligible for the formal conclusion section."""
     return [
         claim
-        for claim in [*report.get("claims", []), *report.get("risks", [])]
+        for claim in report.get("claims", [])
         if claim.get("status") == "pass"
+    ]
+
+
+def formal_risks(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return pass risks eligible for the formal risk section."""
+    return [
+        risk
+        for risk in report.get("risks", [])
+        if risk.get("status") == "pass"
     ]
 
 

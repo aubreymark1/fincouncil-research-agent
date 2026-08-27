@@ -408,6 +408,7 @@ def run_experiment(
         if code != 0:
             result["status"] = "failed"
             result["error"] = output.strip() or f"exit code {code}"
+            result["error_count"] = 1
         else:
             result["status"] = "success"
 

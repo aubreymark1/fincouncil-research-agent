@@ -119,6 +119,7 @@ def test_empty_denominators_are_reported_as_zero(tmp_path: Path) -> None:
     gold_path.write_text(
         json.dumps(
             {
+                "status": "signed",
                 "required_metric_ids_source": "synthetic empty-denominator test",
                 "required_metric_ids": [
                     "revenue_growth",
@@ -174,6 +175,7 @@ def test_duplicate_gold_item_id_is_rejected(tmp_path: Path) -> None:
     gold_path.write_text(
         json.dumps(
             {
+                "status": "signed",
                 "required_metric_ids_source": "synthetic duplicate-item test",
                 "required_metric_ids": [
                     "revenue_growth",
@@ -266,6 +268,7 @@ def test_publisher_variants_do_not_create_false_independence(tmp_path: Path) -> 
     gold_path.write_text(
         json.dumps(
             {
+                "status": "signed",
                 "required_metric_ids_source": "synthetic publisher-normalization test",
                 "required_metric_ids": [
                     "revenue_growth",

@@ -193,7 +193,7 @@ def load_gold_standard(gold_path: str, industry_id: str) -> GoldStandard:
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
         raise ValueError("Gold Standard root must be an object containing an items list")
 
-    status = payload.get("status", "signed")
+    status = payload.get("status")
     if status != "signed":
         raise ValueError(
             f"Gold Standard is not signed for scoring: status={status!r}; "

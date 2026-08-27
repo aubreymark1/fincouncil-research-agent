@@ -2,6 +2,7 @@
   "schema_version": "1.0",
   "case_id": "synthetic_metrics_case",
   "fixture_notice": "合成测试数据，仅用于确定性单元测试，不代表真实实验或公司事实。",
+  "status": "signed",
   "required_metric_ids_source": "configs/food_beverage.yaml@82b5440",
   "required_metric_ids": [
     "revenue_growth",

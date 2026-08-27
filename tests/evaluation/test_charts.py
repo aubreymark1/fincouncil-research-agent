@@ -36,6 +36,14 @@ def _write_results(path: Path) -> Path:
             "metrics": None,
         },
         {
+            "experiment_id": "E2",
+            "name": "industry_agent",
+            "case_id": "food_main",
+            "status": "failed",
+            "metrics": None,
+            "error": "boom",
+        },
+        {
             "experiment_id": "E3",
             "name": "full_system",
             "case_id": "food_main",
@@ -109,6 +117,7 @@ def test_errors_chart_includes_cutoff_failure_and_validation_counts(
     assert "cutoff 违规" in errors
     assert "失败运行" in errors
     assert "ValidationIssue" in errors
+    assert "E2" in errors
 
 
 def test_missing_results_file_raises(tmp_path: Path) -> None:

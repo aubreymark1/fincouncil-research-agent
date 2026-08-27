@@ -73,6 +73,16 @@ def test_signed_bank_gold_matches_bank_config_required_metrics(tmp_path: Path) -
     )
 
 
+def test_missing_status_is_rejected(tmp_path: Path) -> None:
+    payload = _load_payload(SIGNED_FOOD_GOLD)
+    payload.pop("status", None)
+    path = tmp_path / "missing_status.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not signed"):
+        load_gold_standard(str(path), "food_beverage")
+
+
 def test_empty_items_gold_is_rejected_even_when_signed(tmp_path: Path) -> None:
     payload = _load_payload(FOOD_GOLD)
     payload["status"] = "signed"

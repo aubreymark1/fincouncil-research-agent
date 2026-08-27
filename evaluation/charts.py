@@ -266,18 +266,21 @@ def generate_charts(results_path: str | Path, output_dir: str | Path) -> list[Pa
         experiment_id = str(row.get("experiment_id", ""))
         if not experiment_id:
             continue
-        if row.get("status") != "success":
+        status = row.get("status")
+        if status not in {"success", "failed"}:
             continue
         metrics = _metrics(row)
-        if (
-            "cutoff_violation_count" not in metrics
-            and "error_count" not in row
-            and "validation_issue_count" not in row
-        ):
+        has_counts = (
+            status == "failed"
+            or "cutoff_violation_count" in metrics
+            or "error_count" in row
+            or "validation_issue_count" in row
+        )
+        if not has_counts:
             continue
         error_labels.append(experiment_id)
         cutoff_values.append(_as_float(metrics.get("cutoff_violation_count", 0)))
-        error_values.append(_as_float(row.get("error_count", 0)))
+        error_values.append(1.0 if status == "failed" else _as_float(row.get("error_count", 0)))
         validation_values.append(_as_float(row.get("validation_issue_count", 0)))
     errors_path = out / "errors_and_cutoff.svg"
     errors_path.write_text(

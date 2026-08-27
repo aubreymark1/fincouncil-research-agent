@@ -11,6 +11,7 @@ from app.schemas import ResearchReport
 from app.ui.components import (
     claim_markdown,
     formal_claims,
+    formal_risks,
     metric_rows,
     non_formal_claims,
 )
@@ -138,3 +139,35 @@ def test_formal_claims_only_include_pass_claims() -> None:
     assert all(claim["status"] == "pass" for claim in formal)
     assert all(claim["status"] != "pass" for claim in non_formal)
     assert any(claim["claim_id"] == "CL-REVIEW" for claim in non_formal)
+
+
+def test_formal_risks_only_include_pass_risks() -> None:
+    report = load_report(REPORT_FIXTURE).model_dump(mode="json")
+    report["risks"] = [
+        {
+            "claim_id": "CL-RISK-PASS",
+            "text": "正式风险",
+            "claim_type": "risk",
+            "risk_severity": "high",
+            "evidence_ids": ["EV-SYN-REV"],
+            "calculation": None,
+            "confidence": 0.7,
+            "industry_metric_ids": ["food_safety"],
+            "status": "pass",
+        },
+        {
+            "claim_id": "CL-RISK-REVIEW",
+            "text": "待确认风险",
+            "claim_type": "risk",
+            "risk_severity": "medium",
+            "evidence_ids": ["EV-SYN-REV"],
+            "calculation": None,
+            "confidence": 0.5,
+            "industry_metric_ids": ["food_safety"],
+            "status": "review",
+        },
+    ]
+
+    formal = formal_risks(report)
+
+    assert [risk["claim_id"] for risk in formal] == ["CL-RISK-PASS"]

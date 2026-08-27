@@ -137,7 +137,15 @@ def test_news_policy_llm_excludes_financial_evidence() -> None:
 
     def transport(prompt: str, _config: ModelConfig) -> dict:
         captured.append(prompt)
-        return {"claims": [make_claim_payload(claim_type="change", status="review")]}
+        return {
+            "claims": [
+                make_claim_payload(
+                    claim_type="change",
+                    status="review",
+                    evidence_ids=["EV-NEWS-001"],
+                )
+            ]
+        }
 
     provider = make_provider(transport)
     financial = make_evidence(evidence_id="EV-FIN-001", evidence_type="financial")
@@ -428,6 +436,122 @@ def test_risk_claim_with_wrong_severity_is_rejected() -> None:
 
     with pytest.raises(ModelProviderError, match="does not match any RiskRule"):
         analyze_risks_llm(provider, request, evidence, config)
+
+
+def test_risk_relevance_includes_exclude_only_evidence() -> None:
+    captured: list[str] = []
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        captured.append(prompt)
+        return {"claims": []}
+
+    provider = make_provider(transport)
+    request = make_request()
+    config = make_config()
+    exclude_evidence = make_evidence(
+        evidence_id="EV-EXCLUDE-001",
+        evidence_type="operating",
+        fact_text="公司披露库存压力已缓解。",
+        quote="库存压力已缓解。",
+    )
+
+    analyze_risks_llm(provider, request, [exclude_evidence], config)
+
+    assert "EV-EXCLUDE-001" in captured[0]
+
+
+def test_risk_claim_with_exclude_signal_is_rejected() -> None:
+    provider = make_provider(
+        lambda _prompt, _config: {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-RISK-EXCL",
+                    claim_type="risk",
+                    risk_severity="medium",
+                    status="review",
+                    evidence_ids=["EV-FIN-001", "EV-OP-EXCL-001"],
+                    industry_metric_ids=["inventory", "revenue_growth"],
+                )
+            ]
+        }
+    )
+    request = make_request()
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FIN-001",
+            evidence_type="financial",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+        ),
+        make_evidence(
+            evidence_id="EV-OP-EXCL-001",
+            evidence_type="operating",
+            fact_text="公司披露库存压力已缓解。",
+            quote="库存压力已缓解。",
+        ),
+    ]
+    config = make_config()
+
+    with pytest.raises(ModelProviderError, match="trigger/exclude"):
+        analyze_risks_llm(provider, request, evidence, config)
+
+
+def test_claim_referencing_evidence_not_sent_to_node_is_rejected() -> None:
+    provider = make_provider(
+        lambda _prompt, _config: {
+            "claims": [make_claim_payload(evidence_ids=["EV-OTHER-001"])]
+        }
+    )
+    request = make_request()
+    evidence = [make_evidence()]
+    config = make_config()
+
+    with pytest.raises(ModelProviderError, match="not sent"):
+        analyze_fundamentals_llm(provider, request, evidence, config)
+
+
+def make_tiny_evidence(evidence_id: str) -> Evidence:
+    return Evidence(
+        evidence_id=evidence_id,
+        doc_id="DOC-FOOD-001",
+        chunk_id="CHUNK-FOOD-001",
+        fact_text="a",
+        quote="a",
+        published_at="2026-03-30",
+        page=1,
+        section="s",
+        locator="p1",
+        company_name="c",
+        industry_id="food_beverage",
+        evidence_type="financial",
+        confidence=0.5,
+        review_status="verified",
+    )
+
+
+def test_critic_llm_records_omitted_evidence(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    captured: list[str] = []
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        captured.append(prompt)
+        return {"issues": []}
+
+    provider = make_provider(transport)
+    request = make_request()
+    evidence = [
+        make_tiny_evidence("EV-ONE-001"),
+        make_tiny_evidence("EV-TWO-001"),
+    ]
+    config = make_config()
+    claim = Claim.model_validate(make_claim_payload(evidence_ids=["EV-ONE-001"]))
+
+    run_critic_llm(provider, request, [claim], evidence, config)
+
+    assert "EV-ONE-001" in captured[0]
+    assert "EV-TWO-001" in captured[0]
+    assert '"evidence_truncated": true' in captured[0]
+    assert "omitted_evidence_ids" in captured[0]
 
 
 def test_prompt_versions_are_loaded() -> None:

@@ -254,14 +254,14 @@ def test_bank_pipeline_loads_different_industry_config(tmp_path, banking_manifes
     )
 
 
-def test_llm_mode_still_runs_deterministic_critic_for_unknown_evidence(tmp_path, food_manifest):
+def test_llm_mode_rejects_evidence_not_sent_to_node(tmp_path, food_manifest):
     # Arrange
     request = make_request(tmp_path, food_manifest, industry="food_beverage")
 
     def bad_claim(**updates: object) -> dict:
         payload = {
             "claim_id": "CL-LLM-BAD-001",
-            "text": "LLM 生成了不存在的证据引用。",
+            "text": "LLM 引用了未发送给节点的证据。",
             "claim_type": "fact",
             "risk_severity": None,
             "evidence_ids": ["EV-NOPE-001"],
@@ -297,21 +297,15 @@ def test_llm_mode_still_runs_deterministic_critic_for_unknown_evidence(tmp_path,
 
     provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
 
-    # Act
-    state = run_pipeline(request, model_provider=provider)
+    # Act / Assert: node-level evidence isolation rejects the bad ID.
+    with pytest.raises(ModelProviderError, match="not sent"):
+        run_pipeline(request, model_provider=provider)
 
-    # Assert: deterministic Critic still blocks illegal evidence references.
-    unknown = [
-        issue
-        for issue in state.validation_issues
-        if issue.issue_type == "unknown_evidence_id"
-        and "EV-NOPE-001" in issue.message
-    ]
-    assert unknown, "deterministic Critic must run in LLM mode"
-    assert not any(
-        claim.status == "pass" and "EV-NOPE-001" in claim.evidence_ids
-        for claim in state.report.claims
-    )
+    metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["status"] == "failed"
+    assert metadata["errors"][0].startswith("E301 module=agents.llm")
 
 
 def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):

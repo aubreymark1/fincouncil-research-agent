@@ -5,13 +5,15 @@ These functions consume the public prompts under ``prompts/`` and use
 orchestrator remains rule-engine unless a caller injects a ``ModelProvider``.
 
 The LLM path is intentionally defensive:
-- each node filters evidence by evidence_type, metric/risk relevance, and a
-  hard character budget so real RUN-DEMO evidence pools cannot blow the model
-  context;
+- each node filters evidence by evidence_type and node-specific relevance;
+- a hard character budget prevents context overflow; analysis nodes refuse to
+  silently truncate, while the LLM Critic records omitted evidence IDs because
+  the deterministic Critic still performs full hard validation;
 - the request/company context is included so target-company applicability can
   be judged;
-- node-specific Claim constraints and config-aware metric/risk semantics are
-  validated after model output;
+- node-specific Claim constraints, config-aware metric/risk semantics,
+  trigger/exclude signals, and evidence-ID isolation are validated after model
+  output;
 - the provider's default cache key includes the full prompt text, so prompt
   edits invalidate cached responses.
 """
@@ -123,15 +125,18 @@ def _relevance_filter(
         ]
 
     if prompt_name == "risk":
-        trigger_terms = [
-            term.casefold()
-            for rule in config.risk_rules
-            for term in rule.trigger_terms
-        ]
+        terms: list[str] = []
+        for rule in config.risk_rules:
+            terms.extend(rule.trigger_terms)
+            terms.extend(rule.exclude_terms)
+            for metric in config.required_metrics:
+                if metric.metric_id in rule.metric_ids:
+                    terms.extend(metric.keywords)
+        normalized_terms = {term.casefold() for term in terms if term}
         return [
             item
             for item in evidence
-            if any(term in _evidence_text(item) for term in trigger_terms)
+            if any(term in _evidence_text(item) for term in normalized_terms)
         ]
 
     return evidence
@@ -140,8 +145,8 @@ def _relevance_filter(
 def _budget_evidence(
     evidence: list[Evidence],
     max_chars: int | None = None,
-) -> list[Evidence]:
-    """Keep evidence until the serialized prompt would exceed the budget.
+) -> tuple[list[Evidence], list[str]]:
+    """Return evidence that fits the budget and IDs omitted by the budget.
 
     If a single evidence item is already too large, fail clearly instead of
     silently truncating the source of a Claim.
@@ -162,7 +167,8 @@ def _budget_evidence(
             break
         selected.append(item)
         total_chars += item_chars
-    return selected
+    omitted_ids = [item.evidence_id for item in evidence[len(selected):]]
+    return selected, omitted_ids
 
 
 def _known_metric_ids(config: IndustryConfig) -> set[str]:
@@ -205,6 +211,17 @@ def _validate_claim_node_output(
             raise ModelProviderError(
                 f"E301 module=agents.llm: {prompt_name} node returned unknown "
                 f"industry_metric_ids={unknown_metrics}"
+            )
+
+        missing_evidence = [
+            evidence_id
+            for evidence_id in claim.evidence_ids
+            if evidence_id not in evidence_by_id
+        ]
+        if missing_evidence:
+            raise ModelProviderError(
+                f"E301 module=agents.llm: {prompt_name} node referenced evidence "
+                f"IDs that were not sent to this node: {missing_evidence}"
             )
 
         if prompt_name == "fundamental":
@@ -261,6 +278,23 @@ def _validate_claim_node_output(
                             f"{evidence_type}"
                         )
 
+                referenced_text = "\n".join(
+                    _evidence_text(evidence_by_id[evidence_id])
+                    for evidence_id in claim.evidence_ids
+                    if evidence_id in evidence_by_id
+                )
+                trigger_hit = any(
+                    term.casefold() in referenced_text for term in rule.trigger_terms
+                )
+                exclude_hit = any(
+                    term.casefold() in referenced_text for term in rule.exclude_terms
+                )
+                if not trigger_hit or exclude_hit:
+                    raise ModelProviderError(
+                        f"E301 module=agents.llm: risk claim for {rule.risk_id} "
+                        "does not satisfy trigger/exclude semantics"
+                    )
+
 
 def _run_claim_node(
     provider: ModelProvider,
@@ -274,12 +308,20 @@ def _run_claim_node(
 ) -> list[Claim]:
     filtered = _filter_evidence_types(evidence, config, allowed_types)
     filtered = _relevance_filter(prompt_name, filtered, config)
-    filtered = _budget_evidence(filtered)
-    evidence_by_id = {item.evidence_id: item for item in filtered}
+    selected, omitted_ids = _budget_evidence(filtered)
+    if omitted_ids:
+        raise ModelProviderError(
+            "E301 module=agents.llm: "
+            f"{prompt_name} node evidence pool exceeds the LLM prompt budget; "
+            "refusing silent truncation"
+        )
+    evidence_by_id = {item.evidence_id: item for item in selected}
 
     context: dict[str, Any] = {
         "request": request.model_dump(mode="json"),
-        "evidence": _evidence_payload(filtered),
+        "evidence": _evidence_payload(selected),
+        "evidence_truncated": False,
+        "omitted_evidence_ids": [],
         "config": config.model_dump(mode="json"),
     }
     if documents is not None:
@@ -371,14 +413,18 @@ def run_critic_llm(
 ) -> list[ValidationIssue]:
     """Run the industry Critic node through the LLM provider.
 
-    Unlike analysis nodes, the Critic receives all evidence (including pending
-    and rejected items) so it can report evidence-status problems.
+    The LLM Critic is supplementary: it may receive a budgeted evidence subset
+    with omitted IDs recorded in the prompt. The deterministic Critic always
+    runs on the full evidence pool, so hard validation is not weakened.
     """
 
+    selected, omitted_ids = _budget_evidence(evidence)
     context = {
         "request": request.model_dump(mode="json"),
         "claims": [claim.model_dump(mode="json") for claim in claims],
-        "evidence": _evidence_payload(evidence),
+        "evidence": _evidence_payload(selected),
+        "evidence_truncated": bool(omitted_ids),
+        "omitted_evidence_ids": omitted_ids,
         "config": config.model_dump(mode="json"),
     }
     result = provider.generate_json(

@@ -12,7 +12,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.main import run_research  # noqa: E402
-from app.model import ModelProvider, create_openai_compatible_transport  # noqa: E402
+from app.model import (  # noqa: E402
+    JsonFileCache,
+    ModelProvider,
+    create_openai_compatible_transport,
+)
 from app.schemas import ResearchRequest  # noqa: E402
 
 
@@ -31,8 +35,10 @@ def main(argv: list[str] | None = None) -> int:
         request = ResearchRequest.model_validate(request_payload)
         model_provider = None
         if args.llm:
+            cache_path = PROJECT_ROOT / "outputs" / "cache" / "model_cache.json"
             model_provider = ModelProvider.from_env(
-                transport=create_openai_compatible_transport()
+                transport=create_openai_compatible_transport(),
+                cache=JsonFileCache(cache_path),
             )
         report = run_research(request, model_provider=model_provider)
     except Exception as exc:

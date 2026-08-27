@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from app.main import run_research
-from app.model import ModelConfig, ModelProvider
+from app.model import ModelConfig, ModelProvider, ModelProviderError
 from app.orchestrator import run_pipeline
 from app.schemas import ResearchReport, ResearchRequest, SourceDocument
 from app.ingestion.manifest import ManifestError
@@ -286,9 +286,10 @@ def test_llm_mode_still_runs_deterministic_critic_for_unknown_evidence(tmp_path,
             return {
                 "claims": [
                     bad_claim(
-                        claim_type="risk",
-                        risk_severity="medium",
+                        claim_type="unresolved",
                         status="review",
+                        evidence_ids=[],
+                        industry_metric_ids=[],
                     )
                 ]
             }
@@ -311,6 +312,27 @@ def test_llm_mode_still_runs_deterministic_critic_for_unknown_evidence(tmp_path,
         claim.status == "pass" and "EV-NOPE-001" in claim.evidence_ids
         for claim in state.report.claims
     )
+
+
+def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):
+    # Arrange
+    request = make_request(tmp_path, food_manifest, industry="food_beverage")
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        raise ModelProviderError("E300 module=model.transport: test failure")
+
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
+
+    # Act / Assert
+    with pytest.raises(ModelProviderError, match="E300"):
+        run_pipeline(request, model_provider=provider)
+
+    metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["status"] == "failed"
+    assert metadata["errors"][0].startswith("E300 module=model: transport failed")
+    assert metadata["input_hashes"]["request"].startswith("sha256:")
 
 
 def test_missing_manifest_fails_fast_with_manifest_error(tmp_path):

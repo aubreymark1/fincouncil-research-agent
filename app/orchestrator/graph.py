@@ -32,7 +32,7 @@ from app.ingestion.evidence_locator import locate_evidence
 from app.ingestion.html_extractor import extract_html
 from app.ingestion.manifest import load_manifest, validate_manifest
 from app.ingestion.pdf_extractor import extract_pdf
-from app.model import ModelProvider
+from app.model import ModelProvider, ModelProviderError
 from app.schemas import (
     Claim,
     Evidence,
@@ -233,6 +233,75 @@ def _manifest_blocked_documents(
     ]
 
 
+def _compute_input_hashes(request: ResearchRequest) -> dict[str, str]:
+    """Return stable request and manifest hashes for RunMetadata."""
+
+    request_hash = hashlib.sha256(
+        json.dumps(
+            request.model_dump(mode="json"),
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    manifest_path = Path(request.source_manifest_path)
+    if not manifest_path.is_absolute():
+        manifest_path = PROJECT_ROOT / manifest_path
+    manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    return {
+        "request": f"sha256:{request_hash}",
+        "manifest": f"sha256:{manifest_hash}",
+    }
+
+
+def _write_failed_metadata(
+    request: ResearchRequest,
+    started_at: datetime,
+    error: Exception,
+    model_provider: ModelProvider | None,
+) -> None:
+    """Persist a failed RunMetadata audit record before re-raising."""
+
+    _, _, metadata_path = _resolve_output_paths(request)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if model_provider is None:
+        model_provider_name = "rule-engine"
+        model_name = "a008-rules"
+        prompt_versions: dict[str, str] = {}
+        agents_version = "v1-aggregation"
+        model_version = "v1-provider"
+    else:
+        model_provider_name = model_provider.config.provider_name
+        model_name = model_provider.config.model_name
+        prompt_versions = get_prompt_versions()
+        agents_version = "v1-llm"
+        model_version = "v1-transport"
+
+    metadata = RunMetadata(
+        run_id=request.run_id,
+        started_at=started_at,
+        finished_at=datetime.now(timezone.utc),
+        status="failed",
+        model_provider=model_provider_name,
+        model_name=model_name,
+        prompt_versions=prompt_versions,
+        input_hashes=_compute_input_hashes(request),
+        module_versions={
+            "orchestrator": "v1-a008",
+            "validators": "v1-a002",
+            "ingestion": "v1-b-merged",
+            "industry": "v1-c-merged",
+            "agents": agents_version,
+            "model": model_version,
+        },
+        errors=[str(error)],
+    )
+    metadata_path.write_text(
+        json.dumps(metadata.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def run_pipeline(
     request: ResearchRequest,
     *,
@@ -278,48 +347,42 @@ def run_pipeline(
     )
     state.validation_issues.extend(policy_issues)
 
-    state.claims = run_analysis(
-        request,
-        state.evidence,
-        state.config,
-        documents=state.documents,
-        provider=model_provider,
-    )
+    try:
+        state.claims = run_analysis(
+            request,
+            state.evidence,
+            state.config,
+            documents=state.documents,
+            provider=model_provider,
+        )
 
-    industry_issues = [
-        *check_required_metrics(state.evidence, state.config, documents=state.documents),
-        *apply_metric_rules(state.evidence, state.config, documents=state.documents),
-    ]
-    state.validation_issues.extend(industry_issues)
-
-    critic_issues = run_critic(request, state.claims, state.evidence, state.config)
-    if model_provider is not None:
-        critic_issues = [
-            *critic_issues,
-            *run_critic_llm(
-                model_provider,
-                request,
-                state.claims,
-                state.evidence,
-                state.config,
-            ),
+        industry_issues = [
+            *check_required_metrics(state.evidence, state.config, documents=state.documents),
+            *apply_metric_rules(state.evidence, state.config, documents=state.documents),
         ]
-    state.validation_issues.extend(_drop_duplicated_metric_issues(critic_issues, industry_issues))
+        state.validation_issues.extend(industry_issues)
+
+        critic_issues = run_critic(request, state.claims, state.evidence, state.config)
+        if model_provider is not None:
+            critic_issues = [
+                *critic_issues,
+                *run_critic_llm(
+                    model_provider,
+                    request,
+                    state.claims,
+                    state.evidence,
+                    state.config,
+                ),
+            ]
+        state.validation_issues.extend(_drop_duplicated_metric_issues(critic_issues, industry_issues))
+    except ModelProviderError as exc:
+        _write_failed_metadata(request, started_at, exc, model_provider)
+        raise
 
     generated_at = datetime.now(timezone.utc)
     state.report = render_report(request, state.claims, state.evidence, state.validation_issues)
 
-    request_hash = hashlib.sha256(
-        json.dumps(
-            request.model_dump(mode="json"),
-            ensure_ascii=False,
-            sort_keys=True,
-        ).encode("utf-8")
-    ).hexdigest()
-    manifest_path = Path(request.source_manifest_path)
-    if not manifest_path.is_absolute():
-        manifest_path = PROJECT_ROOT / manifest_path
-    manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    input_hashes = _compute_input_hashes(request)
 
     if model_provider is None:
         model_provider_name = "rule-engine"
@@ -342,10 +405,7 @@ def run_pipeline(
         model_provider=model_provider_name,
         model_name=model_name,
         prompt_versions=prompt_versions,
-        input_hashes={
-            "request": f"sha256:{request_hash}",
-            "manifest": f"sha256:{manifest_hash}",
-        },
+        input_hashes=input_hashes,
         module_versions={
             "orchestrator": "v1-a008",
             "validators": "v1-a002",

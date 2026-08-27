@@ -164,14 +164,30 @@ def test_risk_llm_excludes_non_rule_evidence_types() -> None:
                     risk_severity="medium",
                     status="review",
                     evidence_ids=["EV-FIN-001", "EV-OP-001"],
+                    industry_metric_ids=["inventory", "revenue_growth"],
                 )
             ]
         }
 
     provider = make_provider(transport)
-    financial = make_evidence(evidence_id="EV-FIN-001", evidence_type="financial")
-    operating = make_evidence(evidence_id="EV-OP-001", evidence_type="operating")
-    policy = make_evidence(evidence_id="EV-POLICY-001", evidence_type="policy")
+    financial = make_evidence(
+        evidence_id="EV-FIN-001",
+        evidence_type="financial",
+        fact_text="报告披露存货增速高于收入增速。",
+        quote="存货增速高于收入增速。",
+    )
+    operating = make_evidence(
+        evidence_id="EV-OP-001",
+        evidence_type="operating",
+        fact_text="公司披露渠道库存压力上升。",
+        quote="渠道库存压力上升。",
+    )
+    policy = make_evidence(
+        evidence_id="EV-POLICY-001",
+        evidence_type="policy",
+        fact_text="监管部门发布政策。",
+        quote="发布政策。",
+    )
     config = make_config()
     request = make_request()
 
@@ -250,7 +266,16 @@ def test_run_analysis_uses_llm_when_provider_injected() -> None:
     def transport(prompt: str, _config: ModelConfig) -> dict:
         calls.append(prompt)
         if "新闻与政策分析提示词" in prompt:
-            return {"claims": [make_claim_payload(claim_type="change", status="review")]}
+            return {
+                "claims": [
+                    make_claim_payload(
+                        claim_id="CL-LLM-NEWS",
+                        claim_type="change",
+                        status="review",
+                        evidence_ids=["EV-NEWS-001"],
+                    )
+                ]
+            }
         if "风险分析提示词" in prompt:
             return {
                 "claims": [
@@ -259,15 +284,39 @@ def test_run_analysis_uses_llm_when_provider_injected() -> None:
                         claim_type="risk",
                         risk_severity="medium",
                         status="review",
-                        evidence_ids=["EV-FOOD-001"],
+                        evidence_ids=["EV-FIN-001", "EV-OP-001"],
+                        industry_metric_ids=["inventory", "revenue_growth"],
                     )
                 ]
             }
-        return {"claims": [make_claim_payload()]}
+        return {
+            "claims": [
+                make_claim_payload(evidence_ids=["EV-FIN-001"])
+            ]
+        }
 
     provider = make_provider(transport)
     request = make_request()
-    evidence = [make_evidence()]
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FIN-001",
+            evidence_type="financial",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+        ),
+        make_evidence(
+            evidence_id="EV-OP-001",
+            evidence_type="operating",
+            fact_text="公司披露渠道库存压力上升。",
+            quote="渠道库存压力上升。",
+        ),
+        make_evidence(
+            evidence_id="EV-NEWS-001",
+            evidence_type="news",
+            fact_text="公司发布渠道动销公告。",
+            quote="发布渠道动销公告。",
+        ),
+    ]
     config = make_config()
     documents = [make_document()]
 
@@ -303,6 +352,82 @@ def test_run_critic_llm_returns_issues() -> None:
     assert isinstance(issues[0], ValidationIssue)
     assert issues[0].issue_id == "ISSUE-LLM-001"
     assert "行业 Critic 提示词" in captured[0]
+
+
+def test_evidence_budget_fails_clearly(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 10)
+    provider = make_provider(lambda _prompt, _config: {"claims": []})
+    request = make_request()
+    config = make_config()
+
+    with pytest.raises(ModelProviderError, match="evidence budget"):
+        analyze_fundamentals_llm(provider, request, [make_evidence()], config)
+
+
+def test_risk_claim_with_unknown_metric_is_rejected() -> None:
+    provider = make_provider(
+        lambda _prompt, _config: {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-RISK-BAD",
+                    claim_type="risk",
+                    risk_severity="medium",
+                    status="review",
+                    evidence_ids=["EV-FIN-001"],
+                    industry_metric_ids=["not_a_metric"],
+                )
+            ]
+        }
+    )
+    request = make_request()
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FIN-001",
+            evidence_type="financial",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+        )
+    ]
+    config = make_config()
+
+    with pytest.raises(ModelProviderError, match="unknown industry_metric_ids"):
+        analyze_risks_llm(provider, request, evidence, config)
+
+
+def test_risk_claim_with_wrong_severity_is_rejected() -> None:
+    provider = make_provider(
+        lambda _prompt, _config: {
+            "claims": [
+                make_claim_payload(
+                    claim_id="CL-RISK-BAD",
+                    claim_type="risk",
+                    risk_severity="high",
+                    status="review",
+                    evidence_ids=["EV-FIN-001", "EV-OP-001"],
+                    industry_metric_ids=["inventory", "revenue_growth"],
+                )
+            ]
+        }
+    )
+    request = make_request()
+    evidence = [
+        make_evidence(
+            evidence_id="EV-FIN-001",
+            evidence_type="financial",
+            fact_text="报告披露存货增速高于收入增速。",
+            quote="存货增速高于收入增速。",
+        ),
+        make_evidence(
+            evidence_id="EV-OP-001",
+            evidence_type="operating",
+            fact_text="公司披露渠道库存压力上升。",
+            quote="渠道库存压力上升。",
+        ),
+    ]
+    config = make_config()
+
+    with pytest.raises(ModelProviderError, match="does not match any RiskRule"):
+        analyze_risks_llm(provider, request, evidence, config)
 
 
 def test_prompt_versions_are_loaded() -> None:

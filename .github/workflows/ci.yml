@@ -11,19 +11,181 @@ on:
   pull_request:
     branches:
       - main
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
   workflow_dispatch:
 
+# Keep runs for different PRs independent, but stop stale runs for the same
+# PR/branch as soon as a newer commit starts CI.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    name: Detect changed scope
+    runs-on: ubuntu-latest
+    outputs:
+      source: ${{ steps.scope.outputs.source }}
+      core: ${{ steps.scope.outputs.core }}
+      ingestion: ${{ steps.scope.outputs.ingestion }}
+      industry: ${{ steps.scope.outputs.industry }}
+      evaluation: ${{ steps.scope.outputs.evaluation }}
+      full: ${{ steps.scope.outputs.full }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          CURRENT_SHA: ${{ github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          REF_NAME: ${{ github.ref }}
+          FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') || github.event_name == 'merge_group' }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "merge_group" || "$FORCE_FULL" == "true" ]]; then
+            changed_files="$(git ls-files)"
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            changed_files="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          elif [[ -n "$BEFORE_SHA" && ! "$BEFORE_SHA" =~ ^0+$ ]]; then
+            changed_files="$(git diff --name-only "$BEFORE_SHA" "$CURRENT_SHA")"
+          else
+            changed_files="$(git ls-files)"
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          matches() {
+            grep -Eq "$1" <<< "$changed_files"
+          }
+
+          set_output() {
+            printf '%s=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"
+          }
+
+          source=false
+          core=false
+          ingestion=false
+          industry=false
+          evaluation=false
+          full=false
+
+          if matches '^(app/|evaluation/|scripts/|tests/|configs/|prompts/|data/|fixtures/|requirements[^/]*\.txt$|pytest\.ini$|pyproject\.toml$|setup\.cfg$|tox\.ini$|\.github/workflows/)'; then
+            source=true
+          fi
+
+          if matches '^(app/(schemas|orchestrator|model|agents|validators)/|app/main\.py$|prompts/|fixtures/shared/|tests/core/|scripts/run_case\.py$)'; then
+            core=true
+          fi
+
+          if matches '^(app/ingestion/|data/|fixtures/sources/|tests/ingestion/|scripts/(ingest_sources|validate_manifest)\.py$)'; then
+            ingestion=true
+          fi
+
+          if matches '^(app/industry/|configs/|fixtures/industry/|tests/industry/|docs/manual_review_checklist\.md$)'; then
+            industry=true
+          fi
+
+          if matches '^(evaluation/|app/ui/|fixtures/evaluation/|tests/evaluation/|scripts/evaluate\.py$|reports/)'; then
+            evaluation=true
+          fi
+
+          # Full validation is reserved for main, manual runs, and PR changes
+          # that can affect shared wiring or the test environment. Ordinary
+          # module changes use only the related fast test group below.
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "merge_group" || "$FORCE_FULL" == "true" || ( "$EVENT_NAME" == "push" && "$REF_NAME" == "refs/heads/main" ) ]]; then
+            full=true
+          elif [[ "$EVENT_NAME" == "pull_request" ]] && matches '^(\.github/workflows/|requirements[^/]*\.txt$|pytest\.ini$|pyproject\.toml$|setup\.cfg$|tox\.ini$|tests/integration/|app/(schemas|orchestrator)/|app/main\.py$|data/manifests/|fixtures/shared/)'; then
+            full=true
+          fi
+
+          set_output source "$source"
+          set_output core "$core"
+          set_output ingestion "$ingestion"
+          set_output industry "$industry"
+          set_output evaluation "$evaluation"
+          set_output full "$full"
+
+  # This job keeps the existing `tests` check stable for branch protection.
+  # It always completes on a PR; documentation-only changes intentionally
+  # finish with a successful no-op.
   tests:
+    if: always()
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail clearly if changed-file detection failed
+        if: needs.changes.result != 'success'
+        run: |
+          echo "Changed-file detection did not complete successfully." >&2
+          exit 1
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: needs.changes.outputs.source == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        if: needs.changes.outputs.source == 'true'
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Compile Python sources
+        if: needs.changes.outputs.source == 'true' && needs.changes.outputs.full != 'true'
+        run: python -m compileall -q app evaluation scripts tests
+
+      - name: Run core unit tests
+        if: needs.changes.outputs.core == 'true' && needs.changes.outputs.full != 'true'
+        run: python -m pytest tests/core -q
+
+      - name: Run ingestion unit tests
+        if: needs.changes.outputs.ingestion == 'true' && needs.changes.outputs.full != 'true'
+        run: python -m pytest tests/ingestion --ignore=tests/ingestion/test_source_packages.py -q
+
+      - name: Run industry unit tests
+        if: needs.changes.outputs.industry == 'true' && needs.changes.outputs.full != 'true'
+        run: python -m pytest tests/industry -q
+
+      - name: Run evaluation and UI tests
+        if: needs.changes.outputs.evaluation == 'true' && needs.changes.outputs.full != 'true'
+        run: python -m pytest tests/evaluation -q
+
+      - name: Confirm documentation-only or no-target fast check
+        if: needs.changes.outputs.full == 'true' || needs.changes.outputs.source != 'true' || (needs.changes.outputs.core != 'true' && needs.changes.outputs.ingestion != 'true' && needs.changes.outputs.industry != 'true' && needs.changes.outputs.evaluation != 'true')
+        run: echo "No additional fast test group was selected; full validation is handled by full-tests or this is a documentation-only change."
+
+  full-tests:
+    name: Full test suite
+    needs: changes
+    # The job remains present in the workflow, but ordinary low-risk PRs do
+    # not pay for the full suite on every commit. `tests` is the stable PR
+    # check; this job handles merge-boundary and high-risk validation.
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Install test dependencies
         run: python -m pip install -r requirements-dev.txt
-      - name: Run all tests
-        run: pytest tests/core tests/ingestion tests/industry tests/evaluation tests/integration -q
+
+      - name: Run full test suite
+        run: python -m pytest -q

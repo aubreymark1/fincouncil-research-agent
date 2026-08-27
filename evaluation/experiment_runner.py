@@ -61,6 +61,7 @@ class CaseDefinition:
     case_id: str
     request_path: Path
     gold_path: Path | None
+    enabled: bool = True
 
 
 def _require_str(raw: Any, where: str, key: str) -> str:
@@ -95,11 +96,15 @@ def _parse_cases(raw: dict[str, Any], root: Path) -> list[CaseDefinition]:
             gold_path = Path(raw_gold.strip())
             if not gold_path.is_absolute():
                 gold_path = root / gold_path
+        case_enabled = item.get("enabled", True)
+        if not isinstance(case_enabled, bool):
+            raise ValueError(f"{where}: enabled must be a boolean")
         cases.append(
             CaseDefinition(
                 case_id=case_id,
                 request_path=request_path,
                 gold_path=gold_path,
+                enabled=case_enabled,
             )
         )
     if not cases:
@@ -340,11 +345,21 @@ def run_experiment(
         raise ValueError(
             f"unknown experiment {experiment_id!r}; expected one of {sorted(experiments)}"
         )
+    case = case_id or "default"
     if not definition.enabled:
-        raise ValueError(
-            f"{experiment_id} is disabled in the frozen definitions; "
-            f"reason: {definition.description}"
-        )
+        disabled_row = {
+            "experiment_id": experiment_id,
+            "name": definition.name,
+            "case_id": case,
+            "started_at": None,
+            "finished_at": None,
+            "status": "disabled",
+            "input_hashes": None,
+            "gold_path": str(gold_path) if gold_path else None,
+            "metrics": None,
+            "error": f"disabled: {definition.description}",
+        }
+        return disabled_row
 
     started_at = datetime.now(timezone.utc)
     case = case_id or "default"
@@ -481,47 +496,72 @@ def import_manual_baseline(
 
     case = case_id or "default"
     experiment_dir = PROJECT_ROOT / "outputs" / "experiments" / case / "E0"
-    input_hashes = compute_input_hash(request, request.source_manifest_path)
+    experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    metrics: dict[str, float] | None = None
-    resolved_gold: str | None = None
-    if gold_path:
-        from evaluation.metrics import evaluate_report
+    started_iso = started_at or now.isoformat()
+    finished_iso = finished_at or now.isoformat()
 
-        resolved_gold = str(gold_path)
-        metrics = evaluate_report(report, resolved_gold)
-
-    metadata: dict[str, Any] = {
+    result = {
         "experiment_id": "E0",
         "name": definition.name,
         "case_id": case,
-        "started_at": started_at or now.isoformat(),
-        "finished_at": finished_at or now.isoformat(),
-        "status": "success",
-        "model_provider": "manual",
-        "model_name": "human-baseline",
-        "input_hashes": input_hashes,
-        "sources_used": sources_used or [],
-        "errors": [],
-    }
-    _write_json(experiment_dir / "request.json", request.model_dump(mode="json"))
-    _write_json(experiment_dir / "report.json", report.model_dump(mode="json"))
-    _write_json(experiment_dir / "run_metadata.json", metadata)
-    _write_json(experiment_dir / "metrics.json", {"status": "success", "metrics": metrics})
-
-    return {
-        "experiment_id": "E0",
-        "name": definition.name,
-        "case_id": case,
-        "status": "success",
-        "input_hashes": input_hashes,
-        "started_at": metadata["started_at"],
-        "finished_at": metadata["finished_at"],
-        "metrics": metrics,
-        "gold_path": resolved_gold,
+        "started_at": started_iso,
+        "finished_at": finished_iso,
+        "status": "running",
+        "input_hashes": None,
+        "metrics": None,
+        "gold_path": None,
         "error": None,
-        "report_path": str(experiment_dir / "report.json"),
+        "report_path": None,
     }
+
+    try:
+        input_hashes = compute_input_hash(request, request.source_manifest_path)
+        result["input_hashes"] = input_hashes
+
+        metrics: dict[str, float] | None = None
+        resolved_gold: str | None = None
+        if gold_path:
+            from evaluation.metrics import evaluate_report
+
+            resolved_gold = str(gold_path)
+            metrics = evaluate_report(report, resolved_gold)
+        result["metrics"] = metrics
+        result["gold_path"] = resolved_gold
+
+        metadata: dict[str, Any] = {
+            "experiment_id": "E0",
+            "name": definition.name,
+            "case_id": case,
+            "started_at": started_iso,
+            "finished_at": finished_iso,
+            "status": "success",
+            "model_provider": "manual",
+            "model_name": "human-baseline",
+            "input_hashes": input_hashes,
+            "sources_used": sources_used or [],
+            "errors": [],
+        }
+        _write_json(experiment_dir / "request.json", request.model_dump(mode="json"))
+        _write_json(experiment_dir / "report.json", report.model_dump(mode="json"))
+        _write_json(experiment_dir / "run_metadata.json", metadata)
+        _write_json(experiment_dir / "metrics.json", {"status": "success", "metrics": metrics})
+        result["status"] = "success"
+        result["report_path"] = str(experiment_dir / "report.json")
+    except Exception as exc:  # noqa: BLE001 - E0 failures must be recorded, not lost
+        finished_now = datetime.now(timezone.utc)
+        result["finished_at"] = finished_now.isoformat()
+        result["status"] = "failed"
+        result["error"] = f"{type(exc).__name__}: {exc}"
+        _collect_run_outputs(
+            experiment_dir,
+            request,
+            None,
+            metrics=None,
+            error=result["error"],
+        )
+
+    return result
 
 
 def run_case_experiments(
@@ -538,6 +578,28 @@ def run_case_experiments(
     case = next((item for item in cases if item.case_id == case_id), None)
     if case is None:
         raise ValueError(f"unknown case {case_id!r}; expected one of {[c.case_id for c in cases]}")
+    if not case.enabled:
+        # 整个 case 不可运行（如 bank_request.json 未签收）：所有实验返回 disabled 行
+        rows: list[dict[str, Any]] = []
+        for experiment_id in experiments:
+            if experiment_id not in experiment_defs:
+                raise ValueError(f"unknown experiment {experiment_id!r}")
+            rows.append(
+                {
+                    "experiment_id": experiment_id,
+                    "name": experiment_defs[experiment_id].name,
+                    "case_id": case_id,
+                    "status": "disabled",
+                    "started_at": None,
+                    "finished_at": None,
+                    "input_hashes": None,
+                    "gold_path": None,
+                    "metrics": None,
+                    "error": f"case disabled: {case.request_path} not yet available",
+                }
+            )
+        _write_aggregate(case_id, rows, output_cfg)
+        return rows
 
     effective_gold = gold_path if gold_path is not None else case.gold_path
     rows: list[dict[str, Any]] = []

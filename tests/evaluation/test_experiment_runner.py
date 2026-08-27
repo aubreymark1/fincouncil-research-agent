@@ -215,6 +215,13 @@ class TestDefinitions:
         for eid in ("E1", "E2", "E3"):
             assert experiments[eid].enabled is False, eid
 
+    def test_frozen_bank_main_disabled_until_request_signed(self) -> None:
+        """bank_main 的 request fixture 未签收，case 标记 disabled。"""
+        cases, _, _ = load_definitions(DEFAULT_DEFINITIONS)
+        case_map = {c.case_id: c for c in cases}
+        assert case_map["food_main"].enabled is True
+        assert case_map["bank_main"].enabled is False
+
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="does not exist"):
             load_definitions(tmp_path / "missing.yaml")
@@ -341,10 +348,10 @@ class TestRunExperiment:
         with pytest.raises(ValueError, match="unknown experiment"):
             run_experiment("E9", request, case_id="ignored")
 
-    def test_disabled_experiment_returns_failed_row(
+    def test_disabled_experiment_returns_disabled_row(
         self, tmp_path: Path, isolated_root: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A frozen E1-E3 with enabled:false must not run; it returns failed."""
+        """A frozen E1-E3 with enabled:false returns a disabled row, not raises."""
         case_id = _unique_case("d003")
         request, _, _ = _make_request(tmp_path)
         defs = tmp_path / "disabled.yaml"
@@ -393,8 +400,11 @@ class TestRunExperiment:
             "    enabled: true\n",
             encoding="utf-8",
         )
-        with pytest.raises(ValueError, match="disabled in the frozen definitions"):
-            run_experiment("E1", request, definitions=defs, case_id=case_id)
+        row = run_experiment("E1", request, definitions=defs, case_id=case_id)
+        assert row["status"] == "disabled"
+        assert row["experiment_id"] == "E1"
+        assert row["case_id"] == case_id
+        assert "disabled" in (row["error"] or "")
 
     def test_missing_manifest_returns_failed_not_raised(
         self, tmp_path: Path, isolated_root: Path, case_defs
@@ -477,6 +487,51 @@ class TestManualBaseline:
         experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E0"
         metrics = json.loads((experiment_dir / "metrics.json").read_text(encoding="utf-8"))
         assert metrics["status"] == "success"
+
+    def test_e0_missing_manifest_returns_failed_not_raised(
+        self, tmp_path: Path, isolated_root: Path, case_defs
+    ) -> None:
+        """E0 import with missing manifest must be recorded, not raised."""
+        case_id, defs_path = case_defs
+        request = ResearchRequest(
+            run_id="RUN-MISSING-E0",
+            company_name="测试公司",
+            ticker="000001.SZ",
+            industry_id="food_beverage",
+            cutoff_date=date(2026, 8, 20),
+            source_manifest_path=str(tmp_path / "nonexistent.csv"),
+            output_dir=str(tmp_path / "outputs" / "reports" / "RUN-MISSING-E0"),
+        )
+        row = import_manual_baseline(
+            request,
+            text="人工基线",
+            case_id=case_id,
+            definitions=defs_path,
+        )
+        assert row["status"] == "failed"
+        assert "FileNotFoundError" in (row["error"] or "")
+        experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E0"
+        assert (experiment_dir / "error.txt").exists()
+        assert (experiment_dir / "request.json").exists()
+
+    def test_e0_invalid_gold_returns_failed_not_raised(
+        self, tmp_path: Path, isolated_root: Path, case_defs
+    ) -> None:
+        """E0 import with invalid gold_path must be recorded, not raised."""
+        case_id, defs_path = case_defs
+        request, _, _ = _make_request(tmp_path)
+        invalid_gold = tmp_path / "invalid_gold.json"
+        invalid_gold.write_text("{not valid json", encoding="utf-8")
+        row = import_manual_baseline(
+            request,
+            text="人工基线",
+            case_id=case_id,
+            definitions=defs_path,
+            gold_path=str(invalid_gold),
+        )
+        assert row["status"] == "failed"
+        experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E0"
+        assert (experiment_dir / "error.txt").exists()
 
 
 class TestRunCaseExperiments:
@@ -596,6 +651,67 @@ class TestRunCaseExperiments:
         assert statuses["E3"] == "disabled"
         e1 = next(r for r in rows if r["experiment_id"] == "E1")
         assert "disabled" in (e1["error"] or "")
+
+
+    def test_disabled_case_returns_all_disabled_rows(
+        self, tmp_path: Path, isolated_root: Path
+    ) -> None:
+        """disabled case 的所有实验返回 disabled 行而非 E500。"""
+        case_id = _unique_case("d003")
+        defs = tmp_path / "disabled_case.yaml"
+        request_path = tmp_path / f"{case_id}_req.json"
+        request_path.write_text(
+            json.dumps(
+                {
+                    "run_id": "RUN-TEST",
+                    "company_name": "测试公司",
+                    "ticker": "000001.SZ",
+                    "industry_id": "food_beverage",
+                    "cutoff_date": "2026-08-20",
+                    "source_manifest_path": str(tmp_path / "manifest.csv"),
+                    "output_dir": str(tmp_path / "outputs" / "reports" / "RUN-TEST"),
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        defs.write_text(
+            "schema_version: '1.0'\n"
+            "cases:\n"
+            f"  - case_id: {case_id}\n"
+            f"    request_path: {request_path.as_posix()}\n"
+            "    gold_path: null\n"
+            "    enabled: false\n"
+            "experiments:\n"
+            "  E0:\n"
+            "    name: manual_baseline\n"
+            "    description: manual\n"
+            "    run_command: null\n"
+            "    enabled: true\n"
+            "  E1:\n"
+            "    name: generic_agent\n"
+            "    description: generic\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: true\n"
+            "  E2:\n"
+            "    name: industry_agent\n"
+            "    description: industry\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: true\n"
+            "  E3:\n"
+            "    name: full_system\n"
+            "    description: full\n"
+            "    run_command: '{python} -c \"\"'\n"
+            "    enabled: true\n",
+            encoding="utf-8",
+        )
+        request, _, _ = _make_request(tmp_path)
+        rows = run_case_experiments(case_id, request, definitions=defs)
+        assert all(r["status"] == "disabled" for r in rows)
+        assert len(rows) == 4
+        case_dir = isolated_root / "outputs" / "experiments" / case_id
+        results_json = json.loads((case_dir / "results.json").read_text(encoding="utf-8"))
+        assert len(results_json) == 4
 
 
 class TestCommandSubstitution:

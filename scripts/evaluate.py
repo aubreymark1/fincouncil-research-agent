@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.schemas import ResearchRequest  # noqa: E402
 from evaluation.experiment_runner import (  # noqa: E402
     EXPECTED_EXPERIMENTS,
+    CaseDefinition,
     load_definitions,
     run_case_experiments,
     run_experiment,
@@ -33,7 +34,7 @@ def _load_request(request_path: Path) -> ResearchRequest:
     return ResearchRequest.model_validate(payload)
 
 
-def _resolve_case(definitions_path: Path, case_id: str) -> Path:
+def _resolve_case(definitions_path: Path, case_id: str) -> CaseDefinition:
     cases, _, _ = load_definitions(definitions_path)
     match = next((case for case in cases if case.case_id == case_id), None)
     if match is None:
@@ -41,7 +42,7 @@ def _resolve_case(definitions_path: Path, case_id: str) -> Path:
         raise ValueError(
             f"unknown case {case_id!r}; expected one of: {available}"
         )
-    return match.request_path
+    return match
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -116,15 +117,33 @@ def _run(args: argparse.Namespace) -> int:
     definitions_path = Path(args.definitions)
     if not definitions_path.is_absolute():
         definitions_path = PROJECT_ROOT / definitions_path
-    request_path = _resolve_case(definitions_path, args.case)
+    case = _resolve_case(definitions_path, args.case)
+
+    # disabled case：不加载 request，直接返回结构化 disabled 行
+    if not case.enabled:
+        disabled_rows = [
+            {
+                "experiment_id": "E0" if args.import_manual else (args.experiment or "ALL"),
+                "name": args.case,
+                "case_id": args.case,
+                "status": "disabled",
+                "started_at": None,
+                "finished_at": None,
+                "input_hashes": None,
+                "gold_path": None,
+                "metrics": None,
+                "error": f"case disabled: {case.request_path} not yet available",
+            }
+        ]
+        print(json.dumps(disabled_rows, ensure_ascii=False, indent=2))
+        return 1
+
+    request_path = case.request_path
 
     if args.import_manual:
         if args.experiment is not None and args.experiment != "E0":
             raise ValueError("--import-manual only applies to E0")
         request = _load_request(request_path)
-        cases, _, _ = load_definitions(definitions_path)
-        case = next((c for c in cases if c.case_id == args.case), None)
-        gold_path = case.gold_path if case is not None else None
         row = import_manual_baseline(
             request,
             text=_manual_text(args),
@@ -133,37 +152,35 @@ def _run(args: argparse.Namespace) -> int:
             sources_used=args.sources_used,
             definitions=definitions_path,
             case_id=args.case,
-            gold_path=gold_path,
+            gold_path=case.gold_path,
         )
         print(json.dumps(row, ensure_ascii=False, indent=2))
-        return 0
+        return 0 if row.get("status") == "success" else 1
 
     if args.experiment is None and not args.all:
         raise ValueError("choose --experiment E1|E2|E3 or --all")
 
     request = _load_request(request_path)
-    cases, _, output_cfg = load_definitions(definitions_path)
-    case = next((case for case in cases if case.case_id == args.case), None)
-    gold_path = case.gold_path if case is not None else None
 
     if args.all:
         rows = run_case_experiments(
             args.case,
             request,
             definitions=definitions_path,
-            gold_path=gold_path,
+            gold_path=case.gold_path,
         )
         print(json.dumps(rows, ensure_ascii=False, indent=2))
-        return 0
+        return 0 if all(r.get("status") == "success" for r in rows) else 1
 
     row = run_experiment(
         args.experiment,
         request,
         definitions=definitions_path,
-        gold_path=gold_path,
+        gold_path=case.gold_path,
         case_id=args.case,
     )
     print(json.dumps(row, ensure_ascii=False, indent=2))
+    # disabled/failed 都返回非零，让用户知道实验未真正运行
     return 0 if row.get("status") == "success" else 1
 
 

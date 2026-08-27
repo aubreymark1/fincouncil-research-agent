@@ -11,6 +11,8 @@
 # 状态说明（2026-08-27）：
 # - food_main/bank_main 的真实 Gold (food_gold.json/bank_gold.json) 尚未签收（D-001 进行中），
 #   gold_path 显式置 null，E0—E3 当前不可评分，CLI 会给出 "gold_missing" 状态。
+# - bank_main 的 ResearchRequest (fixtures/shared/bank_request.json) 尚未签收（B 责任），
+#   case 标记 enabled: false，CLI 返回结构化 disabled 状态而非 E500。
 # - E1/E2/E3 的 run_command 当前完全相同：scripts/run_case.py 尚无 mode 开关（属 A 目录），
 #   差异化需 A 确认模式参数后落地；在此之前 E1/E2/E3 显式标记 enabled: false，
 #   run_case_experiments / CLI 会跳过并给出 "disabled" 状态，不把三组实验视为可运行。
@@ -21,9 +23,11 @@ cases:
   - case_id: food_main
     request_path: fixtures/shared/research_request.json
     gold_path: null
+    enabled: true
   - case_id: bank_main
     request_path: fixtures/shared/bank_request.json
     gold_path: null
+    enabled: false
 
 experiments:
   E0:

@@ -46,7 +46,7 @@
 | ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
 | ADAPT-008 | 真实 LLM transport adapter 与 Agent 节点接入 | 待开始 | `app/model/` 已有 SDK-neutral Provider；需接入真实 transport、prompts、结构化输出、E300/E301、缓存和 RunMetadata |
-| ADAPT-009 | 匿名工作台轻量 LLM 综合链路 | 进行中 | 单次 synthesis 调用、最多 60 条证据、裸数组兼容、LLM 失败自动回退 rule-engine；待线上端到端验收 |
+| ADAPT-009 | 匿名工作台轻量 LLM 综合链路 | 已完成 | 单次 synthesis 调用、最多 60 条证据、裸数组兼容、LLM 失败自动回退 rule-engine；线上 food_main 端到端验收通过 |
 | EXP-001 | E0～E3 可复现实验 | 待开始 | 需先完成 ADAPT-008、真实 Gold 和 E1～E3 模式开关；所有实验统一由 A 运行 |
 | MIG-001 | 银行迁移检查 | 待开始 | 需补齐银行 request fixture、真实 Gold，并验证 banking 配置不改核心编排 |
 | FINAL-001 | 工作台整合与最终提交 | 待开始 | 运行真实结果、生成图表/报告、更新演示和提交材料 |
@@ -100,7 +100,7 @@
 
 | 优先级 | 事项 | 负责人 | 下一步 |
 |---|---|---|---|
-| P0 | 匿名工作台轻量 LLM 链路 | A | 完成 ADAPT-009 线上验收：自然语言简报、来源气泡和失败回退；完整 ADAPT-008 作为后续实验路径保留 |
+| P0 | 匿名工作台轻量 LLM 链路 | 已完成 | ADAPT-009 已通过线上 food_main 验收；自然语言简报、来源索引和失败回退均已接通 |
 | P0 | LLM transport 与完整 Agent 接入 | A | 完成 ADAPT-008：真实 transport、prompts、结构化输出、错误处理、缓存、日志和 mock 测试；用于 E1～E3 实验，不阻塞轻量工作台演示 |
 | P1 | 真实 Gold Standard 缺失 | A | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果 |
 | P1 | E1～E3 模式开关与 EXP-001 | A | 明确通用/行业/完整合规三种模式，统一资料、cutoff、模型和提示词版本后运行 E0～E3 |

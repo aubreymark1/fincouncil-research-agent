@@ -167,7 +167,8 @@ def test_compact_analysis_uses_one_call_and_accepts_bare_claim_array() -> None:
     assert len(calls) == 1
     assert len(claims) == 1
     assert "轻量综合分析" in calls[0]
-    assert "最多输出 2 个段落" in calls[0]
+    assert "最多输出 4 个段落" in calls[0]
+    assert "事实—变化—影响" in calls[0]
 
 
 def test_compact_analysis_rejects_unknown_evidence_id() -> None:
@@ -242,6 +243,31 @@ def test_compact_report_accepts_narrative_only_llm_output() -> None:
 
     assert draft.claims == []
     assert draft.narrative[0].text.startswith("行业需求保持韧性")
+
+
+def test_compact_report_keeps_text_and_filters_unknown_narrative_sources() -> None:
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: {
+            "narrative": [
+                {
+                    "section": "核心判断",
+                    "text": "行业需求保持韧性。",
+                    "evidence_ids": ["EV-COMPACT-001", "EV-MODEL-INVENTED"],
+                }
+            ]
+        },
+    )
+
+    draft = run_compact_report(
+        provider,
+        make_request(),
+        [make_evidence("EV-COMPACT-001")],
+        make_config(),
+        documents=[make_document()],
+    )
+
+    assert draft.narrative[0].evidence_ids == ["EV-COMPACT-001"]
 
 
 def test_compact_report_builds_narrative_when_model_returns_claims_only() -> None:
@@ -320,7 +346,7 @@ def test_run_pipeline_compact_skips_llm_critic() -> None:
 
     assert len(calls) == 1
     assert state.metadata is not None
-    assert state.metadata.prompt_versions == {"synthesis": "2"}
+    assert state.metadata.prompt_versions == {"synthesis": "3"}
 
 
 def load_config_for_test(industry_id: str) -> IndustryConfig:

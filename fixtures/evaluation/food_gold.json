@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "case_id": "food_main",
-  "fixture_notice": "D-001 模板：当前 items 为空，等待 B/C 基于已核验食品饮料资料制作并签收正式 Gold Standard；此文件不代表真实实验结果。",
+  "fixture_notice": "GOLD-D-001 组装门禁：B/C 已在角色分支提交核验材料，但食品毛利率、计算型销售费用率、存货页码和食品安全来源仍需合并或裁决；items 暂为空，A 签收前不得用于正式评分。",
   "status": "pending_signoff",
-  "required_metric_ids_source": "configs/food_beverage.yaml@74e7d78",
+  "required_metric_ids_source": "configs/food_beverage.yaml@ac81016",
   "required_metric_ids": [
     "revenue_growth",
     "gross_margin",

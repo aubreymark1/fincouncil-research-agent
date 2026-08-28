@@ -37,6 +37,26 @@ def test_bank_gold_template_pending_signoff_is_rejected() -> None:
         load_gold_standard(str(BANK_GOLD), "banking")
 
 
+@pytest.mark.parametrize(
+    ("gold_path", "industry_id"),
+    [
+        (FOOD_GOLD, "food_beverage"),
+        (BANK_GOLD, "banking"),
+    ],
+)
+def test_pending_gold_declares_complete_metric_scope_without_false_results(
+    gold_path: Path, industry_id: str
+) -> None:
+    payload = _load_payload(gold_path)
+
+    assert payload["status"] == "pending_signoff"
+    assert set(payload["required_metric_ids"]) == _config_required_metric_ids(
+        industry_id
+    )
+    assert payload["items"] == []
+    assert "A 签收前不得用于正式评分" in payload["fixture_notice"]
+
+
 def test_signed_food_gold_matches_food_config_required_metrics() -> None:
     gold = load_gold_standard(str(SIGNED_FOOD_GOLD), "food_beverage")
 

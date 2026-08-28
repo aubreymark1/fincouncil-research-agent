@@ -8,25 +8,26 @@
 # 通过 scripts/evaluate.py --case {case_id} --experiment E0 --import-manual 导入，
 # 记录开始时间、结束时间、使用资料和最终文本。
 #
-# 状态说明（2026-08-27）：
-# - food_main/bank_main 的真实 Gold (food_gold.json/bank_gold.json) 尚未签收（D-001 进行中），
-#   gold_path 显式置 null，E0—E3 当前不可评分，CLI 会给出 "gold_missing" 状态。
+# 状态说明（2026-08-28）：
+# - food_main/bank_main 的真实 Gold 已由 A 基于 B/C/D 核验材料签收，gold_path 指向正式文件。
+# - E1—E3 仍保持 enabled: false，等待 EXP-001 统一运行和 E0 人工基线导入；
+#   不把“Gold 已签收”误写成“实验已经完成”。
 # - bank_main 的 ResearchRequest (fixtures/shared/bank_request.json) 已补齐，
-#   case 标记 enabled: true；真实 Gold 仍未签收，gold_path 仍为 null。
-# - E1/E2/E3 的 run_command 已接通 --mode 与 --llm；在真实 Gold 签收前，
+#   case 标记 enabled: true；Gold 已签收并通过 schema 校验，gold_path 指向正式文件。
+# - E1/E2/E3 的 run_command 已接通 --mode 与 --llm；在 EXP-001 完成前，
 #   E1/E2/E3 仍显式标记 enabled: false，run_case_experiments / CLI 会跳过并给出
-#   "disabled" 状态，不把三组实验视为可正式评分。
+#   "disabled" 状态，不把三组实验视为已运行结果。
 
 schema_version: "1.0"
 
 cases:
   - case_id: food_main
     request_path: fixtures/shared/research_request.json
-    gold_path: null
+    gold_path: fixtures/evaluation/food_gold.json
     enabled: true
   - case_id: bank_main
     request_path: fixtures/shared/bank_request.json
-    gold_path: null
+    gold_path: fixtures/evaluation/bank_gold.json
     enabled: true
 
 experiments:
@@ -37,17 +38,17 @@ experiments:
     enabled: true
   E1:
     name: generic_agent
-    description: 通用 Agent，不加载行业配置（Gold 签收前 disabled）
+    description: 通用 Agent，不加载行业配置（等待 EXP-001 运行）
     run_command: "{python} scripts/run_case.py --request {request_path} --mode E1 --llm"
     enabled: false
   E2:
     name: industry_agent
-    description: 通用 Agent 加载行业配置（Gold 签收前 disabled）
+    description: 通用 Agent 加载行业配置（等待 EXP-001 运行）
     run_command: "{python} scripts/run_case.py --request {request_path} --mode E2 --llm"
     enabled: false
   E3:
     name: full_system
-    description: 行业配置、时间锁、证据链和 Critic（Gold 签收前 disabled）
+    description: 行业配置、时间锁、证据链和 Critic（等待 EXP-001 运行）
     run_command: "{python} scripts/run_case.py --request {request_path} --mode E3 --llm"
     enabled: false
 

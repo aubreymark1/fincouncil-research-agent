@@ -8,11 +8,11 @@
 - [ ] `evaluation/metrics.py` 指标计算已合并
 - [ ] `evaluation/experiment_runner.py` 与 `scripts/evaluate.py` 已合并
 - [ ] `evaluation/red_team.py` 红蓝测试已合并
-- [ ] `evaluation/gold.py` Gold Standard 格式校验已合并
+- [x] `evaluation/gold.py` Gold Standard 格式校验已合并
 - [x] `evaluation/charts.py` 图表生成已合并
 - [x] `app/ui/` Streamlit 页面已合并并支持 report.md、失败/disabled 状态和只读导出
 - [ ] `reports/template.md.j2` 报告模板已合并
-- [ ] `pytest tests/evaluation -q` 通过
+- [x] `pytest tests/evaluation -q` 通过
 - [ ] `python scripts/evaluate.py --case food_main --all` 可运行（或明确 disabled 原因）
 
 ## 实验与数据
@@ -22,7 +22,7 @@
 - [ ] 每组结果有 input hash
 - [ ] 失败实验保留 `error.txt` 和原始目录
 - [x] 合成 fixture 未冒充真实实验结果
-- [x] 真实食品饮料/银行 Gold Standard 已明确标注为待签收，未用于正式评分
+- [x] 真实食品饮料/银行 Gold Standard 已由 A 基于 B/C/D 核验材料签收并接入评分定义
 
 ## 页面与交付
 

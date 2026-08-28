@@ -133,6 +133,21 @@ def test_selector_keeps_risk_trigger_and_exclude_signals() -> None:
     assert {"EV-RISK-TRIGGER", "EV-RISK-EXCLUDE"} <= selected_ids
 
 
+def test_selector_default_budget_stays_small_for_the_online_mvp() -> None:
+    config = make_config()
+    evidence = [
+        make_evidence(
+            f"EV-BUDGET-{index:03d}",
+            fact_text=f"营业收入增长 {index}%。",
+        )
+        for index in range(40)
+    ]
+
+    selected = select_compact_evidence(evidence, config)
+
+    assert len(selected) <= 24
+
+
 def test_compact_analysis_uses_one_call_and_accepts_bare_claim_array() -> None:
     calls: list[str] = []
 
@@ -152,6 +167,7 @@ def test_compact_analysis_uses_one_call_and_accepts_bare_claim_array() -> None:
     assert len(calls) == 1
     assert len(claims) == 1
     assert "轻量综合分析" in calls[0]
+    assert "最多输出 12 条" in calls[0]
 
 
 def test_compact_analysis_rejects_unknown_evidence_id() -> None:
@@ -278,7 +294,7 @@ def test_run_pipeline_compact_skips_llm_critic() -> None:
 
     assert len(calls) == 1
     assert state.metadata is not None
-    assert state.metadata.prompt_versions == {"synthesis": "1"}
+    assert state.metadata.prompt_versions == {"synthesis": "2"}
 
 
 def load_config_for_test(industry_id: str) -> IndustryConfig:

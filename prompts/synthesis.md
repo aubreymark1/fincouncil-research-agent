@@ -1,6 +1,6 @@
 <!--
   prompt: synthesis
-  version: 1
+  version: 2
   owner: A
   role: 轻量综合分析节点
   schema: ClaimList (claims: list[Claim])
@@ -12,7 +12,7 @@
 
 ## 任务
 
-基于输入的 verified Evidence，一次性生成行业投研简报所需的 Claim 列表，覆盖：
+基于输入的 verified Evidence，一次性生成行业投研简报所需的 Claim 列表。最多输出 12 条最重要的 Claim，优先覆盖有充分证据支撑的判断，不要为了覆盖所有字段而堆砌内容。覆盖：
 
 - 基本面指标及变化；
 - 新闻和政策变化；

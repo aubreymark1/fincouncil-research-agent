@@ -321,13 +321,20 @@ def run_pipeline(
     industry_loader: IndustryLoader | None = None,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
+    progress_callback: Callable[[str], None] | None = None,
 ) -> ResearchState:
     """Run the research pipeline over real B/C modules and persist outputs.
 
     ``mode`` selects the frozen E1/E2/E3 experiment behaviour or the default
     ``rule-engine`` chain. E1/E2/E3 require a ``ModelProvider`` so the CLI can
     never silently substitute deterministic rules for an experiment run.
+    ``progress_callback`` is optional and emits real stage labels without
+    altering any pipeline behaviour.
     """
+
+    def _emit(stage: str) -> None:
+        if progress_callback is not None:
+            progress_callback(stage)
 
     started_at = datetime.now(timezone.utc)
     mode = normalize_mode(mode)
@@ -339,6 +346,8 @@ def run_pipeline(
         _write_failed_metadata(request, started_at, exc, None, mode)
         raise exc
 
+    _emit("准备研究请求")
+
     state = ResearchState(request=request, mode=mode)
     resolve_manifest = manifest_loader or load_manifest
     resolve_industry = industry_loader or load_industry_config
@@ -347,6 +356,7 @@ def run_pipeline(
     manifest_issues = validate_manifest(state.documents)
     state.validation_issues.extend(manifest_issues)
     state.documents = _manifest_blocked_documents(state.documents, manifest_issues)
+    _emit("校验资料清单")
 
     extract_text = text_extractor or _extract_document_text
 
@@ -363,6 +373,7 @@ def run_pipeline(
         for document in state.documents:
             state.chunks.extend(extract_text(document))
         state.chunks = chunk_text(state.chunks, CHUNK_MAX_CHARS)
+        _emit("解析原始资料")
 
         if mode == "E2":
             state.config = resolve_industry(request.industry_id)
@@ -372,6 +383,7 @@ def run_pipeline(
             state.documents,
         )
         state.validation_issues.extend(raw_issues)
+        _emit("定位证据")
 
         try:
             state.claims = run_generic_analysis(
@@ -383,6 +395,7 @@ def run_pipeline(
         except ModelProviderError as exc:
             _write_failed_metadata(request, started_at, exc, model_provider, mode)
             raise
+        _emit("生成分析结论")
 
         generated_at = datetime.now(timezone.utc)
         state.report = render_report(
@@ -400,10 +413,12 @@ def run_pipeline(
             request.cutoff_date,
         )
         state.validation_issues.extend(time_lock_issues)
+        _emit("执行时间过滤")
 
         for document in state.documents:
             state.chunks.extend(extract_text(document))
         state.chunks = chunk_text(state.chunks, CHUNK_MAX_CHARS)
+        _emit("解析原始资料")
 
         state.config = resolve_industry(request.industry_id)
 
@@ -418,6 +433,7 @@ def run_pipeline(
             request=request,
         )
         state.validation_issues.extend(policy_issues)
+        _emit("定位证据")
 
         try:
             state.claims = run_analysis(
@@ -427,6 +443,7 @@ def run_pipeline(
                 documents=state.documents,
                 provider=model_provider,
             )
+            _emit("生成分析结论")
 
             industry_issues = [
                 *check_required_metrics(state.evidence, state.config, documents=state.documents),
@@ -449,6 +466,7 @@ def run_pipeline(
             state.validation_issues.extend(
                 _drop_duplicated_metric_issues(critic_issues, industry_issues)
             )
+            _emit("执行 Critic 审查")
         except ModelProviderError as exc:
             _write_failed_metadata(request, started_at, exc, model_provider, mode)
             raise
@@ -504,4 +522,6 @@ def run_pipeline(
         errors=[],
     )
     _write_outputs(request=request, report=state.report, metadata=state.metadata)
+    _emit("写入报告产物")
+    _emit("研究完成")
     return state

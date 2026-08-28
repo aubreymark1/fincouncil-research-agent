@@ -21,13 +21,13 @@
 
 ## 输出格式
 
-必须输出一个 JSON 对象，顶层字段只能是 `narrative` 和 `claims`，不要输出 Markdown、解释文字或代码围栏。`narrative` 是给用户阅读的连贯正文，`claims` 是程序校验和来源气泡使用的结构化结论：
+必须输出一个 JSON 对象，唯一顶层字段为 `claims`，不要输出 Markdown、解释文字或代码围栏。每条 Claim 的 `text` 必须是可以直接放入投研简报的完整句子；程序会把这些句子组合成连贯正文，`claims` 同时用于校验和来源气泡：
 
 ```json
-{"narrative": [{"section": "核心判断", "text": "由 2 至 4 句话组成的连贯段落。", "evidence_ids": ["EV-..."]}], "claims": [{"claim_id": "CL-...", "text": "...", "claim_type": "analysis", "risk_severity": null, "evidence_ids": ["EV-..."], "calculation": null, "confidence": 0.8, "industry_metric_ids": ["..."], "status": "pass"}]}
+{"claims": [{"claim_id": "CL-...", "text": "完整的自然语言结论。", "claim_type": "analysis", "risk_severity": null, "evidence_ids": ["EV-..."], "calculation": null, "confidence": 0.8, "industry_metric_ids": ["..."], "status": "pass"}]}
 ```
 
-`narrative` 至少覆盖“核心判断”“基本面分析”“风险与局限”三个段落；每个段落使用自然语言，不要把证据 ID、指标 ID 或 JSON 字段名写进正文。每个有事实判断的段落必须绑定一个或多个输入 evidence_id；纯粹说明资料不足的局限段落可以为空。
+每条 Claim 使用自然语言，不要把证据 ID、指标 ID 或 JSON 字段名写进正文。每个有事实判断的 Claim 必须绑定一个或多个输入 evidence_id；无法确认的内容输出 unresolved。
 
 每条 Claim 必须符合 `Claim` schema。`fact`、`change`、`analysis` 和 `risk` 必须引用输入中的 evidence_id；`unresolved` 必须明确说明缺失内容。风险 Claim 的 `status` 必须是 `review`，risk_severity 和 industry_metric_ids 必须复制对应 RiskRule。
 

@@ -202,6 +202,28 @@ def test_compact_report_returns_narrative_blocks_with_sources() -> None:
     ]
 
 
+def test_compact_report_builds_narrative_when_model_returns_claims_only() -> None:
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: {
+            "claims": [make_claim(["EV-COMPACT-001"])],
+        },
+    )
+
+    draft = run_compact_report(
+        provider,
+        make_request(),
+        [make_evidence("EV-COMPACT-001")],
+        make_config(),
+        documents=[make_document()],
+    )
+
+    assert draft.narrative
+    assert draft.narrative[0].section == "核心判断"
+    assert draft.narrative[0].text == "营业收入同比增长 12%。"
+    assert draft.narrative[0].evidence_ids == ["EV-COMPACT-001"]
+
+
 def test_run_analysis_compact_strategy_calls_provider_once() -> None:
     calls: list[str] = []
 

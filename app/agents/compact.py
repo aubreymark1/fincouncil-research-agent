@@ -8,11 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.agents.llm import (
-    ClaimList,
-    _build_prompt,
-    _evidence_text,
-)
+from app.agents.llm import _build_prompt, _evidence_text
 from app.model import ModelProvider, ModelProviderError
 from app.schemas import (
     Claim,
@@ -295,6 +291,73 @@ def _validate_narrative(
             )
 
 
+def _join_claim_texts(claims: list[Claim]) -> str:
+    texts: list[str] = []
+    for claim in claims:
+        text = claim.text.strip()
+        if text and text[-1] not in "。！？；":
+            text += "。"
+        if text:
+            texts.append(text)
+    return "".join(texts)
+
+
+def _claim_evidence_ids(claims: list[Claim]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            evidence_id
+            for claim in claims
+            for evidence_id in claim.evidence_ids
+        )
+    )
+
+
+def _build_narrative_from_claims(claims: list[Claim]) -> list[ReportBlock]:
+    """Turn LLM-written claim sentences into readable report paragraphs."""
+
+    body_claims = [
+        claim
+        for claim in claims
+        if claim.claim_type in {"fact", "change", "analysis"}
+        and claim.status in {"pass", "review"}
+    ]
+    risk_claims = [
+        claim
+        for claim in claims
+        if claim.claim_type in {"risk", "unresolved"}
+        and claim.status in {"pass", "review"}
+    ]
+    blocks: list[ReportBlock] = []
+
+    core_claims = [claim for claim in body_claims if claim.claim_type == "analysis"]
+    core_claims = core_claims or body_claims[:3]
+    if core_claims:
+        blocks.append(
+            ReportBlock(
+                section="核心判断",
+                text=_join_claim_texts(core_claims),
+                evidence_ids=_claim_evidence_ids(core_claims),
+            )
+        )
+    if body_claims:
+        blocks.append(
+            ReportBlock(
+                section="基本面分析",
+                text=_join_claim_texts(body_claims),
+                evidence_ids=_claim_evidence_ids(body_claims),
+            )
+        )
+    if risk_claims:
+        blocks.append(
+            ReportBlock(
+                section="风险与局限",
+                text=_join_claim_texts(risk_claims),
+                evidence_ids=_claim_evidence_ids(risk_claims),
+            )
+        )
+    return blocks
+
+
 def get_compact_prompt_version() -> str:
     from app.agents.llm import load_prompt
 
@@ -345,4 +408,8 @@ def run_compact_report(
         raise TypeError("E301 module=agents.compact: expected CompactReportDraft response")
     _validate_narrative(result.narrative, selected)
     _validate_compact_claims(result.claims, selected, config)
+    if not result.narrative:
+        result = result.model_copy(
+            update={"narrative": _build_narrative_from_claims(result.claims)}
+        )
     return result

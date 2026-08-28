@@ -4,7 +4,7 @@
 
 **Goal:** 保留时间锁和证据链，用少量相关证据驱动一次 LLM 综合分析，并在 LLM 失败时自动回退到 rule-engine。
 
-**Architecture:** 工作台在真实 ingestion/industry 链路完成时间锁、证据定位和确定性规则后，由 compact strategy 选择最多 60 条证据，调用一次综合 LLM，输出连贯 `narrative` 段落和现有 `Claim` 列表。确定性 Critic 和报告渲染继续校验来源；LLM 调用失败时 runner 重跑确定性链路。
+**Architecture:** 工作台在真实 ingestion/industry 链路完成时间锁、证据定位和确定性规则后，由 compact strategy 选择最多 60 条证据，调用一次综合 LLM 输出自然语言 Claim，再由程序组合为带证据引用的 `narrative` 段落。确定性 Critic 和报告渲染继续校验来源；LLM 调用失败时 runner 重跑确定性链路。
 
 **Tech Stack:** Python 3.11+/3.13, Pydantic, pytest, FastAPI backend, React/TypeScript/Vite, 现有 OpenAI-compatible transport。
 
@@ -150,7 +150,7 @@
 
 **Steps:**
 
-- [ ] 让一次 synthesis 返回 `narrative` 与 `claims`，每个事实正文段落绑定 Evidence ID。
+- [ ] 让一次 synthesis 返回适合直接阅读的自然语言 `claims`，程序将其组合为 `narrative`，每个正文段落继承 Evidence ID。
 - [ ] 将正文段落写入 ResearchReport，并把段落引用纳入 evidence_index。
 - [ ] 前端先展示正文段落，段落旁显示可点击的来源气泡；Claims 作为正式结论和审核详情保留。
 - [ ] 运行全量 Python 测试和前端 production build。

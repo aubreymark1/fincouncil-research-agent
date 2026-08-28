@@ -319,13 +319,13 @@ def _build_narrative_from_claims(claims: list[Claim]) -> list[ReportBlock]:
         claim
         for claim in claims
         if claim.claim_type in {"fact", "change", "analysis"}
-        and claim.status in {"pass", "review"}
+        and claim.status == "pass"
     ]
     risk_claims = [
         claim
         for claim in claims
         if claim.claim_type in {"risk", "unresolved"}
-        and claim.status in {"pass", "review"}
+        and claim.status == "pass"
     ]
     blocks: list[ReportBlock] = []
 

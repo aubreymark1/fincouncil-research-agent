@@ -166,6 +166,26 @@ def test_render_report_keeps_narrative_blocks_and_their_evidence() -> None:
     assert "EV-FOOD-001" in markdown
 
 
+def test_render_report_builds_readable_narrative_when_not_provided() -> None:
+    request = make_request()
+    evidence = [make_evidence()]
+    body_claim = make_claim(text="行业收入保持增长")
+    risk_claim = make_claim(
+        claim_id="CL-REPORT-RISK-FALLBACK",
+        text="需求变化仍需关注",
+        claim_type="risk",
+        risk_severity="medium",
+    )
+
+    report = render_report(request, [body_claim, risk_claim], evidence, [])
+    markdown = render_markdown(report)
+
+    assert [block.section for block in report.narrative] == ["核心判断", "风险与局限"]
+    assert "行业收入保持增长。" in report.narrative[0].text
+    assert "需求变化仍需关注。" in report.narrative[1].text
+    assert "## 投研正文" in markdown
+
+
 def test_render_markdown_contains_sections_and_excludes_rejected_claims() -> None:
     request = make_request()
     evidence = [make_evidence()]

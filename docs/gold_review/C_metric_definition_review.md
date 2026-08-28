@@ -194,3 +194,11 @@ v2 注：2.2 definition 列的分子/分母公式为通识公式（行业常识�
 1. v1 已随 `465b223` 提交至 `role-c-industry`；本 v2 勘误以单独提交（提交说明：`docs(gold): correct errata and add PDF source verification`）推送至同分支，不触碰 main。
 2. BLOCKER-1/2/3/4 及第 6 节核对清单移交 role A（Gold 形态决策）与 role B（替代工具交叉复核、口径确认）；C 不修改 Gold JSON、不降低匹配标准。
 3. Gold 草稿在 A 人工复核并签收（`status=signed`）之前不得用于评分（门禁已在实证 A 中验证）。
+
+## 10. A 最终裁决记录（2026-08-28）
+
+- `food_gold.json` 与 `bank_gold.json` 已基于本评审和 B/D 交叉核验结果完成填充并标记 `signed`。
+- FOOD-002 采用 DOC-FOOD-001 第 18 页的“茅台酒 93.53%”，与 B 记录的“酒类 91.23%”区分产品口径。
+- FOOD-005 改为两个来源均可直接核验的“食品安全”短语，来源为 DOC-FOOD-004 第 16 页和 DOC-FOOD-012 第 1 页。
+- BANK-002 采用原文第 34 页的贷款增长 7.5%；BANK-003～005 采用第 16 页主要指标表，避免把目录/附注命中页误当成 Gold locator。
+- FOOD-003 的 4.30% 是经原始分子分母复算的派生答案，Gold 保留计算结果；评分器的逐字 quote 限制留作 EXP-001 的已知评测限制，不通过伪造 quote 绕过。

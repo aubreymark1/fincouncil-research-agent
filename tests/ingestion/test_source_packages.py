@@ -34,12 +34,14 @@ RIGHT_MARGIN_PT = 28.35
 def _all_package_pdfs() -> list[Path]:
     """合成 PDF（fixtures/synthetic + data/raw 红蓝材料）。
 
-    真实财报（文件名以股票代码数字开头）由爬虫下载、排版真实，页脚页码等
-    元素 x 坐标天然靠右，不应套用"正文越界"检查。
+    真实文件不套用"正文越界"检查：
+    - 真实财报（文件名以股票代码数字开头）由爬虫下载，页脚页码等元素 x 坐标天然靠右；
+    - 监管政策文件（samr_/nhc_ 前缀）来自政府网站，网页转 PDF 可能残留页眉/图标 artifact，
+      但正文排版正常，不应误判为越界。
     """
     pdfs = sorted((ROOT / "fixtures" / "synthetic").rglob("*.pdf"))
     for p in (ROOT / "data" / "raw").rglob("*.pdf"):
-        if not p.name[0].isdigit():
+        if not p.name[0].isdigit() and not p.name.startswith(("samr_", "nhc_")):
             pdfs.append(p)
     return sorted(pdfs)
 
@@ -88,7 +90,14 @@ def test_data_manifests_contain_real_formal_sources() -> None:
     food = _core_documents(DATA_MANIFESTS[0])
     bank = _core_documents(DATA_MANIFESTS[1])
 
-    assert 8 <= len(food) <= 12, f"食品应有 8-12 份核心资料，当前 {len(food)} 份"
+    # 核心财报数量沿用 B-006 验收口径（食品 8-12、银行 4-6）；policy 是 food_safety
+    # 的补充证据，另行计数，不挤占财报名额。
+    food_financial = [
+        d for d in food if d.source_type in ("annual_report", "interim_report")
+    ]
+    assert 8 <= len(food_financial) <= 12, (
+        f"食品应有 8-12 份核心财报，当前 {len(food_financial)} 份"
+    )
     assert 4 <= len(bank) <= 6, f"银行应有 4-6 份核心资料，当前 {len(bank)} 份"
 
     for doc in food + bank:
@@ -129,7 +138,8 @@ def _industry_keywords(industry_id: str) -> list[str]:
 
 def test_formal_sources_extract_and_locate() -> None:
     # A 要求：每个 formal PDF 都必须能 extract_pdf 且用行业关键词定位到证据，
-    # 否则资料包不可声称"端到端可用"。
+    # 否则资料包不可声称"端到端可用"。policy 资料用食品安全类关键词 + policy 通道，
+    # 财报类资料用财务关键词 + financial 通道。
     for manifest in DATA_MANIFESTS:
         documents = load_manifest(str(manifest))
         for document in documents:
@@ -137,9 +147,14 @@ def test_formal_sources_extract_and_locate() -> None:
                 continue
             chunks = extract_pdf(document)
             chunks = chunk_text(chunks, max_chars=400)
-            keywords = _industry_keywords(document.industry_id)
+            if document.source_type == "policy":
+                keywords = ["食品安全", "抽检", "召回", "质量"]
+                evidence_type = "policy"
+            else:
+                keywords = _industry_keywords(document.industry_id)
+                evidence_type = "financial"
             evidence = locate_evidence(
-                chunks, keywords, documents=[document], evidence_type="financial"
+                chunks, keywords, documents=[document], evidence_type=evidence_type
             )
             assert evidence, (
                 f"{document.doc_id} extract_pdf 后无法用行业关键词定位到任何证据"

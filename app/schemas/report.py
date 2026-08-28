@@ -5,11 +5,29 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .claim import Claim
 from .evidence import Evidence
 from .validation import ValidationIssue
+
+
+class ReportBlock(BaseModel):
+    """One natural-language report paragraph with evidence references."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    section: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+    @field_validator("evidence_ids")
+    @classmethod
+    def validate_evidence_ids(cls, values: list[str]) -> list[str]:
+        for evidence_id in values:
+            if not evidence_id.startswith("EV-"):
+                raise ValueError("evidence_ids must contain stable EV- identifiers")
+        return values
 
 
 class ResearchReport(BaseModel):
@@ -22,6 +40,7 @@ class ResearchReport(BaseModel):
     industry_id: str = Field(min_length=1)
     cutoff_date: date
     summary: list[str]
+    narrative: list[ReportBlock] = Field(default_factory=list)
     claims: list[Claim]
     risks: list[Claim]
     unresolved_items: list[Claim]

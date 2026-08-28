@@ -23,7 +23,7 @@ from app.agents import (
     run_critic,
     run_critic_llm,
 )
-from app.agents.compact import get_compact_prompt_version
+from app.agents.compact import get_compact_prompt_version, run_compact_report
 from app.agents.aggregation import run_analysis
 from app.agents.generic import build_raw_evidence, run_generic_analysis
 from app.industry.checklist import check_required_metrics
@@ -42,6 +42,7 @@ from app.schemas import (
     ResearchReport,
     ResearchRequest,
     RunMetadata,
+    ReportBlock,
     SourceDocument,
     TextChunk,
     ValidationIssue,
@@ -351,6 +352,7 @@ def run_pipeline(
     _emit("准备研究请求")
 
     state = ResearchState(request=request, mode=mode)
+    narrative: list[ReportBlock] = []
     resolve_manifest = manifest_loader or load_manifest
     resolve_industry = industry_loader or load_industry_config
 
@@ -438,14 +440,25 @@ def run_pipeline(
         _emit("定位证据")
 
         try:
-            state.claims = run_analysis(
-                request,
-                state.evidence,
-                state.config,
-                documents=state.documents,
-                provider=model_provider,
-                llm_strategy=llm_strategy,
-            )
+            if model_provider is not None and llm_strategy == "compact":
+                compact_report = run_compact_report(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    state.config,
+                    documents=state.documents,
+                )
+                state.claims = compact_report.claims
+                narrative = compact_report.narrative
+            else:
+                state.claims = run_analysis(
+                    request,
+                    state.evidence,
+                    state.config,
+                    documents=state.documents,
+                    provider=model_provider,
+                    llm_strategy=llm_strategy,
+                )
             _emit("生成分析结论")
 
             industry_issues = [
@@ -480,6 +493,7 @@ def run_pipeline(
             state.claims,
             state.evidence,
             state.validation_issues,
+            narrative=narrative,
         )
 
     input_hashes = _compute_input_hashes(request)

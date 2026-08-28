@@ -67,6 +67,12 @@ export interface Claim {
   status: "draft" | "pass" | "review" | "reject";
 }
 
+export interface ReportBlock {
+  section: string;
+  text: string;
+  evidence_ids: string[];
+}
+
 export interface ValidationIssue {
   issue_id: string;
   check_name: string;
@@ -87,6 +93,7 @@ export interface ResearchReport {
   industry_id: string;
   cutoff_date: string;
   summary: string[];
+  narrative?: ReportBlock[];
   claims: Claim[];
   risks: Claim[];
   unresolved_items: Claim[];

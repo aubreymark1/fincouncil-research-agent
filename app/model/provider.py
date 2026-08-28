@@ -146,10 +146,26 @@ def _as_json_object(
         raise ValueError("transport must return a JSON object or JSON string")
     if isinstance(payload, list) and response_model is not None:
         fields = response_model.model_fields
-        if len(fields) == 1:
-            field_name, field_info = next(iter(fields.items()))
-            if get_origin(field_info.annotation) is list:
+        list_fields = [
+            (field_name, field_info)
+            for field_name, field_info in fields.items()
+            if get_origin(field_info.annotation) is list
+        ]
+        if len(list_fields) == 1:
+            field_name, _ = list_fields[0]
+            if all(
+                not field_info.is_required()
+                for name, field_info in fields.items()
+                if name != field_name
+            ):
                 return {field_name: payload}
+        if "claims" in fields and get_origin(fields["claims"].annotation) is list:
+            if all(
+                not field_info.is_required()
+                for name, field_info in fields.items()
+                if name != "claims"
+            ):
+                return {"claims": payload}
     if not isinstance(payload, dict):
         raise ValueError("structured model output must be a JSON object")
     return payload

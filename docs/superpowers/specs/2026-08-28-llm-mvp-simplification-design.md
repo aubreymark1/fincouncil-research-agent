@@ -6,7 +6,7 @@
 
 ## 范围与不变量
 
-- 保留 `ResearchRequest`、`Evidence`、`Claim`、`ResearchReport` 和现有 API 字段，不新增公共契约字段。
+- 保留 `ResearchRequest`、`Evidence`、`Claim` 和旧 `ResearchReport` 字段；为实现最终可读报告，向后兼容地增加 `ResearchReport.narrative` 正文段落列表。
 - 保留 manifest 校验、时间锁、行业配置、证据状态、确定性指标规则和确定性 Critic。
 - LLM 只能使用程序筛选后传入的 verified Evidence，不联网、不编造数字、不生成来源之外的事实。
 - 只支持当前已经验证的 `food_main` 和 `bank_main` 资料包。
@@ -29,7 +29,7 @@
 
 ### 2. 单次综合分析
 
-新增综合提示词和入口函数。单次调用覆盖基本面、行业事件、风险和未决项，使用现有 `Claim` 列表作为下游接口：
+新增综合提示词和入口函数。单次调用覆盖基本面、行业事件、风险和未决项，要求 LLM 输出适合直接阅读的完整 Claim 句子；程序再将这些句子组合为面向用户的连贯正文，同时保留现有 `Claim` 列表作为下游核验接口：
 
 ```json
 {
@@ -51,7 +51,7 @@
 
 综合分析入口负责：
 
-- 严格解析 `ClaimList`；
+- 严格解析 `claims`，并在模型未提供正文时组合 `narrative` 段落；
 - 兼容模型偶尔返回裸数组的情况，并转换为 `{"claims": [...]}`；
 - 拒绝不存在的 evidence ID、未知指标、无证据的非 unresolved 结论和不合法风险结论；
 - 对风险状态、风险等级、指标归属和触发/排除信号做最小必要校验；

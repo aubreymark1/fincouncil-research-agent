@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.schemas import Claim, Evidence, ResearchReport, ResearchRequest, ValidationIssue
+from app.schemas import (
+    Claim,
+    Evidence,
+    ReportBlock,
+    ResearchReport,
+    ResearchRequest,
+    ValidationIssue,
+)
 
 
 _REPORTABLE_STATUSES = {"pass", "review"}
@@ -92,11 +99,67 @@ def _build_summary(
     ]
 
 
+def _join_claim_texts(claims: list[Claim]) -> str:
+    """Join validated claim sentences into readable report prose."""
+
+    texts: list[str] = []
+    for claim in claims:
+        text = claim.text.strip()
+        if text and text[-1] not in "。！？；":
+            text += "。"
+        if text:
+            texts.append(text)
+    return "".join(texts)
+
+
+def _claim_evidence_ids(claims: list[Claim]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            evidence_id
+            for claim in claims
+            for evidence_id in claim.evidence_ids
+        )
+    )
+
+
+def _build_default_narrative(
+    body_claims: list[Claim],
+    risks: list[Claim],
+    unresolved_items: list[Claim],
+) -> list[ReportBlock]:
+    """Keep the report readable even when the LLM path falls back to rules."""
+
+    blocks: list[ReportBlock] = []
+    body_claims = [claim for claim in body_claims if claim.status == "pass"]
+    risks = [claim for claim in risks if claim.status == "pass"]
+    unresolved_items = [claim for claim in unresolved_items if claim.status == "pass"]
+    if body_claims:
+        blocks.append(
+            ReportBlock(
+                section="核心判断",
+                text=_join_claim_texts(body_claims),
+                evidence_ids=_claim_evidence_ids(body_claims),
+            )
+        )
+    risk_claims = [*risks, *unresolved_items]
+    if risk_claims:
+        blocks.append(
+            ReportBlock(
+                section="风险与局限",
+                text=_join_claim_texts(risk_claims),
+                evidence_ids=_claim_evidence_ids(risk_claims),
+            )
+        )
+    return blocks
+
+
 def render_report(
     request: ResearchRequest,
     claims: list[Claim],
     evidence: list[Evidence],
     issues: list[ValidationIssue],
+    *,
+    narrative: list[ReportBlock] | None = None,
 ) -> ResearchReport:
     """Build a structured ``ResearchReport`` from validated Claims.
 
@@ -135,11 +198,23 @@ def render_report(
         if claim.status == "review"
     )
 
+    narrative_blocks = list(narrative or [])
+    if not narrative_blocks:
+        narrative_blocks = _build_default_narrative(
+            body_claims,
+            risks,
+            unresolved_items,
+        )
     referenced_evidence_ids = {
         evidence_id
         for claim in reportable
         for evidence_id in claim.evidence_ids
     }
+    referenced_evidence_ids.update(
+        evidence_id
+        for block in narrative_blocks
+        for evidence_id in block.evidence_ids
+    )
     evidence_index = sorted(
         (
             item
@@ -162,6 +237,7 @@ def render_report(
             unresolved_count=len(unresolved_items),
             evidence_count=len(evidence_index),
         ),
+        narrative=narrative_blocks,
         claims=body_claims,
         risks=risks,
         unresolved_items=unresolved_items,
@@ -185,6 +261,16 @@ def _format_claim_line(claim: Claim) -> str:
     )
 
 
+def _format_narrative_block(block: ReportBlock) -> list[str]:
+    evidence = "、".join(block.evidence_ids) if block.evidence_ids else "无"
+    return [
+        f"### {block.section}",
+        "",
+        f"{block.text}（证据：{evidence}）",
+        "",
+    ]
+
+
 def render_markdown(report: ResearchReport) -> str:
     """Render a ResearchReport as Markdown without adding facts."""
 
@@ -197,8 +283,13 @@ def render_markdown(report: ResearchReport) -> str:
         f"- 生成时间：{report.generated_at.isoformat()}",
         f"- 报告版本：{report.report_version}",
         "",
-        "## 摘要",
     ]
+    if report.narrative:
+        lines.append("## 投研正文")
+        for block in report.narrative:
+            lines.extend(_format_narrative_block(block))
+
+    lines.append("## 摘要")
     lines.extend(f"- {item}" for item in report.summary)
     lines.append("")
 

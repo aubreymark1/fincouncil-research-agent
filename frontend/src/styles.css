@@ -480,6 +480,29 @@ code {
   padding-left: 20px;
 }
 
+.narrative-list {
+  display: grid;
+  gap: 14px;
+}
+
+.narrative-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.narrative-block h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.narrative-block p {
+  margin: 0 0 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
 .claim-list {
   display: flex;
   flex-direction: column;

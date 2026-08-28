@@ -6,26 +6,32 @@ import re
 from datetime import date
 from typing import Any
 
-from app.agents.llm import (
-    ClaimList,
-    _build_prompt,
-    _evidence_text,
-)
+from pydantic import BaseModel, Field
+
+from app.agents.llm import _build_prompt, _evidence_text
 from app.model import ModelProvider, ModelProviderError
 from app.schemas import (
     Claim,
     Evidence,
     IndustryConfig,
+    ReportBlock,
     ResearchRequest,
     SourceDocument,
 )
 
 
-DEFAULT_MAX_TOTAL_EVIDENCE = 60
-DEFAULT_PER_METRIC = 3
-DEFAULT_PER_RISK = 3
-DEFAULT_NEWS_LIMIT = 6
+DEFAULT_MAX_TOTAL_EVIDENCE = 24
+DEFAULT_PER_METRIC = 2
+DEFAULT_PER_RISK = 2
+DEFAULT_NEWS_LIMIT = 4
 _PROMPT_VERSION_RE = re.compile(r"^\s*version:\s*(\S+)", re.MULTILINE)
+
+
+class CompactReportDraft(BaseModel):
+    """One-call LLM output: readable paragraphs, with claims kept optional."""
+
+    narrative: list[ReportBlock] = Field(default_factory=list)
+    claims: list[Claim] = Field(default_factory=list)
 
 
 def _terms_score(item: Evidence, terms: list[str]) -> int:
@@ -267,6 +273,91 @@ def _validate_compact_claims(
             )
 
 
+def _validate_narrative(
+    narrative: list[ReportBlock],
+    evidence: list[Evidence],
+) -> None:
+    known_evidence_ids = {item.evidence_id for item in evidence}
+    for block in narrative:
+        unknown = [
+            evidence_id
+            for evidence_id in block.evidence_ids
+            if evidence_id not in known_evidence_ids
+        ]
+        if unknown:
+            raise ModelProviderError(
+                f"E301 module=agents.compact: narrative section {block.section!r} "
+                f"referenced unknown evidence IDs: {unknown}"
+            )
+
+
+def _join_claim_texts(claims: list[Claim]) -> str:
+    texts: list[str] = []
+    for claim in claims:
+        text = claim.text.strip()
+        if text and text[-1] not in "。！？；":
+            text += "。"
+        if text:
+            texts.append(text)
+    return "".join(texts)
+
+
+def _claim_evidence_ids(claims: list[Claim]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            evidence_id
+            for claim in claims
+            for evidence_id in claim.evidence_ids
+        )
+    )
+
+
+def _build_narrative_from_claims(claims: list[Claim]) -> list[ReportBlock]:
+    """Turn LLM-written claim sentences into readable report paragraphs."""
+
+    body_claims = [
+        claim
+        for claim in claims
+        if claim.claim_type in {"fact", "change", "analysis"}
+        and claim.status == "pass"
+    ]
+    risk_claims = [
+        claim
+        for claim in claims
+        if claim.claim_type in {"risk", "unresolved"}
+        and claim.status == "pass"
+    ]
+    blocks: list[ReportBlock] = []
+
+    core_claims = [claim for claim in body_claims if claim.claim_type == "analysis"]
+    core_claims = core_claims or body_claims[:3]
+    if core_claims:
+        blocks.append(
+            ReportBlock(
+                section="核心判断",
+                text=_join_claim_texts(core_claims),
+                evidence_ids=_claim_evidence_ids(core_claims),
+            )
+        )
+    if body_claims:
+        blocks.append(
+            ReportBlock(
+                section="基本面分析",
+                text=_join_claim_texts(body_claims),
+                evidence_ids=_claim_evidence_ids(body_claims),
+            )
+        )
+    if risk_claims:
+        blocks.append(
+            ReportBlock(
+                section="风险与局限",
+                text=_join_claim_texts(risk_claims),
+                evidence_ids=_claim_evidence_ids(risk_claims),
+            )
+        )
+    return blocks
+
+
 def get_compact_prompt_version() -> str:
     from app.agents.llm import load_prompt
 
@@ -285,6 +376,25 @@ def run_compact_analysis(
 ) -> list[Claim]:
     """Generate all workbench claims with one bounded LLM request."""
 
+    return run_compact_report(
+        provider,
+        request,
+        evidence,
+        config,
+        documents=documents,
+    ).claims
+
+
+def run_compact_report(
+    provider: ModelProvider,
+    request: ResearchRequest,
+    evidence: list[Evidence],
+    config: IndustryConfig,
+    *,
+    documents: list[SourceDocument],
+) -> CompactReportDraft:
+    """Generate readable report paragraphs and structured claims in one call."""
+
     selected = select_compact_evidence(evidence, config)
     context = {
         "request": request.model_dump(mode="json"),
@@ -293,8 +403,13 @@ def run_compact_analysis(
         "documents": _document_payload(documents),
     }
     prompt = _build_prompt("synthesis", context=context)
-    result = provider.generate_json(prompt, response_model=ClaimList)
-    if not isinstance(result, ClaimList):
-        raise TypeError("E301 module=agents.compact: expected ClaimList response")
+    result = provider.generate_json(prompt, response_model=CompactReportDraft)
+    if not isinstance(result, CompactReportDraft):
+        raise TypeError("E301 module=agents.compact: expected CompactReportDraft response")
+    _validate_narrative(result.narrative, selected)
     _validate_compact_claims(result.claims, selected, config)
-    return result.claims
+    if not result.narrative:
+        result = result.model_copy(
+            update={"narrative": _build_narrative_from_claims(result.claims)}
+        )
+    return result

@@ -1,6 +1,6 @@
 <!--
   prompt: synthesis
-  version: 2
+  version: 3
   owner: A
   role: 轻量综合分析节点
   schema: CompactReportDraft (narrative: list[ReportBlock])
@@ -12,16 +12,17 @@
 
 ## 任务
 
-基于输入的 verified Evidence，直接写出一份简短的行业投研正文。最多输出 2 个段落，优先覆盖有充分证据支撑的核心判断和风险，不要为了覆盖所有字段而堆砌内容。
+基于输入的 verified Evidence，直接写出一份可阅读的行业投研正文。最多输出 4 个段落，总长度约 400—800 个中文字符；每段写 2—4 个完整句子，按照“事实—变化—影响”组织，不要为了覆盖所有字段而堆砌内容。
 
 - 基本面指标及变化；
 - 新闻和政策变化；
+- 行业结构或公司经营含义；
 - 与 RiskRule 相符的风险；
 - 证据不足时的 unresolved 项。
 
 ## 输出格式
 
-必须输出一个 JSON 对象，唯一顶层字段为 `narrative`，不要输出 Markdown、解释文字或代码围栏。每个段落必须是可以直接放入投研简报的自然语言正文，并绑定实际使用的 evidence_id，程序会把来源 ID 渲染成正文旁的来源气泡：
+必须输出一个 JSON 对象，唯一顶层字段为 `narrative`，不要输出 Markdown、解释文字或代码围栏。建议使用“核心判断”“基本面与变化”“政策与行业影响”“风险与待确认”作为段落标题。每个段落必须是可以直接放入投研简报的自然语言正文，并绑定实际使用的 evidence_id，程序会把来源 ID 渲染成正文旁的来源气泡：
 
 ```json
 {"narrative": [{"section": "核心判断", "text": "这里是一段可以直接放入投研简报的完整正文。", "evidence_ids": ["EV-..."]}]}

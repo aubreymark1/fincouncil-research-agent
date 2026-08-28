@@ -22,7 +22,7 @@ export function NewResearch({
 }: NewResearchProps) {
   const [caseId, setCaseId] = useState("food_main");
   const [cutoffDate, setCutoffDate] = useState("2026-08-20");
-  const [llmEnabled, setLlmEnabled] = useState(false);
+  const [llmEnabled, setLlmEnabled] = useState(true);
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.case_id === caseId) ?? cases[0],

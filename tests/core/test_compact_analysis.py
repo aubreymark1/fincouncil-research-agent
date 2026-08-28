@@ -167,7 +167,8 @@ def test_compact_analysis_uses_one_call_and_accepts_bare_claim_array() -> None:
     assert len(calls) == 1
     assert len(claims) == 1
     assert "轻量综合分析" in calls[0]
-    assert "最多输出 2 个段落" in calls[0]
+    assert "最多输出 4 个段落" in calls[0]
+    assert "事实—变化—影响" in calls[0]
 
 
 def test_compact_analysis_rejects_unknown_evidence_id() -> None:
@@ -320,7 +321,7 @@ def test_run_pipeline_compact_skips_llm_critic() -> None:
 
     assert len(calls) == 1
     assert state.metadata is not None
-    assert state.metadata.prompt_versions == {"synthesis": "2"}
+    assert state.metadata.prompt_versions == {"synthesis": "3"}
 
 
 def load_config_for_test(industry_id: str) -> IndustryConfig:

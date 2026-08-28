@@ -245,6 +245,31 @@ def test_compact_report_accepts_narrative_only_llm_output() -> None:
     assert draft.narrative[0].text.startswith("行业需求保持韧性")
 
 
+def test_compact_report_keeps_text_and_filters_unknown_narrative_sources() -> None:
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: {
+            "narrative": [
+                {
+                    "section": "核心判断",
+                    "text": "行业需求保持韧性。",
+                    "evidence_ids": ["EV-COMPACT-001", "EV-MODEL-INVENTED"],
+                }
+            ]
+        },
+    )
+
+    draft = run_compact_report(
+        provider,
+        make_request(),
+        [make_evidence("EV-COMPACT-001")],
+        make_config(),
+        documents=[make_document()],
+    )
+
+    assert draft.narrative[0].evidence_ids == ["EV-COMPACT-001"]
+
+
 def test_compact_report_builds_narrative_when_model_returns_claims_only() -> None:
     provider = ModelProvider(
         ModelConfig(max_retries=0),

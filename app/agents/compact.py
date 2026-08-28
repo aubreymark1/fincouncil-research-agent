@@ -276,19 +276,26 @@ def _validate_compact_claims(
 def _validate_narrative(
     narrative: list[ReportBlock],
     evidence: list[Evidence],
-) -> None:
+) -> list[ReportBlock]:
+    """Keep valid citations without discarding an otherwise useful paragraph."""
+
     known_evidence_ids = {item.evidence_id for item in evidence}
+    sanitized: list[ReportBlock] = []
     for block in narrative:
-        unknown = [
+        valid_ids = [
             evidence_id
             for evidence_id in block.evidence_ids
-            if evidence_id not in known_evidence_ids
+            if evidence_id in known_evidence_ids
         ]
-        if unknown:
-            raise ModelProviderError(
-                f"E301 module=agents.compact: narrative section {block.section!r} "
-                f"referenced unknown evidence IDs: {unknown}"
-            )
+        if block.evidence_ids and not valid_ids:
+            continue
+        sanitized.append(block.model_copy(update={"evidence_ids": valid_ids}))
+    if narrative and not sanitized:
+        raise ModelProviderError(
+            "E301 module=agents.compact: narrative did not reference any "
+            "evidence sent to the model"
+        )
+    return sanitized
 
 
 def _join_claim_texts(claims: list[Claim]) -> str:
@@ -406,7 +413,9 @@ def run_compact_report(
     result = provider.generate_json(prompt, response_model=CompactReportDraft)
     if not isinstance(result, CompactReportDraft):
         raise TypeError("E301 module=agents.compact: expected CompactReportDraft response")
-    _validate_narrative(result.narrative, selected)
+    result = result.model_copy(
+        update={"narrative": _validate_narrative(result.narrative, selected)}
+    )
     _validate_compact_claims(result.claims, selected, config)
     if not result.narrative:
         result = result.model_copy(

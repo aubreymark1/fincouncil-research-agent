@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "food_main",
+  "fixture_notice": "D-001 模板：当前 items 为空，等待 B/C 基于已核验食品饮料资料制作并签收正式 Gold Standard；此文件不代表真实实验结果。",
+  "status": "pending_signoff",
+  "required_metric_ids_source": "configs/food_beverage.yaml@74e7d78",
+  "required_metric_ids": [
+    "revenue_growth",
+    "gross_margin",
+    "sales_expense_rate",
+    "inventory",
+    "food_safety"
+  ],
+  "items": []
+}

@@ -26,7 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from .cache import ModelCache, hash_cache_key, make_cache_key
+from .cache import InMemoryCache, JsonFileCache, ModelCache, hash_cache_key, make_cache_key
 
 
 MAX_RETRIES = 5
@@ -37,6 +37,11 @@ JsonTransport = Callable[[str, "ModelConfig"], Any]
 
 class ModelProviderError(RuntimeError):
     """A safe, coded error that does not expose prompt or credential contents."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        prefix = message.split(" ", 1)[0]
+        self.code = prefix if (len(prefix) == 4 and prefix[0] == "E" and prefix[1:].isdigit()) else None
 
 
 def _parse_float(env: Mapping[str, str], name: str, default: float) -> float:
@@ -161,6 +166,27 @@ class ModelProvider:
         self._sleep = sleep_fn
         self.last_cache_error: str | None = None
 
+    @property
+    def cache(self) -> ModelCache | None:
+        """Return the configured model cache, if any."""
+        return self._cache
+
+    @property
+    def has_cache(self) -> bool:
+        """Return whether a model cache is configured."""
+        return self.cache is not None
+
+    @property
+    def cache_version(self) -> str:
+        """Return the audit version for the configured cache type."""
+        if self.cache is None:
+            return "none"
+        if isinstance(self.cache, JsonFileCache):
+            return "v1-json"
+        if isinstance(self.cache, InMemoryCache):
+            return "v1-memory"
+        return f"v1-{type(self.cache).__name__.lower()}"
+
     @classmethod
     def from_env(
         cls,
@@ -228,6 +254,8 @@ class ModelProvider:
             except Exception as exc:
                 last_transport_error_type = type(exc).__name__
                 if attempt == attempts - 1:
+                    if isinstance(exc, ModelProviderError) and exc.code == "E301":
+                        raise
                     raise ModelProviderError(
                         f"E300 module=model: transport failed after {attempts} attempts "
                         f"(error_type={last_transport_error_type})"

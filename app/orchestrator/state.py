@@ -22,6 +22,7 @@ class ResearchState:
     """State passed between the small A-003 orchestration stages."""
 
     request: ResearchRequest
+    mode: str = "rule-engine"
     documents: list[SourceDocument] = field(default_factory=list)
     chunks: list[TextChunk] = field(default_factory=list)
     evidence: list[Evidence] = field(default_factory=list)

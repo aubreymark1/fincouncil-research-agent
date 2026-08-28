@@ -1,3 +1,5 @@
 pydantic
 pypdf
 PyYAML
+jinja2
+streamlit

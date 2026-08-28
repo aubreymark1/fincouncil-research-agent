@@ -127,12 +127,12 @@ def test_render_report_excludes_rejected_and_draft_claims() -> None:
     assert all_report_claims == []
 
 
-def test_render_report_uses_a007_version_and_metadata_summary() -> None:
+def test_render_report_uses_a008_version_and_metadata_summary() -> None:
     request = make_request()
     evidence = [make_evidence()]
     report = render_report(request, [make_claim()], evidence, [])
 
-    assert report.report_version == "v1-a007"
+    assert report.report_version == "v1-a008"
     assert report.run_id == request.run_id
     assert report.company_name == request.company_name
     assert any("正文结论" in item for item in report.summary)

@@ -15,6 +15,7 @@ from app.main import run_research
 from app.model import (
     JsonFileCache,
     ModelProvider,
+    ModelProviderError,
     create_openai_compatible_transport,
 )
 
@@ -102,11 +103,23 @@ class ResearchRunner:
             def on_progress(stage: str) -> None:
                 self._store.append_progress(run_id, stage)
 
-            run_research(
-                request,
-                model_provider=provider,
-                progress_callback=on_progress,
-            )
+            try:
+                run_research(
+                    request,
+                    model_provider=provider,
+                    llm_strategy="compact" if provider is not None else "full",
+                    progress_callback=on_progress,
+                )
+            except ModelProviderError:
+                if provider is None:
+                    raise
+                on_progress("LLM 增强失败，切换规则引擎")
+                run_research(
+                    request,
+                    model_provider=None,
+                    llm_strategy="full",
+                    progress_callback=on_progress,
+                )
 
             report_dir = self._settings.outputs_dir / "reports" / run_id
             report_path = report_dir / "report.json"

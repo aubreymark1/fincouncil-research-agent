@@ -11,8 +11,8 @@
 - C-001～C-007：已全部完成并合并。
 - D-001 Gold Standard 格式、真实食品饮料/银行 Gold 与校验已在本分支完成；D-002～D-007 代码已合并，EXP-001 和最终实验运行仍待执行。
 - INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
-- PR #32、#40 已合并；Gold 验收 PR 待创建，E1～E3 仍 disabled。
-- 当前主流程包含 rule-engine 确定性链路和独立的 compact LLM 工作台路径；完整实验链路仍待 EXP-001。
+- PR #32、#40、#44 已合并；PR #43 仍待合入，E1～E3 仍 disabled。
+- main 已包含 rule-engine、真实 Gold 和评测定义；compact LLM 工作台已在线验收，代码待 PR #43 合入 main。
 - 按 A 的安排，以下剩余工程、资料签收、实验和最终交付事项统一由 A 负责，暂不再拆分角色。
 
 ## 二、里程碑
@@ -45,7 +45,8 @@
 
 | ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
-| ADAPT-008 | 真实 LLM transport adapter 与 Agent 节点接入 | 进行中 | 完整多节点路径已合并；匿名工作台 compact LLM 路径已单独验收，后续实验继续使用 full 路径 |
+| ADAPT-008 | 真实 LLM transport adapter 与 Agent 节点接入 | 已完成 | 完整多节点路径已合并；后续实验继续使用 full 路径 |
+| ADAPT-009 | 匿名工作台轻量 LLM 综合链路 | 已完成 | 单次 synthesis 调用、最多 60 条证据、裸数组兼容、LLM 失败自动回退 rule-engine；线上 food_main 端到端验收通过，代码待 PR #43 合入 |
 | EXP-001 | E0～E3 可复现实验 | 待开始 | 已具备 signed Gold，待统一模型、cutoff、提示词版本后运行；所有实验统一由 A 运行 |
 | MIG-001 | 银行迁移检查 | 待开始 | 需补齐银行 request fixture、真实 Gold，并验证 banking 配置不改核心编排 |
 | FINAL-001 | 工作台整合与最终提交 | 待开始 | 运行真实结果、生成图表/报告、更新演示和提交材料 |
@@ -99,7 +100,7 @@
 
 | 优先级 | 事项 | 负责人 | 下一步 |
 |---|---|---|---|
-| P0 | LLM transport 与 Agent 接入 | A | 完整多节点路径已合并；匿名工作台 compact LLM 路径已在线验收，后续实验继续使用 full 路径 |
+| P0 | 匿名工作台 compact LLM 代码合入 main | A | PR #43 已通过 CI，完成合并后重新部署；线上版本已验收 |
 | P1 | EXP-001 正式实验 | A | 使用已签收 food/bank Gold，统一模型、cutoff、提示词版本后运行 E0—E3；禁止把 disabled 或失败行写成实验结果 |
 | P1 | E1～E3 模式开关与 EXP-001 | A | 明确通用/行业/完整合规三种模式，统一资料、cutoff、模型和提示词版本后运行 E0～E3 |
 | P1 | MIG-001 银行迁移检查 | A | 补齐 bank request fixture，运行 banking 配置并验证不改核心编排 |

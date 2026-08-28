@@ -14,7 +14,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from app.agents import (
     get_prompt_versions,
@@ -23,6 +23,7 @@ from app.agents import (
     run_critic,
     run_critic_llm,
 )
+from app.agents.compact import get_compact_prompt_version
 from app.agents.aggregation import run_analysis
 from app.agents.generic import build_raw_evidence, run_generic_analysis
 from app.industry.checklist import check_required_metrics
@@ -321,6 +322,7 @@ def run_pipeline(
     industry_loader: IndustryLoader | None = None,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
+    llm_strategy: Literal["full", "compact"] = "full",
     progress_callback: Callable[[str], None] | None = None,
 ) -> ResearchState:
     """Run the research pipeline over real B/C modules and persist outputs.
@@ -442,6 +444,7 @@ def run_pipeline(
                 state.config,
                 documents=state.documents,
                 provider=model_provider,
+                llm_strategy=llm_strategy,
             )
             _emit("生成分析结论")
 
@@ -452,7 +455,7 @@ def run_pipeline(
             state.validation_issues.extend(industry_issues)
 
             critic_issues = run_critic(request, state.claims, state.evidence, state.config)
-            if model_provider is not None:
+            if model_provider is not None and llm_strategy == "full":
                 critic_issues = [
                     *critic_issues,
                     *run_critic_llm(
@@ -494,6 +497,9 @@ def run_pipeline(
         if mode in {"E1", "E2"}:
             prompt_versions = {"generic": "v1"}
             agents_version = "v1-generic"
+        elif llm_strategy == "compact":
+            prompt_versions = {"synthesis": get_compact_prompt_version()}
+            agents_version = "v1-llm-compact"
         else:
             prompt_versions = get_prompt_versions()
             agents_version = "v1-llm"

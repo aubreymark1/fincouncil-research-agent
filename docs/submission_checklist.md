@@ -5,19 +5,19 @@
 
 ## 代码与测试
 
-- [ ] `evaluation/metrics.py` 指标计算已合并
-- [ ] `evaluation/experiment_runner.py` 与 `scripts/evaluate.py` 已合并
-- [ ] `evaluation/red_team.py` 红蓝测试已合并
+- [x] `evaluation/metrics.py` 指标计算已合并
+- [x] `evaluation/experiment_runner.py` 与 `scripts/evaluate.py` 已合并
+- [x] `evaluation/red_team.py` 红蓝测试已合并
 - [x] `evaluation/gold.py` Gold Standard 格式校验已合并
 - [x] `evaluation/charts.py` 图表生成已合并
 - [x] `app/ui/` Streamlit 页面已合并并支持 report.md、失败/disabled 状态和只读导出
-- [ ] `reports/template.md.j2` 报告模板已合并
+- [x] `reports/template.md.j2` 报告模板已合并
 - [x] `pytest tests/evaluation -q` 通过
-- [ ] `python scripts/evaluate.py --case food_main --all` 可运行（或明确 disabled 原因）
+- [ ] `python scripts/evaluate.py --case food_main --all` 作为正式 E0–E3 结果运行（当前实验暂缓）
 
 ## 实验与数据
 
-- [ ] `evaluation/experiment_definitions.yaml` 已冻结
+- [x] `evaluation/experiment_definitions.yaml` 已冻结（E1–E3 暂保持 disabled）
 - [ ] E0—E3 输入条件一致
 - [ ] 每组结果有 input hash
 - [ ] 失败实验保留 `error.txt` 和原始目录
@@ -35,10 +35,18 @@
 
 ## 最终门禁
 
-- [ ] 全量测试通过
-- [ ] 任务看板状态已同步
+- [x] 全量测试通过（PR #46 CI）
+- [x] 任务看板状态已同步
 - [ ] PR 已创建且指向 `main`
-- [ ] 没有未合并且影响交付的 D 任务
+- [x] 没有未合并且影响 MVP 交付的 D 任务
+
+## MVP 冻结验收（2026-08-28）
+
+- [x] 线上匿名工作台可访问：`https://fincouncil.43-165-172-190.sslip.io/`
+- [x] `bank_main` 真实 LLM 运行成功：生成 4 段正文并关联 13 条来源
+- [x] `food_main` 真实 LLM 运行成功：生成 4 段正文并关联 9 条来源
+- [x] PR #45、#46 已合并到 `main`
+- [ ] 正式 E0–E3 量化对比实验（暂缓，不作为本阶段交付结果）
 
 ## FINAL-001 验收记录（2026-08-27）
 

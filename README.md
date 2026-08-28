@@ -8,7 +8,8 @@
 - 后端：`backend/`（FastAPI，复用 `app.main.run_research`）
 - 部署：`Dockerfile`、`docker-compose.yml`、`Caddyfile`、`DEPLOYMENT.md`
 - 支持案例：`food_main`（食品饮料行业样本）、`bank_main`（中国工商银行样本）
-- 默认运行确定性 `rule-engine`；AI 增强仅当 `FINCOUNCIL_ENABLE_LLM_DEMO=true` 且 DeepSeek 环境变量完整时开放。
+- 工作台在 LLM 可用时默认开启 AI 增强；LLM 负责组织投研正文，规则引擎负责时间锁、证据校验和失败兜底。
+- 线上体验：[FinCouncil 匿名工作台](https://fincouncil.43-165-172-190.sslip.io/)
 - 详细部署步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 ## 项目范围
@@ -19,7 +20,7 @@
 - 证据链与来源回溯；
 - 行业配置；
 - Critic 检查；
-- 实验可复现。
+- 报告正文生成与导出。
 
 项目不包含自动交易、真实账户连接和目标价预测。
 
@@ -29,15 +30,14 @@
 2. [公共接口契约](docs/CONTRACTS.md)
 3. [GitHub 协作指南](docs/GIT_GUIDE.md)
 4. [任务看板](docs/task_board.md)
-5. 根据角色阅读 docs/roles/A.md、B.md、C.md 或 D.md
+5. [最终提交清单](docs/submission_checklist.md)
+6. 根据角色阅读 docs/roles/A.md、B.md、C.md 或 D.md
 
 ## 分支
 
-- main：稳定版本
-- role-a-core：核心工程
-- role-b-ingestion：资料处理
-- role-c-industry：行业配置
-- role-d-eval-ui：评测与界面
+- `main`：当前 MVP 冻结版本，作为报告和演示基线。
+- `role-*`、历史 `feature/*`：开发历史，仅用于追溯，不作为交付入口。
+- 新修改必须从 `main` 建分支并通过 Pull Request 合并。
 
 ## 协作规则
 
@@ -45,4 +45,4 @@
 
 ## 当前状态
 
-仓库已完成协作规范和任务手册初始化，下一步从公共 Schema、资料清单、行业配置和评测骨架开始。
+MVP 已冻结：支持食品饮料和银行资料包，能够完成时间锁、证据定位、LLM 正文生成、来源回溯、Critic 校验和报告下载。正式 E0–E3 对比实验暂缓，不将失败或未运行的实验写成结果。

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal
 
 from app.model import ModelProvider
 from app.orchestrator import run_pipeline
@@ -16,6 +17,7 @@ def run_research(
     *,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
+    llm_strategy: Literal["full", "compact"] = "full",
     progress_callback: ProgressCallback | None = None,
 ) -> ResearchReport:
     """Run the research pipeline and return a validated report.
@@ -31,6 +33,7 @@ def run_research(
         request,
         model_provider=model_provider,
         mode=mode,
+        llm_strategy=llm_strategy,
         progress_callback=progress_callback,
     )
     if state.report is None:  # pragma: no cover - defensive invariant check

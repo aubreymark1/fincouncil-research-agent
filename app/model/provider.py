@@ -22,7 +22,7 @@ import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Any
+from typing import Any, get_origin
 
 from pydantic import BaseModel, ValidationError
 
@@ -126,11 +126,17 @@ def _strip_json_fence(text: str) -> str:
     return value
 
 
-def _as_json_object(raw: Any) -> dict[str, Any]:
+def _as_json_object(
+    raw: Any,
+    *,
+    response_model: type[BaseModel] | None = None,
+) -> dict[str, Any]:
     if isinstance(raw, BaseModel):
         payload = raw.model_dump(mode="json")
     elif isinstance(raw, Mapping):
         payload = dict(raw)
+    elif isinstance(raw, list):
+        payload = raw
     elif isinstance(raw, str):
         try:
             payload = json.loads(_strip_json_fence(raw))
@@ -138,6 +144,12 @@ def _as_json_object(raw: Any) -> dict[str, Any]:
             raise ValueError("transport returned invalid JSON") from exc
     else:
         raise ValueError("transport must return a JSON object or JSON string")
+    if isinstance(payload, list) and response_model is not None:
+        fields = response_model.model_fields
+        if len(fields) == 1:
+            field_name, field_info = next(iter(fields.items()))
+            if get_origin(field_info.annotation) is list:
+                return {field_name: payload}
     if not isinstance(payload, dict):
         raise ValueError("structured model output must be a JSON object")
     return payload
@@ -264,7 +276,7 @@ class ModelProvider:
                 continue
 
             try:
-                payload = _as_json_object(raw)
+                payload = _as_json_object(raw, response_model=response_model)
                 result = self._validate(payload, response_model)
             except (TypeError, ValueError, ValidationError) as exc:
                 if attempt == attempts - 1:

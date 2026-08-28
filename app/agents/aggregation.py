@@ -10,6 +10,9 @@ agent nodes; otherwise it keeps the deterministic rule-engine behaviour.
 
 from __future__ import annotations
 
+from typing import Literal
+
+from app.agents.compact import run_compact_analysis
 from app.agents.fundamental import analyze_fundamentals
 from app.agents.llm import (
     analyze_fundamentals_llm,
@@ -29,6 +32,7 @@ def run_analysis(
     *,
     documents: list[SourceDocument],
     provider: ModelProvider | None = None,
+    llm_strategy: Literal["full", "compact"] = "full",
 ) -> list[Claim]:
     """Run the fundamental, news/policy, and risk nodes over one evidence pool.
 
@@ -37,6 +41,18 @@ def run_analysis(
     judged. Cutoff enforcement remains an upstream responsibility: callers must
     pass time-lock-checked evidence.
     """
+
+    if llm_strategy not in {"full", "compact"}:
+        raise ValueError(f"unknown llm_strategy: {llm_strategy}")
+
+    if provider is not None and llm_strategy == "compact":
+        return run_compact_analysis(
+            provider,
+            request,
+            evidence,
+            config,
+            documents=documents,
+        )
 
     if provider is not None:
         claims: list[Claim] = []

@@ -17,6 +17,10 @@ class ExampleOutput(BaseModel):
     answer: str
 
 
+class ExampleList(BaseModel):
+    items: list[str]
+
+
 def test_model_config_reads_environment_and_bounds_retries() -> None:
     config = ModelConfig.from_env(
         {
@@ -62,6 +66,17 @@ def test_structured_output_is_validated_and_cached() -> None:
     assert first.answer == "ok"
     assert second == first
     assert calls == ["return an answer"]
+
+
+def test_generate_json_wraps_bare_list_for_single_list_field() -> None:
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: ["first", "second"],
+    )
+
+    result = provider.generate_json("return a list", response_model=ExampleList)
+
+    assert result == ExampleList(items=["first", "second"])
 
 
 def test_json_fenced_response_is_supported() -> None:

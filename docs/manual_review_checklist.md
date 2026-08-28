@@ -86,3 +86,38 @@
 - 复核通过：所有对应项打勾，且未发现需修改的结论。
 - 需修改：标记出错的 `claim_id` / `evidence_id` 及原因，退回对应节点重跑。
 - 记录方式：复核结果写入报告的"待人工确认"章节或 `ValidationIssue`（`human_confirmation_required=True`）。
+
+## 五、银行迁移检查记录（MIG-001，2026-08-27）
+
+> 执行人：C；任务边界：允许修改 `configs`、`outputs`；验收标准："不改核心编排生成银行报告"（见 task_board）。
+> 本次检查**零修改核心编排与其他角色代码**：迁移脚本置于仓库外（`<工作区>/.tools/bank_migration_check.py`），只读调用 main 已合并的公共模块（ingestion/industry/schemas），全部写入落在 `outputs/bank_migration/`。
+
+### 5.1 产出物
+
+| 文件 | 内容 |
+| --- | --- |
+| `outputs/bank_migration/config_switch.json` | food_beverage ↔ banking 双配置档案及差异字段，作为"配置切换"证明 |
+| `outputs/bank_migration/bank_minimal_result.json` | 最小化运行明细：资料哈希、分页统计、逐指标检索命中、双口径清单/风险检查结果 |
+| `outputs/bank_migration/bank_minimal_report.md` | 六节中文简报（配置切换、资料处理、命中、必查指标、风险 Claims、局限与待办） |
+
+### 5.2 复现方式
+
+```powershell
+# 工作区根目录下（依赖 pypdf/fpdf2 已随 requirements-dev 安装）
+$env:PYTHONPATH = "<仓库根目录>"
+python "<工作区>/.tools/bank_migration_check.py"
+```
+
+固定参数：manifest=`data/manifests/bank_case.csv`，chunk 上限 2000 字符，时间锁 cutoff=`2026-08-26`。两次独立运行结果完全一致（可复现）。
+
+### 5.3 关键结论
+
+- 资料处理：`data/raw/banking` 四份正式年报（DOC-BANK-001~004，共 1483 个 chunk，单份 289~427 页）解析成功；DOC-BANK-101（日期不明新闻稿）按契约被时间锁扣留，未进入证据池。
+- 契约口径：检索得 496 条关键词命中证据，均携带 `review_status="pending"`；C 清单按契约将其判为未核验，报出 **5 条必查指标缺证据** 问题；4 条风险规则全部 unresolved（仅显示缺失的证据类型）。
+- 模拟复核（仅内存中把副本标记为 verified，输出中明确标注 `simulated_verified`，不影响任何落盘证据状态）：5 条清单问题清零；`nim_pressure` 触发 1 条确定性风险 Claim，绑定 6 条净息差证据；其余 3 条因缺少 policy/news 类证据类型保持 unresolved（符合规则设计）。
+- 本次复核无需新增清单条目：第一节（locator 兼容 HTML 无页码）与第三节（3.1 净息差期间一致等）已覆盖银行专项语义。
+
+### 5.4 遗留缺口（跨角色）
+
+1. **P0**：B 的 `locate_evidence` 固定产出 `review_status="pending"`，而 C 规则只消费 `verified`——二者之间的复核机制尚未实现，正式链路需要 A/B/C 三方约定闭环方案。
+2. 真实端到端接线归 **A-008**：编排层注入 `industry_loader=load_industry_config` 后即可完成银行迁移，行业侧代码无需再改。

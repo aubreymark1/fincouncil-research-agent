@@ -1,7 +1,11 @@
 """Evidence-bound analysis nodes, Critic, report renderer, and LLM agents."""
 
 from .aggregation import run_analysis
-from .compact import run_compact_analysis, select_compact_evidence
+from .compact import (
+    run_compact_analysis,
+    run_compact_report,
+    select_compact_evidence,
+)
 from .critic import run_critic
 from .fundamental import analyze_fundamentals
 from .generic import run_generic_analysis
@@ -25,6 +29,7 @@ __all__ = [
     "analyze_risks_llm",
     "get_prompt_versions",
     "run_compact_analysis",
+    "run_compact_report",
     "select_compact_evidence",
     "render_markdown",
     "render_report",

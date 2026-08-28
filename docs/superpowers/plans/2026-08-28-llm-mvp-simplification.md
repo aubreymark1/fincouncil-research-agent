@@ -4,7 +4,7 @@
 
 **Goal:** 保留时间锁和证据链，用少量相关证据驱动一次 LLM 综合分析，并在 LLM 失败时自动回退到 rule-engine。
 
-**Architecture:** 工作台在真实 ingestion/industry 链路完成时间锁、证据定位和确定性规则后，由 compact strategy 选择最多 60 条证据，调用一次综合 LLM，输出现有 `Claim` 列表。确定性 Critic 和报告渲染保持不变；LLM 调用失败时 runner 重跑确定性链路。
+**Architecture:** 工作台在真实 ingestion/industry 链路完成时间锁、证据定位和确定性规则后，由 compact strategy 选择最多 60 条证据，调用一次综合 LLM，输出连贯 `narrative` 段落和现有 `Claim` 列表。确定性 Critic 和报告渲染继续校验来源；LLM 调用失败时 runner 重跑确定性链路。
 
 **Tech Stack:** Python 3.11+/3.13, Pydantic, pytest, FastAPI backend, React/TypeScript/Vite, 现有 OpenAI-compatible transport。
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 不修改 `ResearchRequest`、`Evidence`、`Claim`、`ResearchReport` 等公共字段。
+- 不修改已有公共字段；`ResearchReport.narrative` 仅作为有默认空列表的向后兼容扩展。
 - 只使用通过时间锁和证据策略的 verified Evidence 作为 LLM 输入。
 - 不联网、不修改原始资料、不编造数字、来源和实验结果。
 - 工作台只支持 `food_main` 和 `bank_main`。
@@ -132,3 +132,25 @@
 - [ ] PR CI 通过后再同步到 `/opt/fincouncil`，重建后端并确认模型参数进入容器。
 - [ ] 线上运行一条 `food_main` LLM 任务，确认报告、证据来源和下载链接。
 - [ ] 验证 LLM 失败回退后，工作台仍可生成 rule-engine 报告。
+
+### Task 7: 正文段落与来源气泡
+
+**Files:**
+- Modify: `app/schemas/report.py`
+- Modify: `app/schemas/__init__.py`
+- Modify: `app/agents/compact.py`
+- Modify: `app/agents/report.py`
+- Modify: `app/orchestrator/graph.py`
+- Modify: `prompts/synthesis.md`
+- Modify: `frontend/src/types.ts`
+- Modify: `frontend/src/components/ReportView.tsx`
+- Modify: `frontend/src/styles.css`
+- Test: `tests/core/test_compact_analysis.py`
+- Test: `tests/core/test_report.py`
+
+**Steps:**
+
+- [ ] 让一次 synthesis 返回 `narrative` 与 `claims`，每个事实正文段落绑定 Evidence ID。
+- [ ] 将正文段落写入 ResearchReport，并把段落引用纳入 evidence_index。
+- [ ] 前端先展示正文段落，段落旁显示可点击的来源气泡；Claims 作为正式结论和审核详情保留。
+- [ ] 运行全量 Python 测试和前端 production build。

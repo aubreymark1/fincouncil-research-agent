@@ -253,12 +253,18 @@ critical 示例：
 ## 九、ResearchReport
 
 ~~~python
+class ReportBlock(BaseModel):
+    section: str
+    text: str
+    evidence_ids: list[str]
+
 class ResearchReport(BaseModel):
     run_id: str
     company_name: str
     industry_id: str
     cutoff_date: date
     summary: list[str]
+    narrative: list[ReportBlock]
     claims: list[Claim]
     risks: list[Claim]
     unresolved_items: list[Claim]
@@ -279,9 +285,10 @@ outputs/logs/{run_id}/run_metadata.json
 JSON/Markdown 分流约定：
 
 - `claims` 和 `risks` 可以保留 status=review 的 Claim，供 UI 与 Markdown 放入“待人工确认”；
+- `narrative` 是面向用户的自然语言正文段落；每个有事实判断的段落必须绑定报告内可验证的 Evidence ID；
 - 只有 status=pass 的 Claim 可以进入正式正文和正式风险章节；
 - `unresolved_items` 只放 claim_type=unresolved；
-- evidence_index 只收录报告内 Claim 实际引用且 review_status=verified 的 Evidence。
+- evidence_index 收录报告内 Claim 或 narrative 实际引用且 review_status=verified 的 Evidence。
 
 ## 十、RunMetadata
 
@@ -489,5 +496,6 @@ E600 实验输入不一致
 | CONTRACT-CHANGE-005 | 2026-08-26 | RiskRule 新增 `exclude_terms`，命中否定/已解除/已缓解语句时不触发风险 | C-003 复审发现子串命中会把“未出现/风险已消除/压力缓解”误判为风险 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 增加排除词判断；metric 覆盖同时执行 MetricRule.evidence_types |
 | CONTRACT-CHANGE-006 | 2026-08-26 | 拆分库存口径：`inventory` 仅指财务存货（financial/single）；新增 optional `inventory_volume` 仅指实物库存量（operating，关键词含“库存量/期末库存量/产成品库存量”）；新增 optional `channel` 承接“动销、渠道库存、经销商库存”；禁止 `inventory` 使用裸关键词“库存/动销” | 避免“库存量、存货、库存股”等被子串匹配混为同一口径 | C configs/风险规则、B evidence locator、D Gold、共享 fixtures、集成测试 | A 更新公共契约与共享 fixture；C YAML 与 B 真实资料暂不改动 |
 | CONTRACT-CHANGE-008 | 2026-08-27 | RunMetadata 新增 `mode` 字段，记录 `rule-engine`/`E1`/`E2`/`E3`；E1/E2/E3 实验模式必须显式提供模型，未提供模型时报 E300 并拒绝运行 | A 实现 E1/E2/E3 模式开关，需要可复现地记录每次运行的实验模式 | A RunMetadata、CLI、orchestrator、tests | `mode` 默认 `rule-engine`；旧 metadata 缺省时按默认值兼容 |
+| CONTRACT-CHANGE-009 | 2026-08-28 | ResearchReport 增加向后兼容的 `narrative` 正文段落列表，每段绑定 Evidence ID；旧报告缺省为空列表 | 结构化 Claim 卡片不能满足最终投研简报的连贯阅读需求，需让 LLM 输出正文并保留来源气泡 | A compact LLM、报告渲染、工作台前端、tests | 字段有默认空列表；旧 report.json 可继续加载 |
 
 

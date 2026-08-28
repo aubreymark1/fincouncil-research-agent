@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Claim, Evidence, ResearchReport } from "../types";
+import type { Claim, Evidence, ReportBlock, ResearchReport } from "../types";
 
 interface ReportViewProps {
   report: ResearchReport;
@@ -10,6 +10,45 @@ function sourceSummary(evidence: Evidence | undefined): string {
   if (!evidence) return "缺失来源";
   const page = evidence.page ? ` · 第 ${evidence.page} 页` : "";
   return `${evidence.evidence_id} · ${evidence.doc_id}${page}`;
+}
+
+function NarrativeBlock({
+  block,
+  evidenceMap,
+  onSelectEvidence,
+}: {
+  block: ReportBlock;
+  evidenceMap: Map<string, Evidence>;
+  onSelectEvidence: (evidence: Evidence) => void;
+}) {
+  const sources = block.evidence_ids
+    .map((id) => evidenceMap.get(id))
+    .filter((item): item is Evidence => Boolean(item));
+
+  return (
+    <article className="narrative-block">
+      <h3>{block.section}</h3>
+      <p>{block.text}</p>
+      <div className="source-row">
+        <span className="source-label">来源</span>
+        {sources.length === 0 ? (
+          <span className="muted">未绑定来源</span>
+        ) : (
+          sources.slice(0, 5).map((evidence) => (
+            <button
+              key={evidence.evidence_id}
+              type="button"
+              className="source-chip"
+              onClick={() => onSelectEvidence(evidence)}
+              title="点击查看证据详情"
+            >
+              {sourceSummary(evidence)}
+            </button>
+          ))
+        )}
+      </div>
+    </article>
+  );
 }
 
 function ClaimCard({
@@ -79,6 +118,7 @@ export function ReportView({ report, onSelectEvidence }: ReportViewProps) {
     ...report.claims.filter((claim) => claim.status === "review"),
     ...report.risks.filter((claim) => claim.status === "review"),
   ];
+  const narrative = report.narrative ?? [];
 
   return (
     <div className="report-view">
@@ -110,6 +150,22 @@ export function ReportView({ report, onSelectEvidence }: ReportViewProps) {
           </a>
         </div>
       </div>
+
+      {narrative.length > 0 && (
+        <section className="panel narrative-panel">
+          <h2>投研正文</h2>
+          <div className="narrative-list">
+            {narrative.map((block, index) => (
+              <NarrativeBlock
+                key={`${block.section}-${index}`}
+                block={block}
+                evidenceMap={evidenceMap}
+                onSelectEvidence={onSelectEvidence}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <h2>摘要</h2>

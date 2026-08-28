@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from app.agents import render_markdown, render_report
-from app.schemas import Claim, Evidence, ResearchRequest, ValidationIssue
+from app.schemas import Claim, Evidence, ReportBlock, ResearchRequest, ValidationIssue
 
 
 ROOT = Path(__file__).parents[2]
@@ -137,6 +137,33 @@ def test_render_report_uses_a008_version_and_metadata_summary() -> None:
     assert report.company_name == request.company_name
     assert any("正文结论" in item for item in report.summary)
     assert any("证据索引" in item for item in report.summary)
+
+
+def test_render_report_keeps_narrative_blocks_and_their_evidence() -> None:
+    request = make_request()
+    evidence = [make_evidence()]
+    narrative = [
+        ReportBlock(
+            section="核心判断",
+            text="行业收入保持增长，但仍需关注需求变化。",
+            evidence_ids=["EV-FOOD-001"],
+        )
+    ]
+
+    report = render_report(
+        request,
+        [make_claim()],
+        evidence,
+        [],
+        narrative=narrative,
+    )
+    markdown = render_markdown(report)
+
+    assert report.narrative == narrative
+    assert report.evidence_index == evidence
+    assert "## 核心判断" in markdown
+    assert narrative[0].text in markdown
+    assert "EV-FOOD-001" in markdown
 
 
 def test_render_markdown_contains_sections_and_excludes_rejected_claims() -> None:

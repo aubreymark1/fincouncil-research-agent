@@ -6,6 +6,8 @@ import re
 from datetime import date
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.agents.llm import (
     ClaimList,
     _build_prompt,
@@ -16,6 +18,7 @@ from app.schemas import (
     Claim,
     Evidence,
     IndustryConfig,
+    ReportBlock,
     ResearchRequest,
     SourceDocument,
 )
@@ -26,6 +29,13 @@ DEFAULT_PER_METRIC = 3
 DEFAULT_PER_RISK = 3
 DEFAULT_NEWS_LIMIT = 6
 _PROMPT_VERSION_RE = re.compile(r"^\s*version:\s*(\S+)", re.MULTILINE)
+
+
+class CompactReportDraft(BaseModel):
+    """One-call LLM output: readable paragraphs plus validated claims."""
+
+    narrative: list[ReportBlock] = Field(default_factory=list)
+    claims: list[Claim]
 
 
 def _terms_score(item: Evidence, terms: list[str]) -> int:
@@ -267,6 +277,24 @@ def _validate_compact_claims(
             )
 
 
+def _validate_narrative(
+    narrative: list[ReportBlock],
+    evidence: list[Evidence],
+) -> None:
+    known_evidence_ids = {item.evidence_id for item in evidence}
+    for block in narrative:
+        unknown = [
+            evidence_id
+            for evidence_id in block.evidence_ids
+            if evidence_id not in known_evidence_ids
+        ]
+        if unknown:
+            raise ModelProviderError(
+                f"E301 module=agents.compact: narrative section {block.section!r} "
+                f"referenced unknown evidence IDs: {unknown}"
+            )
+
+
 def get_compact_prompt_version() -> str:
     from app.agents.llm import load_prompt
 
@@ -285,6 +313,25 @@ def run_compact_analysis(
 ) -> list[Claim]:
     """Generate all workbench claims with one bounded LLM request."""
 
+    return run_compact_report(
+        provider,
+        request,
+        evidence,
+        config,
+        documents=documents,
+    ).claims
+
+
+def run_compact_report(
+    provider: ModelProvider,
+    request: ResearchRequest,
+    evidence: list[Evidence],
+    config: IndustryConfig,
+    *,
+    documents: list[SourceDocument],
+) -> CompactReportDraft:
+    """Generate readable report paragraphs and structured claims in one call."""
+
     selected = select_compact_evidence(evidence, config)
     context = {
         "request": request.model_dump(mode="json"),
@@ -293,8 +340,9 @@ def run_compact_analysis(
         "documents": _document_payload(documents),
     }
     prompt = _build_prompt("synthesis", context=context)
-    result = provider.generate_json(prompt, response_model=ClaimList)
-    if not isinstance(result, ClaimList):
-        raise TypeError("E301 module=agents.compact: expected ClaimList response")
+    result = provider.generate_json(prompt, response_model=CompactReportDraft)
+    if not isinstance(result, CompactReportDraft):
+        raise TypeError("E301 module=agents.compact: expected CompactReportDraft response")
+    _validate_narrative(result.narrative, selected)
     _validate_compact_claims(result.claims, selected, config)
-    return result.claims
+    return result

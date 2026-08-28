@@ -8,10 +8,21 @@ from pathlib import Path
 import pytest
 
 from app.agents.aggregation import run_analysis
-from app.agents.compact import run_compact_analysis, select_compact_evidence
+from app.agents.compact import (
+    run_compact_analysis,
+    run_compact_report,
+    select_compact_evidence,
+)
 from app.model import ModelConfig, ModelProvider, ModelProviderError
 from app.orchestrator.graph import run_pipeline
-from app.schemas import Evidence, IndustryConfig, ResearchRequest, SourceDocument, TextChunk
+from app.schemas import (
+    Evidence,
+    IndustryConfig,
+    ResearchRequest,
+    ReportBlock,
+    SourceDocument,
+    TextChunk,
+)
 
 
 ROOT = Path(__file__).parents[2]
@@ -157,6 +168,38 @@ def test_compact_analysis_rejects_unknown_evidence_id() -> None:
             make_config(),
             documents=[make_document()],
         )
+
+
+def test_compact_report_returns_narrative_blocks_with_sources() -> None:
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: {
+            "narrative": [
+                {
+                    "section": "核心判断",
+                    "text": "行业收入出现分化，需关注需求变化。",
+                    "evidence_ids": ["EV-COMPACT-001"],
+                }
+            ],
+            "claims": [make_claim(["EV-COMPACT-001"])],
+        },
+    )
+
+    draft = run_compact_report(
+        provider,
+        make_request(),
+        [make_evidence("EV-COMPACT-001")],
+        make_config(),
+        documents=[make_document()],
+    )
+
+    assert draft.narrative == [
+        ReportBlock(
+            section="核心判断",
+            text="行业收入出现分化，需关注需求变化。",
+            evidence_ids=["EV-COMPACT-001"],
+        )
+    ]
 
 
 def test_run_analysis_compact_strategy_calls_provider_once() -> None:

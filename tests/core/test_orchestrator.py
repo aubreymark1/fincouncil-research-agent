@@ -376,3 +376,29 @@ def test_unknown_mode_is_rejected(tmp_path):
 
     with pytest.raises(ValueError, match="unknown mode"):
         run_pipeline(request, mode="E4")
+
+
+def test_progress_callback_reports_real_rule_engine_stages(tmp_path):
+    # Arrange
+    request = make_request(tmp_path)
+    stages: list[str] = []
+
+    # Act
+    run_pipeline(
+        request,
+        manifest_loader=fake_manifest_loader,
+        text_extractor=fake_text_extractor,
+        industry_loader=load_industry_config,
+        progress_callback=stages.append,
+    )
+
+    # Assert
+    assert stages[0] == "准备研究请求"
+    assert "校验资料清单" in stages
+    assert "执行时间过滤" in stages
+    assert "解析原始资料" in stages
+    assert "定位证据" in stages
+    assert "生成分析结论" in stages
+    assert "执行 Critic 审查" in stages
+    assert "写入报告产物" in stages
+    assert stages[-1] == "研究完成"

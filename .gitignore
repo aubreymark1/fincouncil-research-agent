@@ -20,3 +20,17 @@ integration.log
 # Local environment
 .venv/
 venv/
+.env
+.env.*
+!.env.example
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Runtime persistence (created on server or local compose)
+outputs/
+runtime/

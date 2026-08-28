@@ -180,8 +180,7 @@ class TestDefinitions:
     def test_frozen_case_paths_resolve_to_project_root(self) -> None:
         """相对路径必须按仓库根解析，不能解析到 evaluation/ 目录下。
 
-        food_main 和 bank_main 的 request 都必须存在；Gold 未签收前
-        gold_path 仍为 null。
+        food_main 和 bank_main 的 request 与已签收 Gold 都必须存在。
         """
         cases, _, _ = load_definitions(DEFAULT_DEFINITIONS)
         case_map = {c.case_id: c for c in cases}
@@ -199,9 +198,8 @@ class TestDefinitions:
         )
         assert str(bank.request_path).startswith(str(PROJECT_ROOT))
         assert "evaluation/fixtures" not in str(bank.request_path).replace("\\", "/")
-        # Gold 未签收，gold_path 必须为 null（不可评分）
-        assert bank.gold_path is None, "bank_main gold_path 应为 null（D-001 未完成）"
-        assert food.gold_path is None, "food_main gold_path 应为 null（D-001 未完成）"
+        assert bank.gold_path == PROJECT_ROOT / "fixtures" / "evaluation" / "bank_gold.json"
+        assert food.gold_path == PROJECT_ROOT / "fixtures" / "evaluation" / "food_gold.json"
 
     def test_frozen_experiments_carry_enabled_flag(self) -> None:
         """冻结定义的每个实验都有 enabled 字段。"""
@@ -210,15 +208,15 @@ class TestDefinitions:
             assert hasattr(definition, "enabled"), eid
             assert isinstance(definition.enabled, bool), eid
 
-    def test_frozen_e1_e3_disabled_until_gold_signoff(self) -> None:
-        """E1/E2/E3 在真实 Gold 签收前保持 disabled。"""
+    def test_frozen_e1_e3_disabled_until_experiment_run(self) -> None:
+        """E1/E2/E3 在 EXP-001 正式运行前保持 disabled。"""
         _, experiments, _ = load_definitions(DEFAULT_DEFINITIONS)
         assert experiments["E0"].enabled is True
         for eid in ("E1", "E2", "E3"):
             assert experiments[eid].enabled is False, eid
 
     def test_frozen_bank_main_enabled_after_request_signed(self) -> None:
-        """bank_main 的 request fixture 已补齐，case 可运行但 Gold 仍为 null。"""
+        """food_main 和 bank_main 的 request、Gold 均已接入定义。"""
         cases, _, _ = load_definitions(DEFAULT_DEFINITIONS)
         case_map = {c.case_id: c for c in cases}
         assert case_map["food_main"].enabled is True

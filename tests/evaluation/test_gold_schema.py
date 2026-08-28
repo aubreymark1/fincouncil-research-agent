@@ -27,14 +27,41 @@ def _load_payload(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_food_gold_template_pending_signoff_is_rejected() -> None:
-    with pytest.raises(ValueError, match="not signed"):
-        load_gold_standard(str(FOOD_GOLD), "food_beverage")
+def test_food_gold_signed_fixture_loads() -> None:
+    gold = load_gold_standard(str(FOOD_GOLD), "food_beverage")
+
+    assert len(gold.items) == 5
+    assert gold.required_metric_ids == frozenset(
+        _config_required_metric_ids("food_beverage")
+    )
 
 
-def test_bank_gold_template_pending_signoff_is_rejected() -> None:
-    with pytest.raises(ValueError, match="not signed"):
-        load_gold_standard(str(BANK_GOLD), "banking")
+def test_bank_gold_signed_fixture_loads() -> None:
+    gold = load_gold_standard(str(BANK_GOLD), "banking")
+
+    assert len(gold.items) == 5
+    assert gold.required_metric_ids == frozenset(
+        _config_required_metric_ids("banking")
+    )
+
+
+@pytest.mark.parametrize(
+    ("gold_path", "industry_id"),
+    [
+        (FOOD_GOLD, "food_beverage"),
+        (BANK_GOLD, "banking"),
+    ],
+)
+def test_signed_gold_declares_complete_metric_scope(
+    gold_path: Path, industry_id: str
+) -> None:
+    payload = _load_payload(gold_path)
+
+    assert payload["status"] == "signed"
+    assert set(payload["required_metric_ids"]) == _config_required_metric_ids(
+        industry_id
+    )
+    assert len(payload["items"]) == 5
 
 
 def test_signed_food_gold_matches_food_config_required_metrics() -> None:
@@ -158,6 +185,7 @@ def test_missing_status_is_rejected(tmp_path: Path) -> None:
 def test_empty_items_gold_is_rejected_even_when_signed(tmp_path: Path) -> None:
     payload = _load_payload(FOOD_GOLD)
     payload["status"] = "signed"
+    payload["items"] = []
     path = tmp_path / "empty_signed.json"
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 

@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "case_id": "food_main",
-  "fixture_notice": "D-001 模板：当前 items 为空，等待 B/C 基于已核验食品饮料资料制作并签收正式 Gold Standard；此文件不代表真实实验结果。",
-  "status": "pending_signoff",
-  "required_metric_ids_source": "configs/food_beverage.yaml@74e7d78",
+  "fixture_notice": "GOLD-D-001：B/C/D 已完成来源、口径和组装复核，A 已基于原始 PDF 与计算复核签收。本文件用于食品饮料行业样本的正式 Gold Standard。",
+  "status": "signed",
+  "required_metric_ids_source": "configs/food_beverage.yaml@ac81016",
   "required_metric_ids": [
     "revenue_growth",
     "gross_margin",
@@ -11,5 +11,80 @@
     "inventory",
     "food_safety"
   ],
-  "items": []
+  "items": [
+    {
+      "item_id": "GOLD-FOOD-001",
+      "item_type": "key_factor",
+      "expected_text": "营业收入同比增长 -1.21%",
+      "expected_value": -1.21,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-FOOD-001",
+      "source_page": 6,
+      "industry_metric_id": "revenue_growth",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-FOOD-002",
+      "item_type": "key_factor",
+      "expected_text": "茅台酒毛利率 93.53%",
+      "expected_value": 93.53,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-FOOD-001",
+      "source_page": 18,
+      "industry_metric_id": "gross_margin",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-FOOD-003",
+      "item_type": "key_factor",
+      "expected_text": "销售费用率约 4.30%",
+      "expected_value": 4.30,
+      "unit": "%",
+      "required": true,
+      "source_doc_id": "DOC-FOOD-001",
+      "source_page": 9,
+      "industry_metric_id": "sales_expense_rate",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-FOOD-004",
+      "item_type": "key_factor",
+      "expected_text": "存货 61,427,421,796.18 元",
+      "expected_value": 61427421796.18,
+      "unit": "元",
+      "required": true,
+      "source_doc_id": "DOC-FOOD-001",
+      "source_page": 14,
+      "industry_metric_id": "inventory",
+      "evidence_requirement": "single"
+    },
+    {
+      "item_id": "GOLD-FOOD-005",
+      "item_type": "key_factor",
+      "expected_text": "食品安全",
+      "expected_value": null,
+      "unit": null,
+      "required": true,
+      "source_doc_id": null,
+      "source_page": null,
+      "industry_metric_id": "food_safety",
+      "evidence_requirement": "multiple",
+      "independent_sources": [
+        {
+          "doc_id": "DOC-FOOD-004",
+          "page": 16,
+          "publisher": "佛山市海天调味食品股份有限公司",
+          "content_hash": "sha256:2c7fba45257decc8edc4a0d8462c51accf146593f8c6097b26ed5ad52cf4115e"
+        },
+        {
+          "doc_id": "DOC-FOOD-012",
+          "page": 1,
+          "publisher": "国家市场监督管理总局",
+          "content_hash": "sha256:218a1d43c097350775fd20e03824984b8aa46395223396b3947ef9a773ce8957"
+        }
+      ]
+    }
+  ]
 }

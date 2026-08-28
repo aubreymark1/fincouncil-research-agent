@@ -28,10 +28,10 @@ _PROMPT_VERSION_RE = re.compile(r"^\s*version:\s*(\S+)", re.MULTILINE)
 
 
 class CompactReportDraft(BaseModel):
-    """One-call LLM output: readable paragraphs plus validated claims."""
+    """One-call LLM output: readable paragraphs, with claims kept optional."""
 
     narrative: list[ReportBlock] = Field(default_factory=list)
-    claims: list[Claim]
+    claims: list[Claim] = Field(default_factory=list)
 
 
 def _terms_score(item: Evidence, terms: list[str]) -> int:

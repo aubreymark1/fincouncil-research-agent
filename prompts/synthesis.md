@@ -3,7 +3,7 @@
   version: 2
   owner: A
   role: 轻量综合分析节点
-  schema: ClaimList (claims: list[Claim])
+  schema: CompactReportDraft (narrative: list[ReportBlock])
 -->
 
 # 轻量综合分析提示词
@@ -12,7 +12,7 @@
 
 ## 任务
 
-基于输入的 verified Evidence，一次性生成行业投研简报所需的 Claim 列表。最多输出 12 条最重要的 Claim，优先覆盖有充分证据支撑的判断，不要为了覆盖所有字段而堆砌内容。覆盖：
+基于输入的 verified Evidence，直接写出一份简短的行业投研正文。最多输出 2 个段落，优先覆盖有充分证据支撑的核心判断和风险，不要为了覆盖所有字段而堆砌内容。
 
 - 基本面指标及变化；
 - 新闻和政策变化；
@@ -21,21 +21,19 @@
 
 ## 输出格式
 
-必须输出一个 JSON 对象，唯一顶层字段为 `claims`，不要输出 Markdown、解释文字或代码围栏。每条 Claim 的 `text` 必须是可以直接放入投研简报的完整句子；程序会把这些句子组合成连贯正文，`claims` 同时用于校验和来源气泡：
+必须输出一个 JSON 对象，唯一顶层字段为 `narrative`，不要输出 Markdown、解释文字或代码围栏。每个段落必须是可以直接放入投研简报的自然语言正文，并绑定实际使用的 evidence_id，程序会把来源 ID 渲染成正文旁的来源气泡：
 
 ```json
-{"claims": [{"claim_id": "CL-...", "text": "完整的自然语言结论。", "claim_type": "analysis", "risk_severity": null, "evidence_ids": ["EV-..."], "calculation": null, "confidence": 0.8, "industry_metric_ids": ["..."], "status": "pass"}]}
+{"narrative": [{"section": "核心判断", "text": "这里是一段可以直接放入投研简报的完整正文。", "evidence_ids": ["EV-..."]}]}
 ```
 
-每条 Claim 使用自然语言，不要把证据 ID、指标 ID 或 JSON 字段名写进正文。每个有事实判断的 Claim 必须绑定一个或多个输入 evidence_id；无法确认的内容输出 unresolved。
-
-每条 Claim 必须符合 `Claim` schema。`fact`、`change`、`analysis` 和 `risk` 必须引用输入中的 evidence_id；`unresolved` 必须明确说明缺失内容。风险 Claim 的 `status` 必须是 `review`，risk_severity 和 industry_metric_ids 必须复制对应 RiskRule。
+段落只允许使用输入 Evidence 的事实，不要把证据 ID、指标 ID 或 JSON 字段名写进正文。每个有事实判断的段落必须绑定一个或多个输入 evidence_id；无法确认的内容应在正文中明确写出“未找到”或“待人工确认”。
 
 ## 硬性边界
 
 1. 只能使用输入 Evidence 的事实和原文，不得编造数字、日期、公司事实或来源。
-2. 结论中的精确数字必须能在引用 Evidence 中找到，或在 `calculation` 写出算式。
+2. 正文中的精确数字必须能在引用 Evidence 中找到，不要自行计算或补全缺失数字。
 3. 不得引用输入之外的 evidence_id，不得生成 URL、链接或出处编号。
-4. 看到触发词但同时看到排除词时，不得生成确定风险，输出 unresolved 或 review 结论。
+4. 看到触发词但同时看到排除词时，不得写成确定风险，应明确标注“待人工确认”。
 5. 不得把行业新闻直接写成目标公司的事实。
 6. 不得预测股价、目标价或给出买卖建议。

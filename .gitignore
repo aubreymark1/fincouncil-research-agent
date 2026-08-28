@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Experiment and run artefacts (regenerated, not committed)
+outputs/
+pytest_all.log
+pytest_full.log
+evaluation.log
+industry.log
+ingest.log
+ingest2.log
+integration.log
+
+# WorkBuddy local memory (not part of the repository)
+.workbuddy/
+
+# Local environment
+.venv/
+venv/

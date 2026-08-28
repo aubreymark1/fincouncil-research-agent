@@ -12,18 +12,58 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.main import run_research  # noqa: E402
+from app.model import (  # noqa: E402
+    JsonFileCache,
+    ModelProvider,
+    ModelProviderError,
+    create_openai_compatible_transport,
+)
 from app.schemas import ResearchRequest  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the minimum FinCouncil research case.")
     parser.add_argument("--request", required=True, type=Path, help="Path to a ResearchRequest JSON file")
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help="Use the real OpenAI-compatible LLM transport (requires FINCOUNCIL_MODEL_* env)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["rule-engine", "E1", "E2", "E3"],
+        default="rule-engine",
+        help="Run mode: rule-engine (default), E1, E2, or E3 experiment mode",
+    )
     args = parser.parse_args(argv)
+
+    if args.mode in {"E1", "E2", "E3"} and not args.llm:
+        print(
+            "E300 module=cli: --mode E1/E2/E3 requires --llm; refusing to "
+            "fake an experiment with the rule-engine",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         request_payload = json.loads(args.request.read_text(encoding="utf-8"))
         request = ResearchRequest.model_validate(request_payload)
-        report = run_research(request)
+        model_provider = None
+        if args.llm:
+            cache_path = PROJECT_ROOT / "outputs" / "cache" / "model_cache.json"
+            model_provider = ModelProvider.from_env(
+                transport=create_openai_compatible_transport(),
+                cache=JsonFileCache(cache_path),
+            )
+        report = run_research(request, model_provider=model_provider, mode=args.mode)
+    except ModelProviderError as exc:
+        print(
+            f"{exc}. file={args.request}. "
+            "Check FINCOUNCIL_MODEL_* environment variables, network "
+            "connectivity, and model output format.",
+            file=sys.stderr,
+        )
+        return 2
     except Exception as exc:
         print(
             f"E500 module=cli file={args.request}: {exc}. "
@@ -35,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     report_path = Path(request.output_dir) / "report.json"
     if not report_path.is_absolute():
         report_path = PROJECT_ROOT / report_path
+    markdown_path = report_path.with_suffix(".md")
     outputs_root = next(
         (parent for parent in (report_path.parent, *report_path.parent.parents) if parent.name.lower() == "outputs"),
         PROJECT_ROOT / "outputs",
@@ -44,7 +85,9 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "run_id": report.run_id,
+                "mode": args.mode,
                 "report_path": str(report_path.resolve()),
+                "report_md_path": str(markdown_path.resolve()),
                 "metadata_path": str(metadata_path.resolve()),
             },
             ensure_ascii=False,

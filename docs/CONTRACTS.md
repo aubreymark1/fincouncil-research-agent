@@ -288,6 +288,7 @@ JSON/Markdown 分流约定：
 ~~~python
 class RunMetadata(BaseModel):
     run_id: str
+    mode: str
     started_at: datetime
     finished_at: datetime | None
     status: Literal["running", "success", "partial", "failed"]
@@ -298,6 +299,8 @@ class RunMetadata(BaseModel):
     module_versions: dict[str, str]
     errors: list[str]
 ~~~
+
+`mode` 记录本次运行的实验模式，取值为 `rule-engine`、`E1`、`E2` 或 `E3`。默认 `rule-engine` 保持现有确定性链路；E1/E2/E3 为实验模式，必须显式提供模型，未提供模型时不得用 rule-engine 伪造实验结果。
 
 ## 十一、模块函数契约
 
@@ -485,5 +488,6 @@ E600 实验输入不一致
 | CONTRACT-CHANGE-004 | 2026-08-26 | RiskRule 新增非空 `trigger_terms`，用明确方向/比较/信号词触发风险 | C-003 复审发现无方向关键词会误触发正面改善风险、联合指标覆盖不完整 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 改为按 trigger_terms 判断方向，并按 metric_ids 建立覆盖矩阵 |
 | CONTRACT-CHANGE-005 | 2026-08-26 | RiskRule 新增 `exclude_terms`，命中否定/已解除/已缓解语句时不触发风险 | C-003 复审发现子串命中会把“未出现/风险已消除/压力缓解”误判为风险 | A/C、IndustryConfig、configs、fixtures、tests/industry | risk_rules 增加排除词判断；metric 覆盖同时执行 MetricRule.evidence_types |
 | CONTRACT-CHANGE-006 | 2026-08-26 | 拆分库存口径：`inventory` 仅指财务存货（financial/single）；新增 optional `inventory_volume` 仅指实物库存量（operating，关键词含“库存量/期末库存量/产成品库存量”）；新增 optional `channel` 承接“动销、渠道库存、经销商库存”；禁止 `inventory` 使用裸关键词“库存/动销” | 避免“库存量、存货、库存股”等被子串匹配混为同一口径 | C configs/风险规则、B evidence locator、D Gold、共享 fixtures、集成测试 | A 更新公共契约与共享 fixture；C YAML 与 B 真实资料暂不改动 |
+| CONTRACT-CHANGE-008 | 2026-08-27 | RunMetadata 新增 `mode` 字段，记录 `rule-engine`/`E1`/`E2`/`E3`；E1/E2/E3 实验模式必须显式提供模型，未提供模型时报 E300 并拒绝运行 | A 实现 E1/E2/E3 模式开关，需要可复现地记录每次运行的实验模式 | A RunMetadata、CLI、orchestrator、tests | `mode` 默认 `rule-engine`；旧 metadata 缺省时按默认值兼容 |
 
 

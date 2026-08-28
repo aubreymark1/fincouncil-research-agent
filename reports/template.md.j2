@@ -1,0 +1,89 @@
+# {{ title }}
+
+> 生成时间：{{ generated_at }}
+> 实验定义：{{ experiment_definitions|default("未提供") }}
+
+## 1. 运行概览
+
+- 公司：{{ report.company_name }}
+- 行业：{{ report.industry_id }}
+- Cutoff：{{ report.cutoff_date }}
+- Run ID：{{ report.run_id }}
+- 状态：{{ run_metadata.status|default("未知") }}
+
+## 2. 指标结果
+
+{% if metrics %}
+| 指标 | 值 |
+|---|---|
+{% for key, value in metrics.items() %}| {{ key }} | {{ value }} |
+{% endfor %}
+{% else %}
+暂无指标结果（可能缺少 Gold Standard 或实验未完成）。
+{% endif %}
+
+## 3. 成功结果
+
+{% if summary %}
+{% for line in summary %}
+- {{ line }}
+{% endfor %}
+{% else %}
+未提供成功结果摘要。
+{% endif %}
+
+## 4. 失败案例
+
+{% if failures %}
+{% for failure in failures %}
+- {{ failure }}
+{% endfor %}
+{% else %}
+无失败案例或未记录失败。
+{% endif %}
+
+## 5. 需人工确认内容
+
+{% if manual_review_items %}
+{% for item in manual_review_items %}
+- {{ item }}
+{% endfor %}
+{% else %}
+无待人工确认项。
+{% endif %}
+
+## 6. 被拒绝资料
+
+{% if rejected_items %}
+{% for item in rejected_items %}
+- {{ item }}
+{% endfor %}
+{% else %}
+无被拒绝资料或未记录。
+{% endif %}
+
+## 7. 银行迁移复用
+
+{% if bank_migration %}
+{{ bank_migration }}
+{% else %}
+银行迁移尚未完成或未提供说明。
+{% endif %}
+
+## 8. 行业配置实际改变
+
+{% if industry_changes %}
+{{ industry_changes }}
+{% else %}
+未提供行业配置变化说明。
+{% endif %}
+
+## 9. 项目局限
+
+{% if limitations %}
+{% for limitation in limitations %}
+- {{ limitation }}
+{% endfor %}
+{% else %}
+未提供局限说明。
+{% endif %}

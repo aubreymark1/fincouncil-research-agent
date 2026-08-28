@@ -1,91 +1,149 @@
-# 任务看板
+# 项目任务看板
 
-> 维护人：D  
-> 更新频率：每次提交、PR、阻塞或验收后立即更新  
-> 状态只使用：待开始、进行中、待审查、已完成、阻塞
+> 更新时间：2026-08-27（Asia/Shanghai）
+> 同步基线：PR #32 合并后的主分支状态
+> 状态依据：GitHub 已合并 PR、主分支文件和已验证测试；未提交到 GitHub 的线下工作不作推测。
+> Roles 文档和 `docs/MASTER_PLAN.md` 定义任务范围，本看板记录当前执行状态。
+## 一、当前结论
 
-## 一、当前里程碑
+- A-001～A-008：已全部完成并合并；主编排默认调用真实 B/C 链路，fixture/stub 已删除。
+- B-001～B-006：已完成并合并；包含真实公开财报资料包和 HTML/PDF/切分/证据定位代码。
+- C-001～C-007：已全部完成并合并。
+- D-001 Gold Standard 格式与校验、D-002 指标计算、D-003 实验运行器、D-004 红蓝测试、D-005 图表、D-006 Streamlit 页面、D-007 报告模板的代码均已合并；D-001 的真实 Gold 内容仍缺。
+- INT-001、INT-002 已完成：integration 测试就位，RUN-DEMO 已用真实食品饮料资料生成 JSON/Markdown/日志三件套。
+- PR #32 已合并；当前没有 open PR。
+- 当前主流程仍是 `rule-engine` 确定性链路，LLM transport adapter 和 Agent 节点接入（ADAPT-008）尚未完成；E1～E3 仍 disabled。
+- 按 A 的安排，以下剩余工程、资料签收、实验和最终交付事项统一由 A 负责，暂不再拆分角色。
 
-| 里程碑 | 截止时间 | 状态 | 验收人 |
+## 二、里程碑
+
+| 里程碑 | 状态 | 说明 |
+|---|---|---|
+| G0 公共接口和最小链路 | 已完成 | 公共 Schema、最小 fixture/stub 链路已合并 |
+| G1 四个角色模块可独立测试 | 已完成 | A/B/C 模块和 D-002 指标均有独立测试；不等于端到端完成 |
+| G2 食品饮料端到端 | 已完成 | A-008 接入真实资料；RUN-DEMO 全链运行产出三件套并通过验收抽查 |
+| G3 实验、迁移和红蓝测试 | 进行中 | D-003/D-004 已完成并合并；ADAPT-008、D-001 真实 Gold、EXP-001、MIG-001 尚未完成 |
+| G4 报告和演示可提交 | 进行中 | D-005/D-006/D-007 代码已合并；尚需 LLM 结果、真实实验输出和工作台演示整合 |
+| G5 最终提交 | 待开始 | 需完成实验、验收和交付材料 |
+
+## 三、任务状态
+
+### A：核心工程与集成
+
+| ID | 任务 | 状态 | 依据/备注 |
 |---|---|---|---|
-| G0 公共接口和最小链路 | 8 月 24 日晚 | 已完成 | A |
-| G1 四个角色模块可独立测试 | 8 月 25 日晚 | 进行中 | A/D |
-| G2 食品饮料端到端 | 8 月 26 日晚 | 待开始 | A/B/C/D |
-| G3 实验、迁移和红蓝测试 | 8 月 27 日晚 | 待开始 | D |
-| G4 报告和演示可提交 | 8 月 29 日晚 | 待开始 | 全体 |
-| G5 最终提交 | 8 月 30 日 18:00 | 待开始 | D |
+| A-001 | 公共 Schema | 已完成 | PR #1 |
+| A-002 | 时间锁 | 已完成 | PR #2 |
+| A-003 | ModelProvider、Cache | 已完成 | PR #5 |
+| A-004 | 最小编排和 CLI（fixture/stub） | 已完成 | PR #3；真实适配不属于本项 |
+| A-005 | 基本面、新闻政策、风险分析节点 | 已完成 | PR #7；multiple/真实链路仍需集成验收 |
+| A-006 | Critic | 已完成 | PR #11 |
+| A-007 | 正式报告生成 | 已完成 | PR #13 |
+| A-008 | 第一次真实 B/C 集成 | 已完成 | PR #29；主编排默认真实 ingestion/industry 链路＋显式验证策略＋report.md 落盘，`_stub_*` 全部移除 |
 
-## 二、进度同步说明
+### A 统一负责的后续工程
 
-- 同步日期：2026-08-25；
-- 同步依据：GitHub 已合并 PR 与通过的 CI；
-- A 暂时代 D 同步已完成事项，C/D 未提交到 GitHub 的工作不作推测；
-- A-004 仅指 fixture/stub 最小编排，真实 B/C 集成仍归 A-008。
+| ID | 任务 | 状态 | 依据/备注 |
+|---|---|---|---|
+| ADAPT-008 | 真实 LLM transport adapter 与 Agent 节点接入 | 待开始 | `app/model/` 已有 SDK-neutral Provider；需接入真实 transport、prompts、结构化输出、E300/E301、缓存和 RunMetadata |
+| EXP-001 | E0～E3 可复现实验 | 待开始 | 需先完成 ADAPT-008、真实 Gold 和 E1～E3 模式开关；所有实验统一由 A 运行 |
+| MIG-001 | 银行迁移检查 | 待开始 | 需补齐银行 request fixture、真实 Gold，并验证 banking 配置不改核心编排 |
+| FINAL-001 | 工作台整合与最终提交 | 待开始 | 运行真实结果、生成图表/报告、更新演示和提交材料 |
 
-## 三、任务表
+### B：资料处理与证据
 
-| ID | 负责人 | 任务 | 允许修改 | 依赖 | 验收标准 | 截止 | 状态 | PR |
-|---|---|---|---|---|---|---|---|---|
-| A-001 | A | 建立公共 Schema | app/schemas、fixtures 公共示例 | 无 | 公共结构、fixture 与 Schema 测试通过 | 8/24 | 已完成 | #1 |
-| A-002 | A | 最小时间锁 | app/validators、tests/core | A-001 | cutoff 过滤与问题输出通过测试 | 8/24 | 已完成 | #2 |
-| A-003 | A | ModelProvider 和 Cache | app/model、tests/core | A-001 | 环境配置、结构化输出、缓存与重试测试通过 | 8/25 | 已完成 | #5 |
-| A-004 | A | 最小编排和 CLI（fixture/stub） | app/orchestrator、app/main.py、scripts/run_case.py | A-001 | 可生成最小 report.json 与 run_metadata.json | 8/25 | 已完成 | #3 |
-| A-005 | A | 基本面、新闻政策、风险分析节点 | app/agents、tests/core | A-001、A-003 | Evidence 绑定、行业隔离与安全降级测试通过 | 8/25 | 已完成 | #7 |
-| A-006 | A | Critic | app/agents/critic.py、tests/core | A-005 | 核心审查项与回归测试通过 | 8/25 | 已完成 | #11 |
-| A-007 | A | 正式报告生成 | app/agents/report.py、tests/core | A-006 | JSON、Markdown、证据索引和状态分流 | 8/26 | 待开始 | |
-| A-008 | A | 第一次真实 B/C 集成 | app/orchestrator、tests/integration | B-003、C-003、A-007 | 不再使用 fixture evidence，真实链路通过 | 8/26 | 待开始 | |
-| B-001 | B | manifest 读取和校验 | app/ingestion/manifest.py、tests/ingestion | A-001 | 缺字段和错误日期有明确问题 | 8/24 | 已完成 | #4 |
-| B-002 | B | PDF 页码提取 | app/ingestion/pdf_extractor.py、tests/ingestion | A-001 | 页码、无文本、加密与损坏场景测试通过 | 8/25 | 已完成 | #9 |
-| B-003 | B | 文本切分和证据定位 | app/ingestion/chunker.py、evidence_locator.py | B-002 | 输出符合 TextChunk/Evidence | 8/25 | 待开始 | |
-| C-001 | C | 行业配置加载 | app/industry/loader.py、configs、tests/industry | A-001 | 两份 YAML 均通过校验 | 8/24 | 待开始 | |
-| C-002 | C | 必查指标检查 | app/industry/checklist.py、tests/industry | C-001 | 缺失必查项返回问题 | 8/25 | 待开始 | |
-| C-003 | C | 风险规则 | app/industry/risk_rules.py、tests/industry | C-001 | 两行业风险规则不同 | 8/25 | 待开始 | |
-| D-001 | D | 评测指标 | evaluation/metrics.py、tests/evaluation | A-001 | 固定 fixture 可计算指标 | 8/24 | 待复审 | #19 |
-| D-002 | D | 红蓝测试运行器 | evaluation/red_team.py、tests/evaluation | A-002 | 覆盖四类错误输入 | 8/25 | 待开始 | |
-| D-003 | D | Streamlit 页面 | app/ui、tests/evaluation | A-003 | 能读取 report.json 并展示证据 | 8/26 | 待开始 | |
-| INT-001 | A | 第一次集成 B/C | integration tests | B-003、C-003 | ingestion、industry、core 全通过 | 8/25 | 待开始 | |
-| INT-002 | A/D | 食品饮料完整运行 | outputs、integration tests | A-003、INT-001、D-003 | 生成 JSON、MD、日志和页面 | 8/26 | 待开始 | |
-| EXP-001 | D | E0—E3 | evaluation、outputs/experiments | INT-002 | 相同输入下四组结果可复现 | 8/27 | 待开始 | |
-| MIG-001 | C/A | 银行迁移 | configs、outputs | INT-002 | 不改核心编排生成银行报告 | 8/27 | 待开始 | |
+| ID | 任务 | 状态 | 依据/备注 |
+|---|---|---|---|
+| B-001 | manifest 读取和校验 | 已完成 | PR #4 |
+| B-002 | PDF 文本和页码提取 | 已完成 | PR #9 |
+| B-003 | HTML 清洗 | 已完成 | PR #23；已覆盖 EOF/裸正文边界 |
+| B-004 | 文本切分 | 已完成 | PR #14 |
+| B-005 | 证据定位 | 已完成 | PR #14；documents/evidence_type 契约已对齐 |
+| B-006 | 食品饮料和银行资料包 | 已完成 | PR #18；主分支已有真实公开财报 URL、formal 清单和红蓝资料 |
 
-## 四、阻塞记录
+### C：行业配置与规则
 
-| 时间 | 任务 ID | 阻塞内容 | 需要谁处理 | 处理结果 |
-|---|---|---|---|---|
+| ID | 任务 | 状态 | 依据/备注 |
+|---|---|---|---|
+| C-001 | 行业配置文件 | 已完成 | PR #16 |
+| C-002 | 配置加载器 | 已完成 | PR #16 |
+| C-003 | 必查指标清单 | 已完成 | PR #17 |
+| C-004 | 指标规则 | 已完成 | PR #24 |
+| C-005 | 风险规则 | 已完成 | PR #20 |
+| C-006 | 分析提示词要求 | 已完成 | PR #25；`prompts/` 四个节点提示词已合并 |
+| C-007 | 人工复核清单 | 已完成 | PR #26；`docs/manual_review_checklist.md` 已合并 |
+
+### D：评测、实验与交付
+
+| ID | 任务 | 状态 | 依据/备注 |
+|---|---|---|---|
+| D-001 | Gold Standard 格式和真实 Gold | 进行中 | PR #32 已合并格式与校验；`food_gold.json`/`bank_gold.json` 仍为 `pending_signoff` 空模板，真实内容统一由 A 推进签收 |
+| D-002 | 指标计算 | 已完成 | PR #19；固定合成 fixture 可确定性计算 |
+| D-003 | 实验运行器 | 已完成 | PR #31 已合并；`pytest tests/evaluation -q` 60 passed、全量 335 passed |
+| D-004 | 红蓝测试 | 已完成 | PR #27 已合并；六类场景 + workflow_dispatch CI 285 passed |
+| D-005 | 图表 | 已完成 | PR #32 已合并；`evaluation/charts.py` 读取 results.csv/json 生成 5 类 SVG，并区分 disabled/no-data |
+| D-006 | Streamlit 页面 | 已完成 | PR #32 已合并；`app/ui/` 只读展示 report/run_metadata/metrics，并分流正式/非正式 Claim |
+| D-007 | 报告模板 | 已完成 | PR #32 已合并；模板、章节说明和提交清单已进入主分支 |
+
+### 集成与交付门
+
+| ID | 任务 | 状态 | 说明 |
+|---|---|---|---|
+| INT-001 | 真实 ingestion → industry → core 集成 | 已完成 | PR #29；`tests/integration` 五个用例（正式链/E202 单发/行业差异/E100/未知后缀） |
+| INT-002 | 食品饮料完整运行 | 已完成 | `python scripts/run_case.py --request fixtures/shared/research_request.json`；产出 report.json/report.md/run_metadata.json，1580 条索引证据全 verified 且 cutoff 后资料零泄漏 |
+| ADAPT-008 | 真实 LLM 接入 | 待开始 | A 负责；Provider 骨架已在 PR #5，当前编排仍为 rule-engine |
+| EXP-001 | E0—E3 可复现实验 | 待开始 | A 负责；依赖 ADAPT-008、D-001 真实 Gold、E1～E3 模式开关 |
+| MIG-001 | 银行迁移检查 | 待开始 | A 负责；依赖银行 request fixture、真实 Gold 和 banking 配置运行 |
+
+## 四、当前阻塞与下一步
+
+| 优先级 | 事项 | 负责人 | 下一步 |
+|---|---|---|---|
+| P0 | LLM transport 与 Agent 接入 | A | 完成 ADAPT-008：真实 transport、prompts、结构化输出、错误处理、缓存、日志和 mock 测试；否则不能完整体现 AI Agent 主题 |
+| P1 | 真实 Gold Standard 缺失 | A | 基于已核验资料制作并签收 food/bank Gold，禁止把合成样例当正式结果 |
+| P1 | E1～E3 模式开关与 EXP-001 | A | 明确通用/行业/完整合规三种模式，统一资料、cutoff、模型和提示词版本后运行 E0～E3 |
+| P1 | MIG-001 银行迁移检查 | A | 补齐 bank request fixture，运行 banking 配置并验证不改核心编排 |
+| P2 | 工作台和最终交付整合 | A | 将输入、运行、证据审查、人工确认、实验图表和报告导出整合为可演示工作台 |
 
 ## 五、接口变更记录
 
-| 时间 | 发起人 | 变更字段 | 原因 | 受影响模块 | 是否重跑 |
-|---|---|---|---|---|---|
-| 2026-08-25 | A | E100 扩展为“资料文件不可用” | 对齐 B-002 PDF 读取失败语义 | ingestion、下游错误处理 | 是；PR #10 已验证 |
-| 2026-08-25 | A | Evidence 来源、multiple 独立性、RiskRule→Claim 字段 | 修复公共函数输入不足以构造输出的契约缺口 | A/B/C、Schema、fixture、集成 | 是；CONTRACT-CHANGE-002 |
-| 2026-08-26 | A | 拆分库存口径：inventory 仅 financial/single；新增 optional inventory_volume（实物库存量，operating）；新增 optional channel（渠道库存/动销，operating）；禁止裸关键词“库存/动销”跨指标匹配 | 避免“库存量、存货、库存股”被子串匹配混为同一口径 | C configs/风险规则、B evidence locator、D Gold、共享 fixtures、集成测试 | 是；CONTRACT-CHANGE-006 |
+| 变更 ID | 日期 | 变更摘要 | 影响 |
+|---|---|---|---|
+| CONTRACT-CHANGE-001 | 2026-08-25 | E100 覆盖资料不存在、损坏、不支持、无法解密、无法解析或无文本 | B ingestion、下游错误处理 |
+| CONTRACT-CHANGE-002 | 2026-08-25 | Evidence 元数据来源、multiple 独立来源、RiskRule→Claim 字段和 review 语义明确化 | A/B/C、Schema、fixture、集成 |
+| CONTRACT-CHANGE-003 | 2026-08-26 | MetricRule 使用非空 evidence_types，统一 EvidenceType 词表和关键词校验 | A/B/C、Schema、configs、tests |
+| CONTRACT-CHANGE-004 | 2026-08-26 | RiskRule 增加非空 trigger_terms，按明确方向/比较/信号触发 | A/C、configs、tests |
+| CONTRACT-CHANGE-005 | 2026-08-26 | RiskRule 增加 exclude_terms，排除否定/已缓解语句 | A/C、configs、tests |
+| CONTRACT-CHANGE-006 | 2026-08-26 | 拆分 financial inventory、inventory_volume 和 channel 口径，禁止裸关键词混用 | B/C/D、共享 fixture、集成 |
+| CONTRACT-CHANGE-007 | 2026-08-27 | locate_evidence 产物按显式编排规则升级 verified（来源 formal ∧ 过时间锁 ∧ 行业匹配）；不做公司与请求相等比较；graph 层去重 Critic 对 checklist 缺指标的重复上报 | A/B/C/D、集成测试断言该语义 |
 
-## 六、每日汇报模板
+## 六、验收记录
 
-~~~text
-角色：
-当前分支：
-今天完成：
-对应 commit：
-测试命令与结果：
-当前阻塞：
-明天提交：
-需要其他人提供：
-~~~
+| 任务 | 验收命令/证据 | 结果 |
+|---|---|---|
+| A-001～A-007 | `tests/core` 对应 PR #1/#2/#3/#5/#7/#11/#13 | 已合并并通过各自 CI |
+| B-001～B-002 | `tests/ingestion` 对应 PR #4/#9 | 已合并并通过各自 CI |
+| B-003 | `pytest tests/ingestion/test_html_extractor.py -q` | 10 passed；PR #23 |
+| B-004～B-005 | `tests/ingestion/test_chunker.py`、`test_evidence_locator.py` | 已合并；PR #14 |
+| B-006 | `data/manifests/*_case.csv`、真实 PDF 和红蓝资料 | 已合并；PR #18 |
+| C-001～C-002 | `pytest tests/industry/test_loader.py -q` | 已合并；PR #16 |
+| C-003 | `pytest tests/industry/test_checklist.py -q` | 已合并；PR #17 |
+| C-004 | `pytest tests/industry/test_metric_rules.py -q` | 29 passed；PR #24 |
+| C-005 | `pytest tests/industry/test_risk_rules.py -q` | 已合并；PR #20 |
+| D-002 | `pytest tests/evaluation/test_metrics.py -q` | 合成 fixture 确定性测试已合并；PR #19 |
+| C-006～C-007 | `prompts/` 四个文件和 `docs/manual_review_checklist.md` 进入主分支 | 已合并；PR #25/#26 |
+| D-004 | `pytest tests/evaluation/test_red_team.py -q`；全量 `python -m pytest -q` | 11 项红队场景测试通过；全量 285 passed；PR #27 |
+| D-003 | `pytest tests/evaluation -q` | 60 passed（定义/hash/失败保留/E0 导入/聚合输出/`{python}` 占位符替换真实执行路径/输出目录隔离/相对路径解析/缺失 manifest 失败捕获/E0 Gold 评分/聚合纳入 E0/disabled 标记/bank_main disabled case/单实验 CLI disabled/E0 失败持久化）；PR #31 已合并 |
+| D-005～D-007 | `pytest tests/evaluation -q`；全量 `python -m pytest -q` | PR #32 已合并；评测 90 passed、全量 365 passed；CI run 33060944176 success |
+| 当前主分支 | `python -m pytest -q` | PR #29 合并后全量复核 305 passed |
+| A-008 / INT-001 / INT-002 | `pytest tests/integration -q`；真实 RUN-DEMO 冒烟抽查 | 5 passed；三件套产出且红队/cutoff 后/rejected 资料零进入索引；PR #29 |
 
-## 七、验收记录
+## 七、状态规则
 
-| 任务 ID | 验收人 | 测试命令 | 结果 | 备注 |
-|---|---|---|---|---|
-| A-001 | A | `pytest tests/core/test_schemas.py -q` | 通过 | PR #1 |
-| A-002 | A | `pytest tests/core -q` | 通过 | PR #2 |
-| A-003 | A | `pytest tests/core/test_model_provider.py -q` | 通过 | PR #5 |
-| A-004 | A | `pytest tests/core/test_orchestrator.py -q` | 通过 | PR #3；stub 链路 |
-| A-005 | A | `pytest tests/core/test_agents.py -q` | 通过 | PR #7；ADAPT-011 待后续闭环 |
-| A-006 | A | `pytest tests/core -q` | 49 passed | PR #11 |
-| B-001 | A/B | `pytest tests/ingestion -q` | 通过 | PR #4 |
-| B-002 | A/B | `pytest tests/core tests/ingestion -q` | 54 passed | PR #9 |
-| D-001 | D | `pytest tests/evaluation/test_metrics.py -q`；`pytest tests -q` | 17 passed；226 passed | PR #19 multiple 组合门禁覆盖状态、日期、公司和行业反例；已同步 main 并更新 metric IDs；合成 fixture 不是正式实验结果，待 A 复审 |
+- 只有已合并且测试通过的 PR 才标记“已完成”。
+- “进行中”表示已有部分产物，但验收所需的正式资料或输出仍不完整。
+- “待开始”不代表没有代码依赖，而是尚未形成可验收提交。
+- fixture、mock、合成 Gold 和 stub 不能写成真实实验结果。
+- 角色手册和总方案定义范围；本看板只同步 GitHub 可验证的执行状态。
 
 

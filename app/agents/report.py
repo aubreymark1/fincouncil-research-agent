@@ -168,7 +168,7 @@ def render_report(
         evidence_index=evidence_index,
         validation_issues=issues,
         generated_at=datetime.now(timezone.utc),
-        report_version="v1-a007",
+        report_version="v1-a008",
     )
 
 

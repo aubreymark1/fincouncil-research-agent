@@ -16,17 +16,17 @@ experiments:
   E1:
     name: generic_agent
     description: 通用 Agent；仅用于受控流程验证
-    run_command: "{python} scripts/run_case.py --request {request_path} --mode E1 --llm"
+    run_command: "{python} scripts/run_case.py --request {request_path} --mode E1 --llm --llm-strategy minimal"
     enabled: true
   E2:
     name: industry_agent
     description: 行业 Agent；仅用于受控流程验证
-    run_command: "{python} scripts/run_case.py --request {request_path} --mode E2 --llm"
+    run_command: "{python} scripts/run_case.py --request {request_path} --mode E2 --llm --llm-strategy minimal"
     enabled: true
   E3:
     name: full_system
     description: 完整系统；仅用于受控流程验证
-    run_command: "{python} scripts/run_case.py --request {request_path} --mode E3 --llm"
+    run_command: "{python} scripts/run_case.py --request {request_path} --mode E3 --llm --llm-strategy minimal"
     enabled: true
 
 output:

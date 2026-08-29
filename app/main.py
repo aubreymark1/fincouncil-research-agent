@@ -17,7 +17,7 @@ def run_research(
     *,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
-    llm_strategy: Literal["full", "compact"] = "full",
+    llm_strategy: Literal["full", "compact", "minimal"] = "full",
     progress_callback: ProgressCallback | None = None,
 ) -> ResearchReport:
     """Run the research pipeline and return a validated report.

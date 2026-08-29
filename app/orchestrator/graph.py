@@ -23,7 +23,12 @@ from app.agents import (
     run_critic,
     run_critic_llm,
 )
-from app.agents.compact import get_compact_prompt_version, run_compact_report
+from app.agents.compact import (
+    get_compact_prompt_version,
+    get_minimal_prompt_version,
+    run_compact_report,
+    run_minimal_narrative,
+)
 from app.agents.aggregation import run_analysis
 from app.agents.generic import build_raw_evidence, run_generic_analysis
 from app.industry.checklist import check_required_metrics
@@ -323,7 +328,7 @@ def run_pipeline(
     industry_loader: IndustryLoader | None = None,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
-    llm_strategy: Literal["full", "compact"] = "full",
+    llm_strategy: Literal["full", "compact", "minimal"] = "full",
     progress_callback: Callable[[str], None] | None = None,
 ) -> ResearchState:
     """Run the research pipeline over real B/C modules and persist outputs.
@@ -390,12 +395,22 @@ def run_pipeline(
         _emit("定位证据")
 
         try:
-            state.claims = run_generic_analysis(
-                model_provider,
-                request,
-                state.evidence,
-                config=state.config,
-            )
+            if llm_strategy == "minimal":
+                narrative = run_minimal_narrative(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    config=state.config,
+                    documents=state.documents,
+                )
+                state.claims = []
+            else:
+                state.claims = run_generic_analysis(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    config=state.config,
+                )
         except ModelProviderError as exc:
             _write_failed_metadata(request, started_at, exc, model_provider, mode)
             raise
@@ -407,6 +422,7 @@ def run_pipeline(
             state.claims,
             state.evidence,
             state.validation_issues,
+            narrative=narrative,
         )
     else:
         # rule-engine and E3 share the full formal chain. rule-engine may run
@@ -440,7 +456,16 @@ def run_pipeline(
         _emit("定位证据")
 
         try:
-            if model_provider is not None and llm_strategy == "compact":
+            if model_provider is not None and llm_strategy == "minimal":
+                narrative = run_minimal_narrative(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    config=state.config,
+                    documents=state.documents,
+                )
+                state.claims = []
+            elif model_provider is not None and llm_strategy == "compact":
                 compact_report = run_compact_report(
                     model_provider,
                     request,
@@ -509,8 +534,15 @@ def run_pipeline(
         model_provider_name = model_provider.config.provider_name
         model_name = model_provider.config.model_name
         if mode in {"E1", "E2"}:
-            prompt_versions = {"generic": "v1"}
-            agents_version = "v1-generic"
+            if llm_strategy == "minimal":
+                prompt_versions = {"minimal_synthesis": get_minimal_prompt_version()}
+                agents_version = "v1-llm-minimal"
+            else:
+                prompt_versions = {"generic": "v1"}
+                agents_version = "v1-generic"
+        elif llm_strategy == "minimal":
+            prompt_versions = {"minimal_synthesis": get_minimal_prompt_version()}
+            agents_version = "v1-llm-minimal"
         elif llm_strategy == "compact":
             prompt_versions = {"synthesis": get_compact_prompt_version()}
             agents_version = "v1-llm-compact"

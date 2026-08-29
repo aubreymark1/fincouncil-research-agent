@@ -4,7 +4,9 @@ from .aggregation import run_analysis
 from .compact import (
     run_compact_analysis,
     run_compact_report,
+    run_minimal_narrative,
     select_compact_evidence,
+    select_minimal_evidence,
 )
 from .critic import run_critic
 from .fundamental import analyze_fundamentals
@@ -30,7 +32,9 @@ __all__ = [
     "get_prompt_versions",
     "run_compact_analysis",
     "run_compact_report",
+    "run_minimal_narrative",
     "select_compact_evidence",
+    "select_minimal_evidence",
     "render_markdown",
     "render_report",
     "run_analysis",

@@ -10,7 +10,14 @@ from __future__ import annotations
 import hashlib
 import re
 
-from app.schemas import Claim, Evidence, IndustryConfig, ResearchRequest, ValidationIssue
+from app.schemas import (
+    Claim,
+    Evidence,
+    IndustryConfig,
+    ReportBlock,
+    ResearchRequest,
+    ValidationIssue,
+)
 
 
 _NUMBER_PATTERN = re.compile(
@@ -499,4 +506,129 @@ def run_critic(
     issues.extend(_check_required_metrics(claims, config, evidence_by_id))
     issues.extend(_check_conflicting_evidence(claims, evidence_by_id))
     issues.extend(_check_unparsed_model_output(claims))
+    return issues
+
+
+def run_narrative_critic(
+    request: ResearchRequest,
+    narrative: list[ReportBlock],
+    evidence: list[Evidence],
+    config: IndustryConfig,
+) -> list[ValidationIssue]:
+    """Check narrative-only output without requiring a full Claim schema."""
+
+    evidence_by_id = {item.evidence_id: item for item in evidence}
+    issues: list[ValidationIssue] = []
+    for block in narrative:
+        if not block.evidence_ids:
+            if _extract_numbers(block.text):
+                issues.append(
+                    _make_issue(
+                        check_name="narrative_critic",
+                        severity="error",
+                        issue_type="narrative_missing_evidence",
+                        message=(
+                            f"Narrative section {block.section} contains precise "
+                            "numbers but has no evidence_ids."
+                        ),
+                        target_key=block.section,
+                        rerun_required=True,
+                    )
+                )
+            continue
+
+        supporting_text: list[str] = []
+        for evidence_id in block.evidence_ids:
+            item = evidence_by_id.get(evidence_id)
+            if item is None:
+                issues.append(
+                    _make_issue(
+                        check_name="narrative_critic",
+                        severity="error",
+                        issue_type="narrative_unknown_evidence_id",
+                        message=(
+                            f"Narrative section {block.section} references unknown "
+                            f"evidence {evidence_id}."
+                        ),
+                        evidence_id=evidence_id,
+                        target_key=f"{block.section}:{evidence_id}",
+                        rerun_required=True,
+                    )
+                )
+                continue
+
+            supporting_text.extend([item.fact_text, item.quote])
+            if item.review_status != "verified":
+                issues.append(
+                    _make_issue(
+                        check_name="narrative_critic",
+                        severity="critical",
+                        issue_type="narrative_non_verified_evidence",
+                        message=(
+                            f"Narrative section {block.section} references {evidence_id} "
+                            f"with review_status={item.review_status}."
+                        ),
+                        evidence_id=evidence_id,
+                        target_key=f"{block.section}:{evidence_id}:status",
+                        rerun_required=True,
+                    )
+                )
+            if item.published_at > request.cutoff_date:
+                issues.append(
+                    _make_issue(
+                        check_name="narrative_critic",
+                        severity="critical",
+                        issue_type="narrative_cutoff_violation",
+                        message=(
+                            f"Narrative section {block.section} cites {evidence_id} "
+                            f"published after cutoff {request.cutoff_date.isoformat()}."
+                        ),
+                        evidence_id=evidence_id,
+                        target_key=f"{block.section}:{evidence_id}:cutoff",
+                        rerun_required=True,
+                    )
+                )
+
+        if supporting_text:
+            normalized_support = _normalize_number("\n".join(supporting_text))
+            unsupported = [
+                number
+                for number in _extract_numbers(block.text)
+                if number not in normalized_support
+            ]
+            if unsupported:
+                issues.append(
+                    _make_issue(
+                        check_name="narrative_critic",
+                        severity="error",
+                        issue_type="narrative_unsourced_number",
+                        message=(
+                            f"Narrative section {block.section} contains number(s) "
+                            f"{', '.join(unsupported)} not found in cited evidence."
+                        ),
+                        target_key=f"{block.section}:numbers",
+                        rerun_required=True,
+                    )
+                )
+
+        if "风险" in block.section:
+            lowered_text = block.text.casefold()
+            for rule in config.risk_rules:
+                trigger_hit = any(term.casefold() in lowered_text for term in rule.trigger_terms)
+                exclude_hit = any(term.casefold() in lowered_text for term in rule.exclude_terms)
+                if trigger_hit and exclude_hit:
+                    issues.append(
+                        _make_issue(
+                            check_name="narrative_critic",
+                            severity="warning",
+                            issue_type="narrative_conflicting_risk",
+                            message=(
+                                f"Narrative section {block.section} contains both "
+                                f"trigger and exclude signals for risk {rule.risk_id}."
+                            ),
+                            target_key=f"{block.section}:{rule.risk_id}",
+                            human_confirmation_required=True,
+                            rerun_required=False,
+                        )
+                    )
     return issues

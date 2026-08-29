@@ -20,6 +20,8 @@ AUDIT_ISSUE_ID = "ISSUE-POLICY-EVIDENCE-VERIFICATION"
 def _is_verifiable_source(
     document: SourceDocument | None,
     request: ResearchRequest,
+    *,
+    enforce_cutoff: bool = True,
 ) -> bool:
     """Check the three upgrade conditions of the explicit verification rule."""
 
@@ -27,7 +29,9 @@ def _is_verifiable_source(
         return False
     if document.industry_id != request.industry_id:
         return False
-    if document.published_at is None or document.published_at > request.cutoff_date:
+    if document.published_at is None:
+        return False
+    if enforce_cutoff and document.published_at > request.cutoff_date:
         return False
     return True
 
@@ -59,6 +63,7 @@ def apply_evidence_policy(
     documents: list[SourceDocument],
     *,
     request: ResearchRequest,
+    enforce_cutoff: bool = True,
 ) -> tuple[list[Evidence], list[ValidationIssue]]:
     """Apply the explicit rule that upgrades located evidence to verified.
 
@@ -83,7 +88,11 @@ def apply_evidence_policy(
 
     for item in evidence:
         document = documents_by_id.get(item.doc_id)
-        if item.review_status == "pending" and _is_verifiable_source(document, request):
+        if item.review_status == "pending" and _is_verifiable_source(
+            document,
+            request,
+            enforce_cutoff=enforce_cutoff,
+        ):
             resolved.append(item.model_copy(update={"review_status": "verified"}))
             upgraded_count += 1
         else:

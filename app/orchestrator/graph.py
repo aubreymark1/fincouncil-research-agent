@@ -22,6 +22,7 @@ from app.agents import (
     render_report,
     run_critic,
     run_critic_llm,
+    run_narrative_critic,
 )
 from app.agents.compact import (
     get_compact_prompt_version,
@@ -329,6 +330,8 @@ def run_pipeline(
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
     llm_strategy: Literal["full", "compact", "minimal"] = "full",
+    time_lock_enabled: bool = True,
+    critic_enabled: bool = True,
     progress_callback: Callable[[str], None] | None = None,
 ) -> ResearchState:
     """Run the research pipeline over real B/C modules and persist outputs.
@@ -428,10 +431,13 @@ def run_pipeline(
         # rule-engine and E3 share the full formal chain. rule-engine may run
         # without a model provider; E3 is the full-system experiment mode and
         # therefore requires one (enforced above).
-        state.documents, time_lock_issues = apply_time_lock(
-            state.documents,
-            request.cutoff_date,
-        )
+        if time_lock_enabled:
+            state.documents, time_lock_issues = apply_time_lock(
+                state.documents,
+                request.cutoff_date,
+            )
+        else:
+            time_lock_issues = []
         state.validation_issues.extend(time_lock_issues)
         _emit("执行时间过滤")
 
@@ -451,6 +457,7 @@ def run_pipeline(
             located,
             state.documents,
             request=request,
+            enforce_cutoff=time_lock_enabled,
         )
         state.validation_issues.extend(policy_issues)
         _emit("定位证据")
@@ -492,18 +499,30 @@ def run_pipeline(
             ]
             state.validation_issues.extend(industry_issues)
 
-            critic_issues = run_critic(request, state.claims, state.evidence, state.config)
-            if model_provider is not None and llm_strategy == "full":
-                critic_issues = [
-                    *critic_issues,
-                    *run_critic_llm(
-                        model_provider,
-                        request,
-                        state.claims,
-                        state.evidence,
-                        state.config,
-                    ),
-                ]
+            critic_issues: list[ValidationIssue] = []
+            if critic_enabled:
+                critic_issues.extend(
+                    run_critic(request, state.claims, state.evidence, state.config)
+                )
+                if llm_strategy == "minimal":
+                    critic_issues.extend(
+                        run_narrative_critic(
+                            request,
+                            narrative,
+                            state.evidence,
+                            state.config,
+                        )
+                    )
+                if model_provider is not None and llm_strategy == "full":
+                    critic_issues.extend(
+                        run_critic_llm(
+                            model_provider,
+                            request,
+                            state.claims,
+                            state.evidence,
+                            state.config,
+                        )
+                    )
             state.validation_issues.extend(
                 _drop_duplicated_metric_issues(critic_issues, industry_issues)
             )

@@ -403,6 +403,79 @@ def test_e3_runs_full_chain_with_model_provider(tmp_path):
     assert any(item.review_status == "verified" for item in state.evidence)
 
 
+def test_e3_time_lock_ablation_keeps_post_cutoff_evidence(tmp_path):
+    request = make_request(tmp_path).model_copy(update={"run_id": "RUN-ABLATION-TIME"})
+    future = make_document("DOC-UNIT-FUTURE", review_status="formal").model_copy(
+        update={
+            "published_at": date(2026, 8, 25),
+            "retrieved_at": datetime(2026, 8, 26, tzinfo=timezone.utc),
+        }
+    )
+
+    def manifest_loader(_path: str):
+        return [future]
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        return {"narrative": [{"section": "核心判断", "text": "资料待确认。", "evidence_ids": []}]}
+
+    state = run_pipeline(
+        request,
+        manifest_loader=manifest_loader,
+        text_extractor=fake_text_extractor,
+        industry_loader=load_industry_config,
+        model_provider=ModelProvider(ModelConfig(max_retries=0), transport=transport),
+        mode="E3",
+        llm_strategy="minimal",
+        time_lock_enabled=False,
+        critic_enabled=False,
+    )
+
+    assert any(document.doc_id == future.doc_id for document in state.documents)
+    assert any(
+        item.published_at > CUTOFF and item.review_status == "verified"
+        for item in state.evidence
+    )
+
+
+def test_e3_critic_ablation_controls_narrative_critic(tmp_path):
+    request = make_request(tmp_path)
+
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        return {
+            "narrative": [
+                {
+                    "section": "核心判断",
+                    "text": "公司收入增长 25%。",
+                    "evidence_ids": [],
+                }
+            ]
+        }
+
+    def run(critic_enabled: bool, run_id: str):
+        return run_pipeline(
+            request.model_copy(update={"run_id": run_id}),
+            manifest_loader=fake_manifest_loader,
+            text_extractor=fake_text_extractor,
+            industry_loader=load_industry_config,
+            model_provider=ModelProvider(ModelConfig(max_retries=0), transport=transport),
+            mode="E3",
+            llm_strategy="minimal",
+            critic_enabled=critic_enabled,
+        )
+
+    with_critic = run(True, "RUN-ABLATION-CRITIC-ON")
+    without_critic = run(False, "RUN-ABLATION-CRITIC-OFF")
+
+    assert any(
+        issue.issue_type == "narrative_missing_evidence"
+        for issue in with_critic.validation_issues
+    )
+    assert not any(
+        issue.issue_type == "narrative_missing_evidence"
+        for issue in without_critic.validation_issues
+    )
+
+
 def test_unknown_mode_is_rejected(tmp_path):
     request = make_request(tmp_path)
 

@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 import yaml
 
-from app.schemas import ResearchReport, ResearchRequest
+from app.schemas import ReportBlock, ResearchReport, ResearchRequest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # 模块加载时确定的仓库根，用于解析冻结定义里的相对路径。
@@ -311,8 +311,14 @@ def _collect_run_outputs(
         _write_json(experiment_dir / "run_metadata.json", metadata)
     if metrics is not None:
         _write_json(experiment_dir / "metrics.json", metrics)
+    error_path = experiment_dir / "error.txt"
     if error:
-        (experiment_dir / "error.txt").write_text(error, encoding="utf-8")
+        error_path.write_text(error, encoding="utf-8")
+    else:
+        try:
+            error_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _read_report(path: Path) -> ResearchReport:
@@ -490,6 +496,7 @@ def import_manual_baseline(
         industry_id=request.industry_id,
         cutoff_date=request.cutoff_date,
         summary=[text],
+        narrative=[ReportBlock(section="人工基线", text=text, evidence_ids=[])],
         claims=[],
         risks=[],
         unresolved_items=[],

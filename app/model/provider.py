@@ -142,7 +142,14 @@ def _as_json_object(raw: Any) -> dict[str, Any]:
         payload = dict(raw)
     elif isinstance(raw, str):
         try:
-            payload = json.loads(_strip_json_fence(raw))
+            cleaned = _strip_json_fence(raw)
+            try:
+                payload = json.loads(cleaned)
+            except json.JSONDecodeError:
+                start = cleaned.find("{")
+                if start < 0:
+                    raise
+                payload, _ = json.JSONDecoder().raw_decode(cleaned[start:])
         except json.JSONDecodeError as exc:
             raise ValueError("transport returned invalid JSON") from exc
     else:

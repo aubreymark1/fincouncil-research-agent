@@ -68,12 +68,14 @@ def test_unlisted_company_runs_through_retrieval_manifest_and_tool_call(tmp_path
         transport=transport,
         tool_transport=lambda _messages, _tools, _config: next(calls),
     )
+    tool_events = []
     registry = build_retrieval_registry(
         service,
         subject="测试公司",
         ticker="600519",
         end_date=date(2026, 8, 20),
         default_query=query.query,
+        event_callback=lambda name, phase, details: tool_events.append((name, phase, details)),
     )
     request = ResearchRequest(
         run_id="RUN-WB-ONLINE-001",
@@ -126,3 +128,4 @@ def test_unlisted_company_runs_through_retrieval_manifest_and_tool_call(tmp_path
 
     assert state.report is not None
     assert state.report.narrative[0].segments[0].evidence_ids == [evidence_id]
+    assert [phase for _name, phase, _details in tool_events] == ["start", "result"]

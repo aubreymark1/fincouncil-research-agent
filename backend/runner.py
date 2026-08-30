@@ -116,7 +116,7 @@ class ResearchRunner:
                         tool_name=name,
                         status="success",
                         duration_ms=int(details.get("duration_ms", 0)),
-                        public_details={key: value for key, value in details.items() if key in {"count", "duration_ms"}},
+                        public_details={key: value for key, value in details.items() if key in {"count"}},
                     )
                 else:
                     self._store.append_event(

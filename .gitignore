@@ -32,5 +32,4 @@ frontend/vite.config.js
 frontend/vite.config.d.ts
 
 # Runtime persistence (created on server or local compose)
-outputs/
 runtime/

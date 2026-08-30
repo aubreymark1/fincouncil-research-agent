@@ -32,6 +32,8 @@ from app.schemas import (
     Claim,
     Evidence,
     IndustryConfig,
+    NarrativeBlock,
+    NarrativeDraft,
     ResearchRequest,
     SourceDocument,
     ValidationIssue,
@@ -57,6 +59,51 @@ class ValidationIssueList(BaseModel):
     issues: list[ValidationIssue]
 
 
+def _validate_narrative_evidence(
+    blocks: list[NarrativeBlock],
+    evidence: list[Evidence],
+) -> list[NarrativeBlock]:
+    """Ensure every reportable sentence points at verified input Evidence."""
+
+    allowed = {
+        item.evidence_id
+        for item in evidence
+        if item.review_status == "verified"
+    }
+    for block in blocks:
+        for segment in block.segments:
+            unknown = set(segment.evidence_ids) - allowed
+            if unknown:
+                raise ModelProviderError(
+                    "E301 module=agents.llm: unknown evidence IDs in narrative "
+                    f"({', '.join(sorted(unknown))})"
+                )
+    return blocks
+
+
+def synthesize_narrative(
+    provider: ModelProvider,
+    request: ResearchRequest,
+    claims: list[Claim],
+    evidence: list[Evidence],
+) -> list[NarrativeBlock]:
+    """Ask the LLM to organize claims into sentence-level cited prose."""
+
+    context = {
+        "request": request.model_dump(mode="json"),
+        "claims": [claim.model_dump(mode="json") for claim in claims],
+        "evidence": _evidence_payload(evidence),
+    }
+    result = provider.generate_json(
+        _build_prompt("synthesis", context=context),
+        response_model=NarrativeDraft,
+        cache_key=f"narrative:{request.run_id}",
+    )
+    if not isinstance(result, NarrativeDraft):
+        raise TypeError("E301 module=agents.llm: expected NarrativeDraft response")
+    return _validate_narrative_evidence(result.blocks, evidence)
+
+
 def load_prompt(name: str) -> str:
     """Read one Markdown prompt file."""
 
@@ -67,7 +114,7 @@ def get_prompt_versions() -> dict[str, str]:
     """Return prompt versions parsed from the Markdown headers."""
 
     versions: dict[str, str] = {}
-    for name in ("fundamental", "news_policy", "risk", "critic_industry"):
+    for name in ("fundamental", "news_policy", "risk", "critic_industry", "synthesis"):
         text = load_prompt(name)
         match = _PROMPT_VERSION_RE.search(text)
         versions[name] = match.group(1) if match else "unknown"

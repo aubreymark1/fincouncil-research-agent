@@ -10,6 +10,7 @@ from .llm import (
     analyze_risks_llm,
     get_prompt_versions,
     run_critic_llm,
+    synthesize_narrative,
 )
 from .news_policy import analyze_news_policy
 from .report import render_markdown, render_report
@@ -28,5 +29,6 @@ __all__ = [
     "run_analysis",
     "run_critic",
     "run_critic_llm",
+    "synthesize_narrative",
     "run_generic_analysis",
 ]

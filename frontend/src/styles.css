@@ -1019,6 +1019,121 @@ body {
   white-space: pre-wrap;
 }
 
+.narrative-prose {
+  position: relative;
+}
+
+.narrative-segment {
+  display: inline;
+}
+
+.narrative-segment + .narrative-segment {
+  margin-left: 0.28em;
+}
+
+.citation-wrap {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.16em;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.citation-trigger {
+  min-width: 1.2em;
+  border: 0;
+  padding: 0;
+  color: #9ec1ff;
+  background: transparent;
+  font: 700 0.68em/1 "SFMono-Regular", Consolas, monospace;
+  cursor: pointer;
+}
+
+.citation-trigger:hover,
+.citation-trigger:focus-visible {
+  color: #fff;
+  outline: 2px solid rgba(75, 141, 255, 0.55);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.citation-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 10px);
+  left: 50%;
+  display: flex;
+  width: min(330px, 78vw);
+  transform: translateX(-50%);
+  flex-direction: column;
+  gap: 6px;
+  padding: 13px 14px;
+  border: 1px solid #364555;
+  border-radius: 8px;
+  background: #20252b;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.citation-popover::before {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translateX(-50%) rotate(45deg);
+  border-top: 1px solid #364555;
+  border-left: 1px solid #364555;
+  background: #20252b;
+  content: "";
+}
+
+.citation-popover-title {
+  color: #a6b4c5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.citation-popover-source {
+  color: #fff;
+  font-weight: 700;
+}
+
+.citation-popover-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #d2dbe5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.citation-popover-meta,
+.citation-more {
+  color: #97a5b5;
+  font-size: 11px;
+}
+
+.citation-open {
+  align-self: flex-start;
+  border: 0;
+  padding: 4px 0;
+  color: #9ec1ff;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.citation-open:hover,
+.citation-open:focus-visible {
+  color: #fff;
+}
+
 .source-row {
   gap: 7px;
 }
@@ -1272,6 +1387,20 @@ body {
   .narrative-content p {
     font-size: 14px;
     line-height: 1.8;
+  }
+
+  .citation-popover {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    transform: none;
+  }
+
+  .citation-popover::before {
+    display: none;
   }
 
   .evidence-index-item {

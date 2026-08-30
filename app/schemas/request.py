@@ -18,6 +18,7 @@ class ResearchRequest(BaseModel):
     company_name: str = Field(min_length=1)
     ticker: str | None = Field(default=None, min_length=1)
     industry_id: str = Field(min_length=1)
+    research_question: str = Field(default="根据已验证资料生成研究初稿", min_length=1)
     cutoff_date: date
     comparison_start: date | None = None
     comparison_end: date | None = None

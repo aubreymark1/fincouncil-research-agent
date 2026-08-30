@@ -12,6 +12,8 @@ from app.schemas import (
     Claim,
     Evidence,
     IndustryConfig,
+    NarrativeBlock,
+    NarrativeSegment,
     ResearchReport,
     ResearchRequest,
     RunMetadata,
@@ -136,6 +138,29 @@ def test_schema_constraints_reject_invalid_ids_and_values() -> None:
             doc_id="DOC-FOOD-001",
             text="",
         )
+
+
+def test_narrative_segment_requires_evidence_for_fact() -> None:
+    with pytest.raises(ValidationError, match="evidence_ids"):
+        NarrativeSegment(
+            segment_id="SEG-001",
+            text="营业收入同比增长。",
+            evidence_ids=[],
+            claim_type="fact",
+            status="pass",
+        )
+
+
+def test_unresolved_narrative_segment_may_have_no_evidence() -> None:
+    segment = NarrativeSegment(
+        segment_id="SEG-002",
+        text="毛利率变化仍待确认。",
+        evidence_ids=[],
+        claim_type="unresolved",
+        status="review",
+    )
+    block = NarrativeBlock(section="风险与待确认", segments=[segment])
+    assert block.segments[0].status == "review"
 
 
 def test_industry_metric_ids_must_be_unique() -> None:

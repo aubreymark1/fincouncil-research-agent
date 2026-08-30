@@ -14,6 +14,7 @@ from app.agents import (
     get_prompt_versions,
     run_analysis,
     run_critic_llm,
+    synthesize_narrative,
 )
 from app.model import InMemoryCache, ModelConfig, ModelProvider, ModelProviderError
 from app.schemas import (
@@ -107,6 +108,51 @@ def test_analyze_fundamentals_llm_uses_provider_and_returns_claims() -> None:
     assert claims[0].claim_id == "CL-LLM-001"
     assert "基本面分析提示词" in captured[0]
     assert "示例食品公司" in captured[0]
+
+
+def test_synthesize_narrative_returns_sentence_level_evidence() -> None:
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        assert "句子" in prompt
+        return {
+            "blocks": [{
+                "section": "核心判断",
+                "segments": [{
+                    "segment_id": "SEG-001",
+                    "text": "营业收入同比增长。",
+                    "evidence_ids": ["EV-FOOD-001"],
+                    "claim_type": "fact",
+                    "status": "pass",
+                }],
+            }],
+        }
+
+    result = synthesize_narrative(
+        make_provider(transport),
+        make_request(),
+        [Claim.model_validate(make_claim_payload())],
+        [make_evidence()],
+    )
+
+    assert result[0].segments[0].evidence_ids == ["EV-FOOD-001"]
+
+
+def test_synthesize_narrative_rejects_unknown_evidence_id() -> None:
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        return {
+            "blocks": [{
+                "section": "核心判断",
+                "segments": [{
+                    "segment_id": "SEG-001",
+                    "text": "营业收入同比增长。",
+                    "evidence_ids": ["EV-NOT-FOUND"],
+                    "claim_type": "fact",
+                    "status": "pass",
+                }],
+            }],
+        }
+
+    with pytest.raises(ModelProviderError, match="unknown evidence"):
+        synthesize_narrative(make_provider(transport), make_request(), [], [make_evidence()])
 
 
 def test_llm_analysis_filters_pending_and_cross_industry_evidence() -> None:
@@ -877,5 +923,6 @@ def test_prompt_versions_are_loaded() -> None:
         "news_policy",
         "risk",
         "critic_industry",
+        "synthesis",
     }
     assert all(version == "1" for version in versions.values())

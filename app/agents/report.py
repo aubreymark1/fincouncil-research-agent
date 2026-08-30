@@ -9,7 +9,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.schemas import Claim, Evidence, ResearchReport, ResearchRequest, ValidationIssue
+from app.schemas import (
+    Claim,
+    Evidence,
+    NarrativeBlock,
+    NarrativeSegment,
+    ResearchReport,
+    ResearchRequest,
+    ValidationIssue,
+)
 
 
 _REPORTABLE_STATUSES = {"pass", "review"}
@@ -92,11 +100,53 @@ def _build_summary(
     ]
 
 
+def _build_narrative(reportable: list[Claim]) -> list[NarrativeBlock]:
+    """Project reportable claims into a readable, evidence-bound narrative.
+
+    Each Claim is intentionally kept as one sentence-level segment. This avoids
+    guessing which source supports a sentence after prose has been concatenated.
+    A later LLM synthesis pass may replace these blocks with finer segmentation,
+    but it must preserve the same explicit Evidence IDs.
+    """
+
+    body_segments = [
+        NarrativeSegment(
+            segment_id=f"SEG-{claim.claim_id.removeprefix('CL-')}",
+            text=claim.text,
+            evidence_ids=claim.evidence_ids,
+            claim_type=claim.claim_type,
+            status=claim.status,
+        )
+        for claim in reportable
+        if claim.claim_type in _BODY_CLAIM_TYPES and claim.status == "pass"
+    ]
+    risk_segments = [
+        NarrativeSegment(
+            segment_id=f"SEG-{claim.claim_id.removeprefix('CL-')}",
+            text=claim.text,
+            evidence_ids=claim.evidence_ids,
+            claim_type=claim.claim_type,
+            status=claim.status,
+        )
+        for claim in reportable
+        if claim.claim_type == "risk" and claim.status == "pass"
+    ]
+
+    blocks: list[NarrativeBlock] = []
+    if body_segments:
+        blocks.append(NarrativeBlock(section="核心判断", segments=body_segments))
+    if risk_segments:
+        blocks.append(NarrativeBlock(section="风险与待确认", segments=risk_segments))
+    return blocks
+
+
 def render_report(
     request: ResearchRequest,
     claims: list[Claim],
     evidence: list[Evidence],
     issues: list[ValidationIssue],
+    *,
+    narrative: list[NarrativeBlock] | None = None,
 ) -> ResearchReport:
     """Build a structured ``ResearchReport`` from validated Claims.
 
@@ -111,6 +161,7 @@ def render_report(
     """
 
     reportable = _apply_issue_gating(claims, issues)
+    narrative = narrative if narrative is not None else _build_narrative(reportable)
 
     body_claims = [
         claim
@@ -162,6 +213,7 @@ def render_report(
             unresolved_count=len(unresolved_items),
             evidence_count=len(evidence_index),
         ),
+        narrative=narrative,
         claims=body_claims,
         risks=risks,
         unresolved_items=unresolved_items,
@@ -200,6 +252,18 @@ def render_markdown(report: ResearchReport) -> str:
         "## 摘要",
     ]
     lines.extend(f"- {item}" for item in report.summary)
+    lines.append("")
+
+    lines.append("## 投研正文")
+    if report.narrative:
+        for block in report.narrative:
+            lines.append(f"### {block.section}")
+            for segment in block.segments:
+                evidence = "、".join(segment.evidence_ids) if segment.evidence_ids else "待确认"
+                lines.append(f"- {segment.text}（证据：{evidence}）")
+            lines.append("")
+    else:
+        lines.append("- 无。")
     lines.append("")
 
     lines.append("## 正文结论")

@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import type { Claim, Evidence, ResearchReport, ValidationIssue } from "../types";
 import { getReadableSections, presentValidationIssue } from "../reportUtils";
+import type { ReadableSection } from "../reportUtils";
+import { CitationPopover } from "./CitationPopover";
 
 interface ReportViewProps {
   report: ResearchReport;
@@ -56,7 +58,7 @@ function NarrativeBlock({
   evidenceMap,
   onSelectEvidence,
 }: {
-  section: { section: string; text: string; evidence_ids: string[] };
+  section: ReadableSection;
   index: number;
   evidenceMap: Map<string, Evidence>;
   onSelectEvidence: (evidence: Evidence) => void;
@@ -67,12 +69,21 @@ function NarrativeBlock({
       <div className="narrative-content">
         <div className="narrative-kicker">研究段落</div>
         <h3>{section.section}</h3>
-        <p>{section.text}</p>
-        <SourceChips
-          ids={section.evidence_ids}
-          evidenceMap={evidenceMap}
-          onSelectEvidence={onSelectEvidence}
-        />
+        <p className="narrative-prose">
+          {section.segments.map((segment) => {
+            const evidence = segment.evidence_ids
+              .map((id) => evidenceMap.get(id))
+              .filter((item): item is Evidence => Boolean(item));
+            return (
+              <span key={segment.segment_id} className={`narrative-segment ${segment.status}`}>
+                {segment.text}
+                {segment.status === "pass" && evidence.length > 0 && (
+                  <CitationPopover evidence={evidence} onOpenEvidence={onSelectEvidence} />
+                )}
+              </span>
+            );
+          })}
+        </p>
       </div>
     </article>
   );

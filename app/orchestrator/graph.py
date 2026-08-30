@@ -22,6 +22,7 @@ from app.agents import (
     render_report,
     run_critic,
     run_critic_llm,
+    synthesize_narrative,
 )
 from app.agents.aggregation import run_analysis
 from app.agents.generic import build_raw_evidence, run_generic_analysis
@@ -467,6 +468,16 @@ def run_pipeline(
                 _drop_duplicated_metric_issues(critic_issues, industry_issues)
             )
             _emit("执行 Critic 审查")
+            narrative = (
+                synthesize_narrative(
+                    model_provider,
+                    request,
+                    state.claims,
+                    state.evidence,
+                )
+                if model_provider is not None and state.claims
+                else None
+            )
         except ModelProviderError as exc:
             _write_failed_metadata(request, started_at, exc, model_provider, mode)
             raise
@@ -477,6 +488,7 @@ def run_pipeline(
             state.claims,
             state.evidence,
             state.validation_issues,
+            narrative=narrative,
         )
 
     input_hashes = _compute_input_hashes(request)

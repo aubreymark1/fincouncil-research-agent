@@ -81,9 +81,18 @@ export interface ValidationIssue {
   status: "open" | "resolved" | "accepted_risk";
 }
 
-export interface NarrativeSection {
-  section: string;
+export interface NarrativeSegment {
+  segment_id: string;
   text: string;
+  evidence_ids: string[];
+  claim_type: "fact" | "change" | "analysis" | "risk" | "unresolved";
+  status: "pass" | "review";
+}
+
+export interface NarrativeBlock {
+  section: string;
+  segments?: NarrativeSegment[];
+  text?: string;
   evidence_ids?: string[];
 }
 
@@ -93,7 +102,7 @@ export interface ResearchReport {
   industry_id: string;
   cutoff_date: string;
   summary: string[];
-  narrative?: NarrativeSection[];
+  narrative?: NarrativeBlock[];
   claims: Claim[];
   risks: Claim[];
   unresolved_items: Claim[];

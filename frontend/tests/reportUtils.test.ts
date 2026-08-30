@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getReadableSections, presentValidationIssue } from "../src/reportUtils.ts";
+import { citationIdsForSegment, getReadableSections, presentValidationIssue } from "../src/reportUtils.ts";
 
 const report = {
   narrative: [
@@ -19,7 +19,8 @@ const report = {
   unresolved_items: [],
 };
 
-assert.deepEqual(getReadableSections(report), report.narrative);
+assert.deepEqual(getReadableSections(report)[0].segments[0].evidence_ids, ["EV-001"]);
+assert.equal(getReadableSections(report)[1].segments[0].text, "房地产敞口需要进一步核验。");
 
 assert.deepEqual(
   presentValidationIssue({
@@ -35,3 +36,18 @@ assert.deepEqual(
 );
 
 console.log("reportUtils behavior tests passed");
+
+const segmented = {
+  narrative: [{
+    section: "核心判断",
+    segments: [
+      { segment_id: "SEG-1", text: "句子 A。", evidence_ids: ["EV-001"], claim_type: "fact", status: "pass" },
+      { segment_id: "SEG-2", text: "句子 B。", evidence_ids: ["EV-002", "EV-003"], claim_type: "analysis", status: "pass" },
+    ],
+  }],
+  claims: [],
+  risks: [],
+};
+const sections = getReadableSections(segmented);
+assert.deepEqual(citationIdsForSegment(sections[0].segments[0]), ["EV-001"]);
+assert.deepEqual(citationIdsForSegment(sections[0].segments[1]), ["EV-002", "EV-003"]);

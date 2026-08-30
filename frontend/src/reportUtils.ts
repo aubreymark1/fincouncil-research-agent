@@ -1,9 +1,16 @@
-import type { Claim, ResearchReport, ValidationIssue } from "./types";
+import type { Claim, NarrativeBlock, NarrativeSegment, ResearchReport, ValidationIssue } from "./types";
 
 export interface ReadableSection {
   section: string;
+  segments: ReadableSegment[];
+}
+
+export interface ReadableSegment {
+  segment_id: string;
   text: string;
   evidence_ids: string[];
+  claim_type: NarrativeSegment["claim_type"];
+  status: NarrativeSegment["status"];
 }
 
 export interface PresentedValidationIssue {
@@ -15,9 +22,35 @@ export interface PresentedValidationIssue {
 function claimToSection(claim: Claim, section: string): ReadableSection {
   return {
     section,
-    text: claim.text,
-    evidence_ids: claim.evidence_ids,
+    segments: [{
+      segment_id: `SEG-${claim.claim_id.replace(/^CL-/, "")}`,
+      text: claim.text,
+      evidence_ids: claim.evidence_ids,
+      claim_type: claim.claim_type,
+      status: claim.status === "pass" ? "pass" : "review",
+    }],
   };
+}
+
+function normalizeBlock(block: NarrativeBlock, blockIndex: number): ReadableSection | null {
+  const segments = block.segments?.length
+    ? block.segments.map((segment) => ({
+        segment_id: segment.segment_id,
+        text: segment.text,
+        evidence_ids: segment.evidence_ids ?? [],
+        claim_type: segment.claim_type,
+        status: segment.status,
+      }))
+    : block.text
+      ? [{
+          segment_id: `SEG-LEGACY-${blockIndex + 1}`,
+          text: block.text,
+          evidence_ids: block.evidence_ids ?? [],
+          claim_type: "analysis" as const,
+          status: "pass" as const,
+        }]
+      : [];
+  return segments.length > 0 ? { section: block.section, segments } : null;
 }
 
 export function getReadableSections(
@@ -25,11 +58,7 @@ export function getReadableSections(
 ): ReadableSection[] {
   const narrative = report.narrative ?? [];
   if (narrative.length > 0) {
-    return narrative.map((item) => ({
-      section: item.section,
-      text: item.text,
-      evidence_ids: item.evidence_ids ?? [],
-    }));
+    return narrative.map(normalizeBlock).filter((item): item is ReadableSection => Boolean(item));
   }
 
   return [
@@ -40,6 +69,10 @@ export function getReadableSections(
       .filter((claim) => claim.status === "pass")
       .map((claim) => claimToSection(claim, "正式风险")),
   ];
+}
+
+export function citationIdsForSegment(segment: Pick<ReadableSegment, "evidence_ids">): string[] {
+  return segment.evidence_ids;
 }
 
 export function presentValidationIssue(

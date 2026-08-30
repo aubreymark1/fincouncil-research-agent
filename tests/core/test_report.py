@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from app.agents import render_markdown, render_report
-from app.schemas import Claim, Evidence, ResearchRequest, ValidationIssue
+from app.schemas import Claim, Evidence, NarrativeBlock, NarrativeSegment, ResearchRequest, ValidationIssue
 
 
 ROOT = Path(__file__).parents[2]
@@ -114,6 +114,39 @@ def test_render_report_separates_claims_risks_and_unresolved() -> None:
         claim.claim_id for claim in [*report.claims, *report.risks, *report.unresolved_items]
     }
 
+    assert len(report.narrative) == 2
+    assert report.narrative[0].section == "核心判断"
+    assert {segment.text for segment in report.narrative[0].segments} == {pass_fact.text}
+    assert report.narrative[0].segments[0].evidence_ids == pass_fact.evidence_ids
+    assert report.narrative[1].section == "风险与待确认"
+    assert {segment.text for segment in report.narrative[1].segments} == {
+        pass_risk.text,
+    }
+
+
+def test_render_report_preserves_llm_narrative_segments() -> None:
+    request = make_request()
+    evidence = [make_evidence()]
+    claim = make_claim()
+    narrative = [
+        NarrativeBlock(
+            section="核心判断",
+            segments=[
+                NarrativeSegment(
+                    segment_id="SEG-LLM-001",
+                    text="经过组织的正文句子。",
+                    evidence_ids=[evidence[0].evidence_id],
+                    claim_type="fact",
+                    status="pass",
+                )
+            ],
+        )
+    ]
+
+    report = render_report(request, [claim], evidence, [], narrative=narrative)
+
+    assert report.narrative == narrative
+
 
 def test_render_report_excludes_rejected_and_draft_claims() -> None:
     request = make_request()
@@ -169,6 +202,7 @@ def test_render_markdown_contains_sections_and_excludes_rejected_claims() -> Non
     markdown = render_markdown(report)
 
     assert "## 摘要" in markdown
+    assert "## 投研正文" in markdown
     assert "## 正文结论" in markdown
     assert "## 风险" in markdown
     assert "## 待人工确认" in markdown

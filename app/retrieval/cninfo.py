@@ -94,7 +94,10 @@ class CninfoConnector:
             "tabName": "fulltext",
             "column": "sse",
             "stock": "",
-            "searchkey": f"{query.subject} {query.ticker or ''} {query.query}".strip(),
+            # CNINFO full-text search behaves like an AND query. Keep the
+            # discovery key to the company identity; the research question is
+            # applied later when the LLM inspects Evidence.
+            "searchkey": (query.ticker or query.subject).strip(),
             "category": "",
             "seDate": f"{start}~{query.end_date.isoformat()}",
             "isHLtitle": "true",

@@ -37,6 +37,6 @@ def test_cninfo_search_uses_subject_and_question(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     CninfoConnector(timeout_seconds=7).search_filings(SearchQuery(subject="贵州茅台", ticker="600519", query="库存", end_date="2026-08-20"))
-    assert "searchkey=%E8%B4%B5%E5%B7%9E%E8%8C%85%E5%8F%B0+600519+%E5%BA%93%E5%AD%98" in captured["body"]
+    assert "searchkey=600519" in captured["body"]
     assert "stock=" in captured["body"]
     assert captured["timeout"] == 7

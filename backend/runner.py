@@ -165,7 +165,7 @@ class ResearchRunner:
                     ticker=ticker,
                     industry_id=industry_id or "general",
                     research_question=research_question,
-                    max_pages_per_document=80,
+                    max_pages_per_document=20,
                     cutoff_date=cutoff_date,
                     source_manifest_path=str(manifest_path),
                     output_dir=str(self._settings.outputs_dir / "reports" / run_id),

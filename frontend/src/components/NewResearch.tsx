@@ -93,7 +93,7 @@ export function NewResearch({
                 <option value="food_beverage">食品饮料</option>
                 <option value="banking">银行</option>
               </select>
-              <small className="muted">行业配置会影响指标和风险检查。</small>
+              <small className="muted">行业配置会影响指标和风险检查。在线研究首轮读取每份资料的摘要页。</small>
             </label>
             <label className="field">
               <span>研究问题</span>

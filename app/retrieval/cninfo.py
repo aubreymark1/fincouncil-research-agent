@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,6 +40,10 @@ def _source_type(title: str, announcement_type: str) -> str:
     return "announcement"
 
 
+def _strip_markup(value: Any) -> str:
+    return re.sub(r"<[^>]+>", "", str(value or "")).strip()
+
+
 def _source_url(value: str) -> str:
     if value.startswith("http://") or value.startswith("https://"):
         return value
@@ -54,7 +59,7 @@ def parse_cninfo_results(payload: Mapping[str, Any]) -> list[SearchHit]:
     for row in rows:
         if not isinstance(row, Mapping):
             continue
-        title = str(row.get("announcementTitle") or row.get("title") or "").strip()
+        title = _strip_markup(row.get("announcementTitle") or row.get("title"))
         adjunct = str(row.get("adjunctUrl") or row.get("source_url") or "").strip()
         if not title or not adjunct:
             continue
@@ -85,11 +90,12 @@ class CninfoConnector:
         start = query.start_date.isoformat() if query.start_date else "2000-01-01"
         params = {
             "pageNum": "1",
-            "pageSize": str(min(len(query.categories) or 30, 30)),
+            "pageSize": "30",
             "tabName": "fulltext",
             "column": "sse",
-            "stock": query.ticker or "",
-            "searchkey": query.query,
+            "stock": "",
+            "searchkey": f"{query.subject} {query.ticker or ''} {query.query}".strip(),
+            "category": "",
             "seDate": f"{start}~{query.end_date.isoformat()}",
             "isHLtitle": "true",
         }

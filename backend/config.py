@@ -36,6 +36,7 @@ class Settings:
     project_root: Path = PROJECT_ROOT
     outputs_dir: Path = PROJECT_ROOT / "outputs"
     db_path: Path = PROJECT_ROOT / "outputs" / "workbench.db"
+    static_dir: Path | None = PROJECT_ROOT / "frontend" / "dist"
     enable_llm_demo: bool = False
     max_runs_per_ip_per_minute: int = 10
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
@@ -51,6 +52,9 @@ class Settings:
             else outputs_dir / "workbench.db"
         )
 
+        static_raw = os.getenv("WORKBENCH_STATIC_DIR", "").strip()
+        static_dir = _resolve_path(project_root, static_raw) if static_raw else project_root / "frontend" / "dist"
+
         cors_raw = os.getenv("FINCOUNCIL_CORS_ORIGINS", "").strip()
         cors_origins = tuple(
             item.strip()
@@ -62,6 +66,7 @@ class Settings:
             project_root=project_root,
             outputs_dir=outputs_dir,
             db_path=db_path,
+            static_dir=static_dir,
             enable_llm_demo=_env_bool("FINCOUNCIL_ENABLE_LLM_DEMO"),
             max_runs_per_ip_per_minute=int(
                 os.getenv("FINCOUNCIL_MAX_RUNS_PER_IP_PER_MINUTE", "10")

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { Evidence } from "../types";
 
 interface EvidenceDrawerProps {
@@ -6,6 +7,15 @@ interface EvidenceDrawerProps {
 }
 
 export function EvidenceDrawer({ evidence, onClose }: EvidenceDrawerProps) {
+  useEffect(() => {
+    if (!evidence) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [evidence, onClose]);
+
   if (!evidence) return null;
 
   return (
@@ -14,11 +24,12 @@ export function EvidenceDrawer({ evidence, onClose }: EvidenceDrawerProps) {
         className="evidence-drawer"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
+        aria-modal="true"
         aria-label="证据详情"
       >
         <div className="drawer-header">
           <h2>证据详情</h2>
-          <button type="button" className="icon-button" onClick={onClose}>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="关闭证据详情">
             ✕
           </button>
         </div>
@@ -42,12 +53,12 @@ export function EvidenceDrawer({ evidence, onClose }: EvidenceDrawerProps) {
           <dd>{evidence.page ?? "未提供"}</dd>
           <dt>章节</dt>
           <dd>{evidence.section ?? "未提供"}</dd>
-          <dt>review_status</dt>
-          <dd>
-            <span className={`review-badge ${evidence.review_status}`}>
-              {evidence.review_status}
-            </span>
-          </dd>
+        <dt>审核状态</dt>
+        <dd>
+          <span className={`review-badge ${evidence.review_status}`}>
+              {evidence.review_status === "verified" ? "已验证" : evidence.review_status === "pending" ? "待确认" : "已拒绝"}
+          </span>
+        </dd>
           <dt>证据类型</dt>
           <dd>{evidence.evidence_type}</dd>
           <dt>置信度</dt>

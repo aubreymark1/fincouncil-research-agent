@@ -13,6 +13,7 @@ from typing import Any, Literal
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend.cases import get_workbench_case, list_workbench_cases
@@ -297,6 +298,13 @@ def create_app(settings: Settings | None = None, runner: ResearchRunner | None =
             status_code=exc.status_code,
             content={"detail": exc.detail},
         )
+
+    # The production image already contains the built SPA at /srv/frontend.
+    # Serving it from the same process keeps the public reverse proxy simple
+    # and prevents a second container from racing the host's Nginx on ports 80/443.
+    static_dir = settings.static_dir
+    if static_dir is not None and static_dir.is_dir():
+        app.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
 
     return app
 

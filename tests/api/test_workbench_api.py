@@ -123,18 +123,29 @@ class FakeRunner:
 
 @pytest.fixture()
 def app_env(tmp_path: Path):
+    static_dir = tmp_path / "frontend"
+    static_dir.mkdir(parents=True)
+    (static_dir / "index.html").write_text("<html><body>FinCouncil test shell</body></html>", encoding="utf-8")
     settings = Settings(
         project_root=Path(__file__).resolve().parents[2],
         outputs_dir=tmp_path / "outputs",
         db_path=tmp_path / "data" / "workbench.db",
         enable_llm_demo=False,
         max_runs_per_ip_per_minute=100,
+        static_dir=static_dir,
     )
     store = RunStore(settings.db_path)
     store.init()
     runner = FakeRunner(store, settings)
     app = create_app(settings, runner)
     return TestClient(app), store, runner, settings
+
+
+def test_root_serves_frontend_shell(app_env):
+    client, _, _, _ = app_env
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "FinCouncil test shell" in response.text
 
 
 def test_health(app_env):

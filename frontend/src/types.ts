@@ -81,12 +81,19 @@ export interface ValidationIssue {
   status: "open" | "resolved" | "accepted_risk";
 }
 
+export interface NarrativeSection {
+  section: string;
+  text: string;
+  evidence_ids?: string[];
+}
+
 export interface ResearchReport {
   run_id: string;
   company_name: string;
   industry_id: string;
   cutoff_date: string;
   summary: string[];
+  narrative?: NarrativeSection[];
   claims: Claim[];
   risks: Claim[];
   unresolved_items: Claim[];

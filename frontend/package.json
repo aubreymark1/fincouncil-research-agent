@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test:frontend": "node --experimental-strip-types tests/reportUtils.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

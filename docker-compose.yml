@@ -1,5 +1,6 @@
 services:
   caddy:
+    profiles: ["standalone"]
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
@@ -9,6 +10,7 @@ services:
       DEMO_HOST: ${DEMO_HOST:?DEMO_HOST is required, e.g. fincouncil.43-165-172-190.sslip.io}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/dist:/srv/frontend:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -25,6 +27,9 @@ services:
       FINCOUNCIL_MODEL_NAME: ${FINCOUNCIL_MODEL_NAME:-deepseek-v4-flash}
       FINCOUNCIL_MODEL_BASE_URL: ${FINCOUNCIL_MODEL_BASE_URL:-https://api.deepseek.com}
       FINCOUNCIL_MODEL_API_KEY: ${FINCOUNCIL_MODEL_API_KEY:-}
+      FINCOUNCIL_MODEL_TEMPERATURE: ${FINCOUNCIL_MODEL_TEMPERATURE:-0}
+      FINCOUNCIL_MODEL_MAX_RETRIES: ${FINCOUNCIL_MODEL_MAX_RETRIES:-2}
+      FINCOUNCIL_MODEL_TIMEOUT_SECONDS: ${FINCOUNCIL_MODEL_TIMEOUT_SECONDS:-30}
       FINCOUNCIL_DB_PATH: /app/outputs/workbench.db
       FINCOUNCIL_OUTPUTS_DIR: /app/outputs
       FINCOUNCIL_MAX_RUNS_PER_IP_PER_MINUTE: ${FINCOUNCIL_MAX_RUNS_PER_IP_PER_MINUTE:-10}
@@ -32,6 +37,8 @@ services:
       - ./outputs:/app/outputs
     expose:
       - "8000"
+    ports:
+      - "127.0.0.1:18000:8000"
 
 volumes:
   caddy_data:

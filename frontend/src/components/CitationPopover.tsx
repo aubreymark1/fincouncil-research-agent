@@ -23,8 +23,13 @@ export function CitationPopover({ evidence, onOpenEvidence }: CitationPopoverPro
         className="citation-trigger"
         aria-label={`查看 ${evidence.length} 条句子来源`}
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+            event.currentTarget.blur();
+          }
+        }}
       >
         [{evidence.length > 1 ? `+${evidence.length}` : "1"}]
       </button>

@@ -6,6 +6,7 @@ from .evidence_types import ALLOWED_EVIDENCE_TYPES, EvidenceType
 from .industry import IndustryConfig, MetricRule, RiskRule
 from .report import NarrativeBlock, NarrativeDraft, NarrativeSegment, ResearchReport, RunMetadata
 from .request import ResearchRequest
+from .run_event import RunEvent
 from .source import SourceDocument, TextChunk
 from .validation import ValidationIssue
 
@@ -21,6 +22,7 @@ __all__ = [
     "NarrativeSegment",
     "ResearchReport",
     "ResearchRequest",
+    "RunEvent",
     "RiskRule",
     "RunMetadata",
     "SourceDocument",

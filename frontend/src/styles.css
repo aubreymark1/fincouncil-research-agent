@@ -1306,6 +1306,83 @@ body {
   white-space: pre-wrap;
 }
 
+.activity-panel {
+  background: #0d1218;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.activity-item:last-child {
+  border-bottom: 0;
+}
+
+.activity-marker {
+  display: grid;
+  flex: 0 0 24px;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #3a4858;
+  border-radius: 50%;
+  color: #9cacbd;
+  font-size: 12px;
+}
+
+.activity-item.success .activity-marker {
+  border-color: rgba(71, 209, 140, 0.5);
+  color: var(--green);
+}
+
+.activity-item.failed .activity-marker {
+  border-color: rgba(255, 107, 120, 0.6);
+  color: var(--red);
+}
+
+.activity-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-title-row span,
+.activity-copy small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.activity-copy p {
+  margin: 0;
+  color: #cad4df;
+  font-size: 13px;
+}
+
+.activity-error {
+  color: #ffb6bd;
+  font-size: 12px;
+}
+
 .issue-severity {
   min-width: auto;
   color: #f8bfcb;

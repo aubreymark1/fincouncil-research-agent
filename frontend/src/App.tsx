@@ -11,6 +11,7 @@ import { EvidenceDrawer } from "./components/EvidenceDrawer";
 import { NewResearch } from "./components/NewResearch";
 import { ReportView } from "./components/ReportView";
 import { RunProgress } from "./components/RunProgress";
+import { RunActivity } from "./components/RunActivity";
 import { Sidebar } from "./components/Sidebar";
 import type {
   CaseInfo,
@@ -156,6 +157,8 @@ export default function App() {
           (activeRun.status === "queued" || activeRun.status === "running") && (
             <RunProgress run={activeRun} />
           )}
+
+        {activeRun && <RunActivity runId={activeRun.run_id} active={activeRun.status === "queued" || activeRun.status === "running"} />}
 
         {activeRun && activeRun.status === "failed" && (
           <div className="panel error-panel">

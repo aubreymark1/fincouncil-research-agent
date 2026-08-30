@@ -29,9 +29,28 @@ assert.deepEqual(
     message: "E202 required metric net_interest_margin (净息差) has no Claim.",
   }),
   {
+    category: "尚未覆盖",
     title: "核心指标缺失",
-    detail: "E202 required metric net_interest_margin (净息差) has no Claim.",
+    detail: "本次运行没有形成“净息差”的正式结论，证据不足或口径不完整。",
+    technical_detail: "E202 required metric net_interest_margin (净息差) has no Claim.",
     action: "回到证据索引，补充该指标的可核验来源。",
+    tone: "warning",
+  },
+);
+
+assert.deepEqual(
+  presentValidationIssue({
+    severity: "critical",
+    issue_type: "published_after_cutoff",
+    message: "E103 DOC-FOOD-104 was published after cutoff and was rejected by the time lock.",
+  }),
+  {
+    category: "已自动处理",
+    title: "截止日后的资料已排除",
+    detail: "这份资料晚于研究截止日，时间锁已自动将它排除。",
+    technical_detail: "E103 DOC-FOOD-104 was published after cutoff and was rejected by the time lock.",
+    action: null,
+    tone: "success",
   },
 );
 

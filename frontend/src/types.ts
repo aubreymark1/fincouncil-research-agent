@@ -32,6 +32,21 @@ export interface RunStatus {
   };
 }
 
+export interface RunEvent {
+  event_id: string;
+  run_id: string;
+  sequence: number;
+  occurred_at: string;
+  kind: "stage" | "tool_start" | "tool_result" | "warning" | "error";
+  tool_name: string | null;
+  title: string;
+  summary: string;
+  status: "running" | "success" | "warning" | "failed";
+  duration_ms: number | null;
+  source_ids: string[];
+  public_details: Record<string, string | number | boolean>;
+}
+
 export interface CreateRunPayload {
   case_id: string;
   cutoff_date: string;

@@ -315,3 +315,26 @@ def test_history_list_returns_created_runs(app_env):
     response = client.get("/api/runs")
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+def test_events_endpoint_supports_resume(app_env):
+    client, store, _, _ = app_env
+    store.create_run(run_id="RUN-WB-EVENT-API", case_id="food_main", llm_enabled=True)
+    store.append_event("RUN-WB-EVENT-API", kind="stage", title="准备研究", summary="完成")
+    store.append_event("RUN-WB-EVENT-API", kind="stage", title="定位证据", summary="完成", public_details={"evidence_count": 12})
+
+    response = client.get("/api/runs/RUN-WB-EVENT-API/events?after_sequence=1")
+    assert response.status_code == 200
+    assert [item["sequence"] for item in response.json()] == [2]
+
+
+def test_events_stream_returns_sse_records(app_env):
+    client, store, _, _ = app_env
+    store.create_run(run_id="RUN-WB-EVENT-SSE", case_id="food_main", llm_enabled=True)
+    store.append_event("RUN-WB-EVENT-SSE", kind="tool_result", title="检索完成", summary="找到 3 份", status="success")
+
+    response = client.get("/api/runs/RUN-WB-EVENT-SSE/events/stream")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: run_event" in response.text
+    assert '"sequence": 1' in response.text

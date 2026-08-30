@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,29 @@ class RunStore:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at DESC)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS run_events (
+                    event_id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    tool_name TEXT,
+                    title TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    duration_ms INTEGER,
+                    source_ids_json TEXT NOT NULL DEFAULT '[]',
+                    public_details_json TEXT NOT NULL DEFAULT '{}',
+                    UNIQUE(run_id, sequence),
+                    FOREIGN KEY(run_id) REFERENCES runs(run_id)
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_run_events_run_sequence ON run_events(run_id, sequence)"
             )
             conn.commit()
 
@@ -166,3 +190,95 @@ class RunStore:
                 "SELECT * FROM runs ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
             return [self._row_to_dict(row) for row in rows if row is not None]
+
+    def append_event(
+        self,
+        run_id: str,
+        *,
+        kind: str,
+        title: str,
+        summary: str,
+        tool_name: str | None = None,
+        status: str = "running",
+        duration_ms: int | None = None,
+        source_ids: list[str] | None = None,
+        public_details: dict[str, str | int | float | bool] | None = None,
+    ) -> dict[str, Any]:
+        """Append a redacted event and return its JSON-ready dictionary."""
+
+        from app.schemas.run_event import RunEvent
+
+        details = public_details or {}
+        event_id = f"EVT-{uuid.uuid4().hex[:12].upper()}"
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM run_events WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            sequence = int(row["next_sequence"] if row is not None else 1)
+            event = RunEvent(
+                event_id=event_id,
+                run_id=run_id,
+                sequence=sequence,
+                occurred_at=datetime.now(timezone.utc),
+                kind=kind,  # type: ignore[arg-type]
+                tool_name=tool_name,
+                title=title,
+                summary=summary,
+                status=status,  # type: ignore[arg-type]
+                duration_ms=duration_ms,
+                source_ids=source_ids or [],
+                public_details=details,
+            )
+            payload = event.model_dump(mode="json")
+            conn.execute(
+                """
+                INSERT INTO run_events (
+                    event_id, run_id, sequence, occurred_at, kind, tool_name,
+                    title, summary, status, duration_ms, source_ids_json,
+                    public_details_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    payload["event_id"],
+                    payload["run_id"],
+                    payload["sequence"],
+                    payload["occurred_at"],
+                    payload["kind"],
+                    payload["tool_name"],
+                    payload["title"],
+                    payload["summary"],
+                    payload["status"],
+                    payload["duration_ms"],
+                    json.dumps(payload["source_ids"], ensure_ascii=False),
+                    json.dumps(payload["public_details"], ensure_ascii=False),
+                ),
+            )
+            conn.commit()
+            return payload
+
+    def list_events(self, run_id: str, *, after_sequence: int = 0, limit: int = 200) -> list[dict[str, Any]]:
+        from app.schemas.run_event import RunEvent
+
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM run_events WHERE run_id = ? AND sequence > ? ORDER BY sequence ASC LIMIT ?",
+                (run_id, after_sequence, limit),
+            ).fetchall()
+        events: list[dict[str, Any]] = []
+        for row in rows:
+            events.append(RunEvent(
+                event_id=row["event_id"],
+                run_id=row["run_id"],
+                sequence=row["sequence"],
+                occurred_at=row["occurred_at"],
+                kind=row["kind"],
+                tool_name=row["tool_name"],
+                title=row["title"],
+                summary=row["summary"],
+                status=row["status"],
+                duration_ms=row["duration_ms"],
+                source_ids=json.loads(row["source_ids_json"] or "[]"),
+                public_details=json.loads(row["public_details_json"] or "{}"),
+            ).model_dump(mode="json"))
+        return events

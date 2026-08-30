@@ -4,6 +4,7 @@ import type {
   HealthResponse,
   ResearchReport,
   RunStatus,
+  RunEvent,
 } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -35,6 +36,12 @@ export function fetchRuns(): Promise<RunStatus[]> {
 
 export function fetchRun(runId: string): Promise<RunStatus> {
   return request<RunStatus>(`/api/runs/${encodeURIComponent(runId)}`);
+}
+
+export function fetchRunEvents(runId: string, afterSequence = 0): Promise<RunEvent[]> {
+  return request<RunEvent[]>(
+    `/api/runs/${encodeURIComponent(runId)}/events?after_sequence=${afterSequence}`,
+  );
 }
 
 export function createRun(payload: CreateRunPayload): Promise<RunStatus> {

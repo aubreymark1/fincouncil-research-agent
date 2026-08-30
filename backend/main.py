@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -232,6 +232,29 @@ def create_app(settings: Settings | None = None, runner: ResearchRunner | None =
         if row is None:
             raise HTTPException(status_code=404, detail="run not found")
         return _row_to_status(row)
+
+    @app.get("/api/runs/{run_id}/events")
+    def get_events(run_id: str, after_sequence: int = 0, limit: int = 200) -> list[dict[str, Any]]:
+        if store.get_run(run_id) is None:
+            raise HTTPException(status_code=404, detail="run not found")
+        return store.list_events(run_id, after_sequence=max(after_sequence, 0), limit=min(max(limit, 1), 500))
+
+    @app.get("/api/runs/{run_id}/events/stream")
+    def stream_events(run_id: str, after_sequence: int = 0):
+        if store.get_run(run_id) is None:
+            raise HTTPException(status_code=404, detail="run not found")
+        events = store.list_events(run_id, after_sequence=max(after_sequence, 0), limit=500)
+
+        def generate():
+            for event in events:
+                yield f"id: {event['sequence']}\nevent: run_event\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+            yield ": keep-alive\n\n"
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.get("/api/runs/{run_id}/report")
     def get_report(run_id: str) -> dict[str, Any]:

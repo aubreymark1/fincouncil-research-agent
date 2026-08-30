@@ -75,6 +75,13 @@ class ResearchRunner:
                 started_at=_now_iso(),
                 stage="准备研究请求",
             )
+            self._store.append_event(
+                run_id,
+                kind="stage",
+                title="准备研究",
+                summary="研究任务已启动",
+                status="running",
+            )
 
             request = build_workbench_request(
                 case_id,
@@ -93,6 +100,13 @@ class ResearchRunner:
 
             def on_progress(stage: str) -> None:
                 self._store.append_progress(run_id, stage)
+                self._store.append_event(
+                    run_id,
+                    kind="stage",
+                    title=stage,
+                    summary=f"已完成：{stage}",
+                    status="success",
+                )
 
             run_research(
                 request,
@@ -115,6 +129,13 @@ class ResearchRunner:
                 metadata_path=str(metadata_path),
                 stage="研究完成",
             )
+            self._store.append_event(
+                run_id,
+                kind="stage",
+                title="研究完成",
+                summary="报告和证据索引已写入",
+                status="success",
+            )
         except Exception as exc:  # noqa: BLE001 - persisted as structured failure
             self._store.update_run(
                 run_id,
@@ -122,6 +143,14 @@ class ResearchRunner:
                 finished_at=_now_iso(),
                 error=str(exc),
                 stage="失败",
+            )
+            self._store.append_event(
+                run_id,
+                kind="error",
+                title="研究失败",
+                summary="研究任务未完成",
+                status="failed",
+                public_details={"reason": type(exc).__name__},
             )
         finally:
             with self._lock:

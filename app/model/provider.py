@@ -289,6 +289,13 @@ class ModelProvider:
                     if isinstance(exc, ValidationError):
                         fields = sorted({".".join(str(part) for part in error.get("loc", ())) for error in exc.errors()})
                         detail = f"{detail}; fields={','.join(fields[:8])}"
+                    elif isinstance(raw, str):
+                        stripped = raw.strip()
+                        shape = (
+                            f"len={len(raw)}; json_object={'{' in stripped and '}' in stripped}; "
+                            f"code_fence={stripped.startswith('```')}; starts_json={stripped.startswith('{')}"
+                        )
+                        detail = f"{detail}; {shape}"
                     raise ModelProviderError(
                         f"E301 module=model: output could not be parsed after {attempts} attempts "
                         f"(error_type={detail})"

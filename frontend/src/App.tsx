@@ -60,7 +60,6 @@ export default function App() {
   const handleStart = async (payload: {
     case_id: string;
     cutoff_date: string;
-    llm_enabled: boolean;
   }) => {
     setError(null);
     setReport(null);
@@ -174,9 +173,9 @@ export default function App() {
             onSelectEvidence={setSelectedEvidence}
           />
         ) : (
-          <NewResearch
-            cases={cases}
-            llmAvailable={health?.llm_available ?? false}
+      <NewResearch
+        cases={cases}
+        modelAvailable={health?.llm_available ?? false}
             disabled={busy}
             activeRun={activeRun}
             onStart={handleStart}

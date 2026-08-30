@@ -46,7 +46,6 @@ class ResearchRunner:
         run_id: str,
         case_id: str,
         cutoff_date: Any,
-        llm_enabled: bool,
     ) -> bool:
         """Start a background task if no task is currently running."""
         with self._lock:
@@ -56,7 +55,7 @@ class ResearchRunner:
 
         thread = threading.Thread(
             target=self._execute,
-            args=(run_id, case_id, cutoff_date, llm_enabled),
+            args=(run_id, case_id, cutoff_date),
             name=f"research-{run_id}",
             daemon=True,
         )
@@ -68,7 +67,6 @@ class ResearchRunner:
         run_id: str,
         case_id: str,
         cutoff_date: Any,
-        llm_enabled: bool,
     ) -> None:
         try:
             self._store.update_run(
@@ -85,19 +83,13 @@ class ResearchRunner:
                 outputs_dir=self._settings.outputs_dir,
             )
 
-            provider = None
-            if llm_enabled:
-                if not self._settings.llm_available():
-                    raise ValueError(
-                        "E300 module=workbench.runner: LLM demo is not available; "
-                        "check FINCOUNCIL_ENABLE_LLM_DEMO and FINCOUNCIL_MODEL_* "
-                        "environment variables, or switch back to rule-engine"
-                    )
-                cache_path = self._settings.outputs_dir / "cache" / "model_cache.json"
-                provider = ModelProvider.from_env(
-                    transport=create_openai_compatible_transport(),
-                    cache=JsonFileCache(cache_path),
-                )
+            if not self._settings.llm_available():
+                raise ValueError("E300 module=workbench.runner: research model is unavailable")
+            cache_path = self._settings.outputs_dir / "cache" / "model_cache.json"
+            provider = ModelProvider.from_env(
+                transport=create_openai_compatible_transport(),
+                cache=JsonFileCache(cache_path),
+            )
 
             def on_progress(stage: str) -> None:
                 self._store.append_progress(run_id, stage)

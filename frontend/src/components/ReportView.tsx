@@ -139,19 +139,23 @@ function IssueCard({
   const linkedEvidence = issue.evidence_id ? evidenceMap.get(issue.evidence_id) : undefined;
 
   return (
-    <li className={`issue-item ${issue.severity}`}>
+    <li className={`issue-item ${issue.severity} ${presented.tone}`}>
       <div className="issue-main">
         <div className="issue-topline">
-          <span className="issue-severity">{issue.severity === "error" || issue.severity === "critical" ? "需要处理" : "提示"}</span>
+          <span className="issue-severity">{presented.category}</span>
           <strong>{presented.title}</strong>
         </div>
         <span className="issue-detail">{presented.detail}</span>
-        <span className="issue-action">下一步：{presented.action}</span>
+        {presented.action && <span className="issue-action">下一步：{presented.action}</span>}
         {linkedEvidence && (
           <button type="button" className="issue-evidence" onClick={() => onSelectEvidence(linkedEvidence)}>
             查看关联证据 ↗
           </button>
         )}
+        <details className="issue-technical">
+          <summary>技术详情</summary>
+          <span>{presented.technical_detail}</span>
+        </details>
       </div>
     </li>
   );
@@ -284,10 +288,10 @@ export function ReportView({ report, onSelectEvidence }: ReportViewProps) {
         )}
       </section>
 
-      <section className="panel claim-panel">
+      {formalClaims.length > 0 && <section className="panel claim-panel">
         <div className="section-heading">
           <div>
-            <div className="section-kicker">结构化校验结果</div>
+          <div className="section-kicker">结构化结果</div>
             <h2>正式结论</h2>
           </div>
           <span className="section-note">供研究员二次整理</span>
@@ -295,24 +299,24 @@ export function ReportView({ report, onSelectEvidence }: ReportViewProps) {
         {formalClaims.length === 0 ? <p className="muted">当前运行没有可单独列出的正式 Claim；正文仍可作为研究初稿阅读。</p> : (
           <div className="claim-list">{formalClaims.map((claim) => <ClaimCard key={claim.claim_id} claim={claim} evidenceMap={evidenceMap} onSelectEvidence={onSelectEvidence} />)}</div>
         )}
-      </section>
+      </section>}
 
-      <section className="panel claim-panel">
-        <div className="section-heading"><div><div className="section-kicker">Risk review</div><h2>正式风险</h2></div></div>
+      {formalRisks.length > 0 && <section className="panel claim-panel">
+        <div className="section-heading"><div><div className="section-kicker">风险</div><h2>正式风险</h2></div></div>
         {formalRisks.length === 0 ? <p className="muted">当前运行没有单独标记为正式风险的 Claim。</p> : (
           <div className="claim-list">{formalRisks.map((claim) => <ClaimCard key={claim.claim_id} claim={claim} evidenceMap={evidenceMap} onSelectEvidence={onSelectEvidence} />)}</div>
         )}
-      </section>
+      </section>}
 
-      <section className="panel review-panel">
-        <div className="section-heading"><div><div className="section-kicker">Human in the loop</div><h2>待确认项</h2></div><span className="section-note">最终研究材料前需要人工判断</span></div>
+      {reviewItems.length > 0 && <section className="panel review-panel">
+        <div className="section-heading"><div><div className="section-kicker">人工确认</div><h2>待确认项</h2></div><span className="section-note">最终研究材料前需要人工判断</span></div>
         {reviewItems.length === 0 ? <p className="muted">暂无待确认的结构化结论。</p> : (
           <div className="claim-list">{reviewItems.map((claim) => <ClaimCard key={claim.claim_id} claim={claim} evidenceMap={evidenceMap} onSelectEvidence={onSelectEvidence} />)}</div>
         )}
-      </section>
+      </section>}
 
       <section className="panel issue-panel">
-        <div className="section-heading"><div><div className="section-kicker">Governance</div><h2>校验问题</h2></div><span className="section-note">先处理错误，再纳入正式材料</span></div>
+        <div className="section-heading"><div><div className="section-kicker">质量检查</div><h2>研究质量检查</h2></div><span className="section-note">先处理问题，再纳入正式材料</span></div>
         {report.validation_issues.length === 0 ? <p className="muted">无校验问题。</p> : (
           <ul className="issue-list">{report.validation_issues.map((issue) => <IssueCard key={issue.issue_id} issue={issue} evidenceMap={evidenceMap} onSelectEvidence={onSelectEvidence} />)}</ul>
         )}

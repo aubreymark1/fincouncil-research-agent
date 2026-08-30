@@ -1244,6 +1244,14 @@ body {
   background: #121820;
 }
 
+.issue-item.success {
+  border-left-color: var(--green);
+}
+
+.issue-item.info {
+  border-left-color: #6c8099;
+}
+
 .issue-main {
   display: flex;
   flex-direction: column;
@@ -1279,6 +1287,23 @@ body {
   color: #8db9ff;
   font-size: 12px;
   cursor: pointer;
+}
+
+.issue-technical {
+  margin-top: 4px;
+  color: #708094;
+  font-size: 11px;
+}
+
+.issue-technical summary {
+  cursor: pointer;
+  color: #8493a5;
+}
+
+.issue-technical span {
+  display: block;
+  margin-top: 5px;
+  white-space: pre-wrap;
 }
 
 .issue-severity {

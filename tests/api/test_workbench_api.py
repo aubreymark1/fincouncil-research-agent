@@ -39,7 +39,7 @@ class FakeRunner:
         run_id: str,
         case_id: str,
         cutoff_date: Any,
-        llm_enabled: bool,
+        llm_enabled: bool = True,
     ) -> bool:
         if self.busy:
             return False
@@ -131,6 +131,7 @@ def app_env(tmp_path: Path):
         outputs_dir=tmp_path / "outputs",
         db_path=tmp_path / "data" / "workbench.db",
         enable_llm_demo=False,
+        llm_available_override=True,
         max_runs_per_ip_per_minute=100,
         static_dir=static_dir,
     )
@@ -139,6 +140,22 @@ def app_env(tmp_path: Path):
     runner = FakeRunner(store, settings)
     app = create_app(settings, runner)
     return TestClient(app), store, runner, settings
+
+
+@pytest.fixture()
+def unavailable_app_env(tmp_path: Path):
+    settings = Settings(
+        project_root=Path(__file__).resolve().parents[2],
+        outputs_dir=tmp_path / "outputs",
+        db_path=tmp_path / "data" / "workbench.db",
+        enable_llm_demo=False,
+        llm_available_override=False,
+        max_runs_per_ip_per_minute=100,
+    )
+    store = RunStore(settings.db_path)
+    store.init()
+    runner = FakeRunner(store, settings)
+    return TestClient(create_app(settings, runner)), store, runner, settings
 
 
 def test_root_serves_frontend_shell(app_env):
@@ -155,7 +172,7 @@ def test_health(app_env):
     body = response.json()
     assert body["status"] == "ok"
     assert body["service"] == "fincouncil-anonymous-workbench"
-    assert body["llm_available"] is False
+    assert body["llm_available"] is True
 
 
 def test_cases_returns_only_verified_packages(app_env):
@@ -180,7 +197,27 @@ def test_create_food_main_task(app_env):
     assert body["mode"] == "rule-engine"
     assert body["status"] == "success"
     assert body["report_ready"] is True
-    assert runner.started[0]["llm_enabled"] is False
+    assert runner.started[0]["llm_enabled"] is True
+
+
+def test_llm_toggle_is_rejected_and_new_runs_are_llm_only(app_env):
+    client, _, runner, _ = app_env
+    rejected = client.post(
+        "/api/runs",
+        json={
+            "case_id": "food_main",
+            "cutoff_date": "2026-08-20",
+            "llm_enabled": False,
+        },
+    )
+    assert rejected.status_code == 422
+
+    created = client.post(
+        "/api/runs",
+        json={"case_id": "food_main", "cutoff_date": "2026-08-20"},
+    )
+    assert created.status_code == 202
+    assert runner.started[0]["llm_enabled"] is True
 
 
 def test_create_bank_main_task(app_env):
@@ -205,18 +242,14 @@ def test_unknown_case_is_rejected(app_env):
     assert "only supports food_main and bank_main" in response.json()["detail"]
 
 
-def test_llm_unconfigured_is_rejected(app_env):
-    client, _, _, _ = app_env
+def test_model_unavailable_is_rejected(unavailable_app_env):
+    client, _, _, _ = unavailable_app_env
     response = client.post(
         "/api/runs",
-        json={
-            "case_id": "food_main",
-            "cutoff_date": "2026-08-20",
-            "llm_enabled": True,
-        },
+        json={"case_id": "food_main", "cutoff_date": "2026-08-20"},
     )
-    assert response.status_code == 400
-    assert "LLM" in response.json()["detail"]
+    assert response.status_code == 503
+    assert response.json()["detail"] == "研究模型暂不可用，请稍后重试。"
 
 
 def test_single_concurrency_rejects_second_run(app_env):

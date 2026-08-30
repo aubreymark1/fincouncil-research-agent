@@ -37,6 +37,7 @@ class Settings:
     outputs_dir: Path = PROJECT_ROOT / "outputs"
     db_path: Path = PROJECT_ROOT / "outputs" / "workbench.db"
     static_dir: Path | None = PROJECT_ROOT / "frontend" / "dist"
+    llm_available_override: bool | None = None
     enable_llm_demo: bool = False
     max_runs_per_ip_per_minute: int = 10
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
@@ -76,6 +77,8 @@ class Settings:
 
     def llm_available(self) -> bool:
         """Return True only when the demo switch and all model env vars exist."""
+        if self.llm_available_override is not None:
+            return self.llm_available_override
         if not self.enable_llm_demo:
             return False
         return all(bool(os.getenv(key, "").strip()) for key in MODEL_ENV_KEYS)

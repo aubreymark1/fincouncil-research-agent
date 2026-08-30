@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.cases import get_workbench_case, list_workbench_cases
 from backend.config import Settings
@@ -40,9 +40,10 @@ class CaseInfo(BaseModel):
 
 
 class CreateRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     case_id: str = Field(min_length=1)
     cutoff_date: date
-    llm_enabled: bool = False
 
 
 class RunStatus(BaseModel):
@@ -188,14 +189,10 @@ def create_app(settings: Settings | None = None, runner: ResearchRunner | None =
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-        if payload.llm_enabled and not settings.llm_available():
+        if not settings.llm_available():
             raise HTTPException(
-                status_code=400,
-                detail=(
-                    "LLM 增强模式未配置。需要 FINCOUNCIL_ENABLE_LLM_DEMO=true "
-                    "且 FINCOUNCIL_MODEL_PROVIDER/NAME/BASE_URL/API_KEY 完整；"
-                    "请切换回 rule-engine。"
-                ),
+                status_code=503,
+                detail="研究模型暂不可用，请稍后重试。",
             )
 
         if runner.is_busy():
@@ -209,14 +206,13 @@ def create_app(settings: Settings | None = None, runner: ResearchRunner | None =
             run_id=run_id,
             case_id=case.case_id,
             mode="rule-engine",
-            llm_enabled=payload.llm_enabled,
+            llm_enabled=True,
         )
 
         started = runner.start(
             run_id=run_id,
             case_id=case.case_id,
             cutoff_date=payload.cutoff_date,
-            llm_enabled=payload.llm_enabled,
         )
         if not started:
             store.update_run(run_id, status="failed", error="并发冲突：已有任务启动")

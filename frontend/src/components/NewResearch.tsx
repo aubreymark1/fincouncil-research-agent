@@ -3,26 +3,24 @@ import type { CaseInfo, RunStatus } from "../types";
 
 interface NewResearchProps {
   cases: CaseInfo[];
-  llmAvailable: boolean;
+  modelAvailable: boolean;
   disabled: boolean;
   activeRun: RunStatus | null;
   onStart: (payload: {
     case_id: string;
     cutoff_date: string;
-    llm_enabled: boolean;
   }) => void;
 }
 
 export function NewResearch({
   cases,
-  llmAvailable,
+  modelAvailable,
   disabled,
   activeRun,
   onStart,
 }: NewResearchProps) {
   const [caseId, setCaseId] = useState("food_main");
   const [cutoffDate, setCutoffDate] = useState("2026-08-20");
-  const [llmEnabled, setLlmEnabled] = useState(false);
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.case_id === caseId) ?? cases[0],
@@ -44,7 +42,6 @@ export function NewResearch({
     onStart({
       case_id: caseId,
       cutoff_date: cutoffDate,
-      llm_enabled: llmAvailable && llmEnabled,
     });
   };
 
@@ -85,22 +82,17 @@ export function NewResearch({
           </small>
         </label>
 
-        <label className="field toggle-field">
-          <span className="toggle-label">
-            <span>AI 增强模式</span>
+        <div className={`model-status ${modelAvailable ? "ready" : "unavailable"}`} role="status">
+          <span className="model-status-mark" aria-hidden="true">{modelAvailable ? "✓" : "!"}</span>
+          <span>
+            <strong>本次研究固定使用 LLM</strong>
             <small className="muted">
-              {llmAvailable
-                ? "DeepSeek 演示环境已配置；失败时可切换回 rule-engine。"
-                : "未配置：当前仅可使用确定性 rule-engine。"}
+              {modelAvailable
+                ? "DeepSeek 负责分析与写作，时间锁、证据验证和质量检查由规则程序执行。"
+                : "研究模型暂不可用，模型恢复后才能开始研究。"}
             </small>
           </span>
-          <input
-            type="checkbox"
-            checked={llmAvailable && llmEnabled}
-            onChange={(event) => setLlmEnabled(event.target.checked)}
-            disabled={disabled || !llmAvailable}
-          />
-        </label>
+        </div>
 
         {activeRun && (activeRun.status === "queued" || activeRun.status === "running") && (
           <div className="notice">
@@ -108,8 +100,8 @@ export function NewResearch({
           </div>
         )}
 
-        <button className="start-button" type="submit" disabled={disabled}>
-          {disabled ? "研究运行中…" : "启动研究"}
+        <button className="start-button" type="submit" disabled={disabled || !modelAvailable}>
+          {disabled ? "研究运行中…" : modelAvailable ? "启动研究" : "模型暂不可用"}
         </button>
       </form>
     </div>

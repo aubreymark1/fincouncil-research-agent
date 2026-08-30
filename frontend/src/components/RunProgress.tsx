@@ -32,8 +32,7 @@ export function RunProgress({ run }: RunProgressProps) {
         </span>
       </div>
       <p className="muted">
-        {run.run_id} · {run.case_id} · rule-engine
-        {run.llm_enabled ? " + LLM 增强" : ""}
+        {run.run_id} · {run.case_id} · AI 研究 + 规则审查
       </p>
       <ol className="progress-steps">
         {STAGES.map((stage, index) => {

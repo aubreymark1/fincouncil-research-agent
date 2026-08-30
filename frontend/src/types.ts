@@ -35,7 +35,6 @@ export interface RunStatus {
 export interface CreateRunPayload {
   case_id: string;
   cutoff_date: string;
-  llm_enabled?: boolean;
 }
 
 export interface Evidence {

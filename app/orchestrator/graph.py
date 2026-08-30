@@ -478,7 +478,7 @@ def run_pipeline(
                 state.evidence,
                 tool_registry=tool_registry,
             )
-                if model_provider is not None and state.claims
+                if model_provider is not None and (state.claims or tool_registry is not None)
                 else None
             )
         except ModelProviderError as exc:

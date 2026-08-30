@@ -140,6 +140,23 @@ def _build_narrative(reportable: list[Claim]) -> list[NarrativeBlock]:
     return blocks
 
 
+def _build_empty_narrative() -> list[NarrativeBlock]:
+    return [
+        NarrativeBlock(
+            section="研究状态",
+            segments=[
+                NarrativeSegment(
+                    segment_id="SEG-EMPTY-REPORT",
+                    text="本次运行暂未形成可单独发布的结论，请结合证据索引和质量检查进行人工复核。",
+                    evidence_ids=[],
+                    claim_type="unresolved",
+                    status="review",
+                )
+            ],
+        )
+    ]
+
+
 def render_report(
     request: ResearchRequest,
     claims: list[Claim],
@@ -162,6 +179,8 @@ def render_report(
 
     reportable = _apply_issue_gating(claims, issues)
     narrative = narrative if narrative is not None else _build_narrative(reportable)
+    if not narrative and evidence:
+        narrative = _build_empty_narrative()
 
     body_claims = [
         claim
@@ -191,6 +210,16 @@ def render_report(
         for claim in reportable
         for evidence_id in claim.evidence_ids
     }
+    referenced_evidence_ids.update(
+        evidence_id
+        for block in narrative
+        for segment in block.segments
+        for evidence_id in segment.evidence_ids
+    )
+    if not referenced_evidence_ids:
+        referenced_evidence_ids = {
+            item.evidence_id for item in evidence if item.review_status == "verified"
+        }
     evidence_index = sorted(
         (
             item

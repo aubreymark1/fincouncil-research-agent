@@ -331,3 +331,13 @@ def test_render_markdown_marks_empty_sections_as_none() -> None:
     markdown = render_markdown(report)
 
     assert "- 无。" in markdown
+
+
+def test_empty_claims_keep_evidence_index_and_explain_review_state() -> None:
+    request = make_request()
+    evidence = [make_evidence()]
+    report = render_report(request, [], evidence, [])
+
+    assert report.evidence_index == evidence
+    assert report.narrative[0].segments[0].claim_type == "unresolved"
+    assert "未形成" in report.narrative[0].segments[0].text

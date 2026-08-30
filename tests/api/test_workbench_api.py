@@ -40,6 +40,11 @@ class FakeRunner:
         case_id: str,
         cutoff_date: Any,
         llm_enabled: bool = True,
+        source_mode: str = "verified_case",
+        subject: str | None = None,
+        ticker: str | None = None,
+        industry_id: str | None = None,
+        research_question: str | None = None,
     ) -> bool:
         if self.busy:
             return False
@@ -49,6 +54,11 @@ class FakeRunner:
                 "case_id": case_id,
                 "cutoff_date": cutoff_date,
                 "llm_enabled": llm_enabled,
+                "source_mode": source_mode,
+                "subject": subject,
+                "ticker": ticker,
+                "industry_id": industry_id,
+                "research_question": research_question,
             }
         )
         self.store.update_run(run_id, status="running", started_at=datetime.now(timezone.utc).isoformat())
@@ -338,3 +348,34 @@ def test_events_stream_returns_sse_records(app_env):
     assert response.headers["content-type"].startswith("text/event-stream")
     assert "event: run_event" in response.text
     assert '"sequence": 1' in response.text
+
+
+def test_online_research_accepts_subject_and_question(app_env):
+    client, _, runner, _ = app_env
+    response = client.post(
+        "/api/runs",
+        json={
+            "source_mode": "authoritative_online",
+            "subject": "贵州茅台",
+            "ticker": "600519",
+            "research_question": "分析收入质量和渠道库存",
+            "cutoff_date": "2026-08-20",
+        },
+    )
+    assert response.status_code == 202
+    body = response.json()
+    assert body["source_mode"] == "authoritative_online"
+    assert body["subject"] == "贵州茅台"
+    assert runner.started[0]["source_mode"] == "authoritative_online"
+
+
+def test_online_research_requires_subject_and_question(app_env):
+    client, _, _, _ = app_env
+    response = client.post(
+        "/api/runs",
+        json={
+            "source_mode": "authoritative_online",
+            "cutoff_date": "2026-08-20",
+        },
+    )
+    assert response.status_code == 422

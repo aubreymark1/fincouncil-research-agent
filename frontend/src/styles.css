@@ -248,6 +248,77 @@ code {
   margin-top: 18px;
 }
 
+.mode-switch {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+}
+
+.mode-switch button {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mode-switch button.active {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.model-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+
+.model-status.ready {
+  border-color: rgba(71, 209, 140, 0.25);
+}
+
+.model-status.unavailable {
+  border-color: rgba(255, 107, 120, 0.45);
+}
+
+.model-status-mark {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(71, 209, 140, 0.15);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.model-status.unavailable .model-status-mark {
+  background: rgba(255, 107, 120, 0.13);
+  color: var(--red);
+}
+
+.model-status > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-status small {
+  font-size: 12px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -259,13 +330,28 @@ code {
 }
 
 .field select,
-.field input[type="date"] {
+.field input[type="date"],
+.field input[type="text"],
+.field textarea {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
   width: 100%;
   max-width: 420px;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 82px;
+  line-height: 1.6;
+}
+
+.field select:focus-visible,
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid rgba(75, 141, 255, 0.6);
+  outline-offset: 1px;
 }
 
 .field small {
@@ -1370,6 +1456,23 @@ body {
 .activity-copy small {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+.activity-details {
+  margin-top: 4px;
+  color: #8594a5;
+  font-size: 11px;
+}
+
+.activity-details summary {
+  cursor: pointer;
+  color: #9ebeff;
+}
+
+.activity-details span {
+  display: block;
+  margin-top: 4px;
+  word-break: break-word;
 }
 
 .activity-copy p {

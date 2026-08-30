@@ -16,6 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .provider import ModelConfig, ModelProviderError
+from .tool_types import ToolCall, ToolDefinition, ToolTurn
 
 
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
@@ -80,3 +81,64 @@ def create_openai_compatible_transport() -> JsonTransport:
     """Return the OpenAI-compatible transport callable."""
 
     return openai_compatible_transport
+
+
+def openai_compatible_tool_transport(
+    messages: list[dict[str, Any]],
+    tools: list[ToolDefinition],
+    config: ModelConfig,
+) -> ToolTurn:
+    """Call a tool-capable OpenAI-compatible chat endpoint."""
+
+    if not config.api_key:
+        raise ModelProviderError(
+            "E300 module=model.transport: FINCOUNCIL_MODEL_API_KEY is not set"
+        )
+    base_url = (config.base_url or DEFAULT_BASE_URL).rstrip("/")
+    payload = {
+        "model": config.model_name,
+        "messages": messages,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.input_schema,
+                },
+            }
+            for tool in tools
+        ],
+        "tool_choice": "auto",
+        "temperature": config.temperature,
+    }
+    request = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {config.api_key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=config.timeout_seconds) as response:
+            decoded = json.loads(response.read().decode("utf-8"))
+        message = decoded["choices"][0]["message"]
+        raw_calls = message.get("tool_calls") or []
+        calls: list[ToolCall] = []
+        for raw_call in raw_calls:
+            function = raw_call["function"]
+            raw_arguments = function.get("arguments") or "{}"
+            arguments = json.loads(raw_arguments) if isinstance(raw_arguments, str) else raw_arguments
+            calls.append(ToolCall(id=raw_call["id"], name=function["name"], arguments=arguments))
+        return ToolTurn(content=message.get("content"), tool_calls=calls)
+    except urllib.error.HTTPError as exc:
+        raise ModelProviderError(
+            f"E300 module=model.transport: HTTP {exc.code} from {config.provider_name}"
+        ) from None
+    except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ModelProviderError(
+            f"E301 module=model.transport: invalid tool response ({type(exc).__name__})"
+        ) from None
+
+
+def create_openai_compatible_tool_transport() -> Callable[[list[dict[str, Any]], list[ToolDefinition], ModelConfig], ToolTurn]:
+    return openai_compatible_tool_transport

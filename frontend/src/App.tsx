@@ -15,6 +15,7 @@ import { RunActivity } from "./components/RunActivity";
 import { Sidebar } from "./components/Sidebar";
 import type {
   CaseInfo,
+  CreateRunPayload,
   Evidence,
   HealthResponse,
   ResearchReport,
@@ -58,10 +59,7 @@ export default function App() {
     void load();
   }, []);
 
-  const handleStart = async (payload: {
-    case_id: string;
-    cutoff_date: string;
-  }) => {
+  const handleStart = async (payload: CreateRunPayload) => {
     setError(null);
     setReport(null);
     setSelectedEvidence(null);

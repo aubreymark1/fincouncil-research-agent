@@ -27,12 +27,14 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from .cache import InMemoryCache, JsonFileCache, ModelCache, hash_cache_key, make_cache_key
+from .tool_types import ToolDefinition, ToolTurn
 
 
 MAX_RETRIES = 5
 DEFAULT_TEMPERATURE = 0.0
 
 JsonTransport = Callable[[str, "ModelConfig"], Any]
+ToolTransport = Callable[[list[dict[str, Any]], list[ToolDefinition], "ModelConfig"], Any]
 
 
 class ModelProviderError(RuntimeError):
@@ -157,11 +159,13 @@ class ModelProvider:
         config: ModelConfig | None = None,
         *,
         transport: JsonTransport | None = None,
+        tool_transport: ToolTransport | None = None,
         cache: ModelCache | None = None,
         sleep_fn: Callable[[float], None] = sleep,
     ) -> None:
         self.config = config or ModelConfig()
         self._transport = transport
+        self._tool_transport = tool_transport
         self._cache = cache
         self._sleep = sleep_fn
         self.last_cache_error: str | None = None
@@ -175,6 +179,10 @@ class ModelProvider:
     def has_cache(self) -> bool:
         """Return whether a model cache is configured."""
         return self.cache is not None
+
+    @property
+    def has_tool_transport(self) -> bool:
+        return self._tool_transport is not None
 
     @property
     def cache_version(self) -> str:
@@ -193,12 +201,14 @@ class ModelProvider:
         env: Mapping[str, str] | None = None,
         *,
         transport: JsonTransport | None = None,
+        tool_transport: ToolTransport | None = None,
         cache: ModelCache | None = None,
         sleep_fn: Callable[[float], None] = sleep,
     ) -> "ModelProvider":
         return cls(
             config=ModelConfig.from_env(env),
             transport=transport,
+            tool_transport=tool_transport,
             cache=cache,
             sleep_fn=sleep_fn,
         )
@@ -298,6 +308,68 @@ class ModelProvider:
             response_model=response_model,
             cache_key=cache_key,
         )
+
+    def run_with_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[ToolDefinition],
+        dispatcher: Callable[[str, dict[str, Any]], Any],
+        *,
+        response_model: type[BaseModel] | None = None,
+        max_tool_calls: int = 6,
+    ) -> dict[str, Any] | BaseModel:
+        """Run a bounded tool-calling conversation and validate its final JSON."""
+
+        if self._tool_transport is None:
+            raise ModelProviderError("E300 module=model: tool transport is not configured")
+        if max_tool_calls < 0:
+            raise ValueError("max_tool_calls must not be negative")
+        allowed_tools = {tool.name for tool in tools}
+        conversation = list(messages)
+        tool_calls_used = 0
+        while True:
+            raw_turn = self._tool_transport(conversation, tools, self.config)
+            turn = raw_turn if isinstance(raw_turn, ToolTurn) else ToolTurn.model_validate(raw_turn)
+            if turn.tool_calls:
+                if tool_calls_used + len(turn.tool_calls) > max_tool_calls:
+                    raise ModelProviderError("E300 module=model: tool call limit exceeded")
+                conversation.append({
+                    "role": "assistant",
+                    "content": turn.content,
+                    "tool_calls": [
+                        {
+                            "id": call.id,
+                            "type": "function",
+                            "function": {"name": call.name, "arguments": json.dumps(call.arguments, ensure_ascii=False)},
+                        }
+                        for call in turn.tool_calls
+                    ],
+                })
+                for call in turn.tool_calls:
+                    if call.name not in allowed_tools:
+                        raise ModelProviderError(f"E300 module=model: unknown tool {call.name!r}")
+                    try:
+                        result = dispatcher(call.name, call.arguments)
+                    except Exception as exc:  # noqa: BLE001 - hide tool internals from model errors
+                        raise ModelProviderError(
+                            f"E300 module=model: tool {call.name!r} failed ({type(exc).__name__})"
+                        ) from None
+                    conversation.append({
+                        "role": "tool",
+                        "tool_call_id": call.id,
+                        "content": json.dumps(result, ensure_ascii=False, default=str)[:32768],
+                    })
+                tool_calls_used += len(turn.tool_calls)
+                continue
+            if not turn.content:
+                raise ModelProviderError("E301 module=model: tool turn has no final content")
+            try:
+                payload = _as_json_object(turn.content)
+                return self._validate(payload, response_model)
+            except (TypeError, ValueError, ValidationError) as exc:
+                raise ModelProviderError(
+                    f"E301 module=model: final tool response could not be parsed ({type(exc).__name__})"
+                ) from None
 
     @staticmethod
     def _validate(

@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from app.model import ModelProvider
 from app.orchestrator import run_pipeline
+from app.retrieval.tool_registry import ToolRegistry
 from app.schemas import ResearchReport, ResearchRequest
 
 ProgressCallback = Callable[[str], None]
@@ -15,6 +16,7 @@ def run_research(
     request: ResearchRequest,
     *,
     model_provider: ModelProvider | None = None,
+    tool_registry: ToolRegistry | None = None,
     mode: str = "rule-engine",
     progress_callback: ProgressCallback | None = None,
 ) -> ResearchReport:
@@ -30,6 +32,7 @@ def run_research(
     state = run_pipeline(
         request,
         model_provider=model_provider,
+        tool_registry=tool_registry,
         mode=mode,
         progress_callback=progress_callback,
     )

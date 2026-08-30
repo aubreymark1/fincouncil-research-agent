@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CaseInfo, RunStatus } from "../types";
+import type { CaseInfo, CreateRunPayload, RunStatus } from "../types";
 
 interface NewResearchProps {
   cases: CaseInfo[];
   modelAvailable: boolean;
   disabled: boolean;
   activeRun: RunStatus | null;
-  onStart: (payload: {
-    case_id: string;
-    cutoff_date: string;
-  }) => void;
+  onStart: (payload: CreateRunPayload) => void;
 }
 
 export function NewResearch({
@@ -21,6 +18,11 @@ export function NewResearch({
 }: NewResearchProps) {
   const [caseId, setCaseId] = useState("food_main");
   const [cutoffDate, setCutoffDate] = useState("2026-08-20");
+  const [sourceMode, setSourceMode] = useState<CreateRunPayload["source_mode"]>("verified_case");
+  const [subject, setSubject] = useState("");
+  const [ticker, setTicker] = useState("");
+  const [industryId, setIndustryId] = useState("general");
+  const [researchQuestion, setResearchQuestion] = useState("分析经营变化、关键风险和需要进一步核验的指标");
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.case_id === caseId) ?? cases[0],
@@ -39,8 +41,16 @@ export function NewResearch({
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (sourceMode === "verified_case") {
+      onStart({ source_mode: sourceMode, case_id: caseId, cutoff_date: cutoffDate });
+      return;
+    }
     onStart({
-      case_id: caseId,
+      source_mode: sourceMode,
+      subject: subject.trim(),
+      ticker: ticker.trim() || undefined,
+      industry_id: industryId,
+      research_question: researchQuestion.trim(),
       cutoff_date: cutoffDate,
     });
   };
@@ -53,21 +63,44 @@ export function NewResearch({
       </div>
 
       <form onSubmit={submit} className="research-form">
-        <label className="field">
-          <span>研究对象 / 资料包</span>
-          <select
-            value={caseId}
-            onChange={(event) => setCaseId(event.target.value)}
-            disabled={disabled}
-          >
-            {cases.map((caseInfo) => (
-              <option key={caseInfo.case_id} value={caseInfo.case_id}>
-                {caseInfo.display_name}（{caseInfo.case_id}）
-              </option>
-            ))}
-          </select>
-          <small className="muted">{selectedCase.description}</small>
-        </label>
+        <div className="mode-switch" role="tablist" aria-label="研究来源模式">
+          <button type="button" role="tab" aria-selected={sourceMode === "verified_case"} className={sourceMode === "verified_case" ? "active" : ""} onClick={() => setSourceMode("verified_case")} disabled={disabled}>验证案例</button>
+          <button type="button" role="tab" aria-selected={sourceMode === "authoritative_online"} className={sourceMode === "authoritative_online" ? "active" : ""} onClick={() => setSourceMode("authoritative_online")} disabled={disabled}>权威在线研究</button>
+        </div>
+
+        {sourceMode === "verified_case" ? (
+          <label className="field">
+            <span>研究对象 / 资料包</span>
+            <select value={caseId} onChange={(event) => setCaseId(event.target.value)} disabled={disabled}>
+              {cases.map((caseInfo) => <option key={caseInfo.case_id} value={caseInfo.case_id}>{caseInfo.display_name}（{caseInfo.case_id}）</option>)}
+            </select>
+            <small className="muted">{selectedCase.description}</small>
+          </label>
+        ) : (
+          <>
+            <label className="field">
+              <span>公司名称</span>
+              <input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="例如：贵州茅台" disabled={disabled} required />
+            </label>
+            <label className="field">
+              <span>股票代码（可选）</span>
+              <input value={ticker} onChange={(event) => setTicker(event.target.value)} placeholder="例如：600519" disabled={disabled} inputMode="numeric" />
+            </label>
+            <label className="field">
+              <span>行业口径</span>
+              <select value={industryId} onChange={(event) => setIndustryId(event.target.value)} disabled={disabled}>
+                <option value="general">通用研究</option>
+                <option value="food_beverage">食品饮料</option>
+                <option value="banking">银行</option>
+              </select>
+              <small className="muted">行业配置会影响指标和风险检查。</small>
+            </label>
+            <label className="field">
+              <span>研究问题</span>
+              <textarea value={researchQuestion} onChange={(event) => setResearchQuestion(event.target.value)} disabled={disabled} required rows={3} />
+            </label>
+          </>
+        )}
 
         <label className="field">
           <span>研究截止日期</span>
@@ -100,7 +133,7 @@ export function NewResearch({
           </div>
         )}
 
-        <button className="start-button" type="submit" disabled={disabled || !modelAvailable}>
+        <button className="start-button" type="submit" disabled={disabled || !modelAvailable || (sourceMode === "authoritative_online" && !subject.trim())}>
           {disabled ? "研究运行中…" : modelAvailable ? "启动研究" : "模型暂不可用"}
         </button>
       </form>

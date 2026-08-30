@@ -65,6 +65,8 @@ export function RunActivity({ runId, active }: RunActivityProps) {
     };
   }, [runId, active]);
 
+  if (!active && events.length === 0 && !error) return null;
+
   return (
     <section className="panel activity-panel" aria-label="研究活动">
       <div className="section-heading">
@@ -92,6 +94,12 @@ export function RunActivity({ runId, active }: RunActivityProps) {
                   {new Date(event.occurred_at).toLocaleTimeString("zh-CN", { hour12: false })}
                   {event.duration_ms !== null ? ` · ${event.duration_ms} ms` : ""}
                 </small>
+                {Object.keys(event.public_details).length > 0 && (
+                  <details className="activity-details">
+                    <summary>查看公开详情</summary>
+                    <span>{Object.entries(event.public_details).map(([key, value]) => `${key}: ${value}`).join(" · ")}</span>
+                  </details>
+                )}
               </div>
             </li>
           ))}

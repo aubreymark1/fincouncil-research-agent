@@ -35,6 +35,7 @@ from app.ingestion.html_extractor import extract_html
 from app.ingestion.manifest import load_manifest, validate_manifest
 from app.ingestion.pdf_extractor import extract_pdf
 from app.model import ModelProvider, ModelProviderError
+from app.retrieval.tool_registry import ToolRegistry
 from app.schemas import (
     Claim,
     Evidence,
@@ -321,6 +322,7 @@ def run_pipeline(
     text_extractor: TextExtractor | None = None,
     industry_loader: IndustryLoader | None = None,
     model_provider: ModelProvider | None = None,
+    tool_registry: ToolRegistry | None = None,
     mode: str = "rule-engine",
     progress_callback: Callable[[str], None] | None = None,
 ) -> ResearchState:
@@ -472,9 +474,10 @@ def run_pipeline(
                 synthesize_narrative(
                     model_provider,
                     request,
-                    state.claims,
-                    state.evidence,
-                )
+                state.claims,
+                state.evidence,
+                tool_registry=tool_registry,
+            )
                 if model_provider is not None and state.claims
                 else None
             )

@@ -19,6 +19,11 @@ export interface RunStatus {
   status: "queued" | "running" | "success" | "failed";
   mode: string;
   llm_enabled: boolean;
+  source_mode: "verified_case" | "authoritative_online";
+  subject: string | null;
+  ticker: string | null;
+  industry_id: string | null;
+  research_question: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -48,7 +53,12 @@ export interface RunEvent {
 }
 
 export interface CreateRunPayload {
-  case_id: string;
+  source_mode: "verified_case" | "authoritative_online";
+  case_id?: string;
+  subject?: string;
+  ticker?: string;
+  industry_id?: string;
+  research_question?: string;
   cutoff_date: string;
 }
 

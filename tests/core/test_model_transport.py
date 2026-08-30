@@ -9,7 +9,7 @@ import urllib.request
 
 import pytest
 
-from app.model import ModelConfig, ModelProviderError, openai_compatible_transport
+from app.model import ModelConfig, ModelProviderError, ToolDefinition, openai_compatible_tool_transport, openai_compatible_transport
 
 
 class FakeResponse:
@@ -95,3 +95,36 @@ def test_openai_transport_rejects_missing_chat_content(monkeypatch) -> None:
             "x",
             ModelConfig(provider_name="openai", model_name="m", api_key="k"),
         )
+
+
+def test_openai_tool_transport_posts_tools_and_parses_tool_calls(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float | None = None):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return FakeResponse(json.dumps({
+            "choices": [{
+                "message": {
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {"name": "lookup", "arguments": '{"ticker": "600519"}'},
+                    }],
+                }
+            }]
+        }))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    result = openai_compatible_tool_transport(
+        [{"role": "user", "content": "lookup"}],
+        [ToolDefinition(name="lookup", description="look up", input_schema={"type": "object"})],
+        ModelConfig(provider_name="openai-test", model_name="gpt-test", api_key="secret", timeout_seconds=12),
+    )
+
+    assert result.tool_calls[0].name == "lookup"
+    assert result.tool_calls[0].arguments == {"ticker": "600519"}
+    body = json.loads(captured["request"].data.decode("utf-8"))
+    assert body["tool_choice"] == "auto"
+    assert body["tools"][0]["function"]["name"] == "lookup"

@@ -58,7 +58,9 @@ export function Sidebar({
                   onClick={() => onSelectRun(run.run_id)}
                 >
                   <span className="history-title">
-                    {run.case_id === "food_main"
+                    {run.source_mode === "authoritative_online"
+                      ? run.subject ?? run.case_id
+                      : run.case_id === "food_main"
                       ? "食品饮料行业样本"
                       : run.case_id === "bank_main"
                       ? "中国工商银行样本"

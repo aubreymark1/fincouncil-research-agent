@@ -16,11 +16,15 @@ from app.model import (
     JsonFileCache,
     ModelProvider,
     create_openai_compatible_transport,
+    create_openai_compatible_tool_transport,
 )
 
 from backend.cases import build_workbench_request
 from backend.config import Settings
 from backend.db import RunStore
+from app.retrieval.service import RetrievalService
+from app.retrieval.tool_registry import build_retrieval_registry
+from app.schemas import ResearchRequest, SearchQuery
 
 
 def _now_iso() -> str:
@@ -46,6 +50,11 @@ class ResearchRunner:
         run_id: str,
         case_id: str,
         cutoff_date: Any,
+        source_mode: str = "verified_case",
+        subject: str | None = None,
+        ticker: str | None = None,
+        industry_id: str | None = None,
+        research_question: str | None = None,
     ) -> bool:
         """Start a background task if no task is currently running."""
         with self._lock:
@@ -55,7 +64,7 @@ class ResearchRunner:
 
         thread = threading.Thread(
             target=self._execute,
-            args=(run_id, case_id, cutoff_date),
+            args=(run_id, case_id, cutoff_date, source_mode, subject, ticker, industry_id, research_question),
             name=f"research-{run_id}",
             daemon=True,
         )
@@ -67,6 +76,11 @@ class ResearchRunner:
         run_id: str,
         case_id: str,
         cutoff_date: Any,
+        source_mode: str,
+        subject: str | None,
+        ticker: str | None,
+        industry_id: str | None,
+        research_question: str | None,
     ) -> None:
         try:
             self._store.update_run(
@@ -83,18 +97,83 @@ class ResearchRunner:
                 status="running",
             )
 
-            request = build_workbench_request(
-                case_id,
-                cutoff_date,
-                run_id,
-                outputs_dir=self._settings.outputs_dir,
-            )
+            def on_tool_event(name: str, phase: str, details: dict[str, Any]) -> None:
+                if phase == "start":
+                    self._store.append_event(
+                        run_id,
+                        kind="tool_start",
+                        title=f"调用工具：{name}",
+                        summary="工具开始执行",
+                        tool_name=name,
+                        status="running",
+                    )
+                elif phase == "result":
+                    self._store.append_event(
+                        run_id,
+                        kind="tool_result",
+                        title=f"工具完成：{name}",
+                        summary="工具返回检索结果",
+                        tool_name=name,
+                        status="success",
+                        duration_ms=int(details.get("duration_ms", 0)),
+                        public_details={key: value for key, value in details.items() if key in {"count", "duration_ms"}},
+                    )
+                else:
+                    self._store.append_event(
+                        run_id,
+                        kind="error",
+                        title=f"工具失败：{name}",
+                        summary="工具执行失败",
+                        tool_name=name,
+                        status="failed",
+                        duration_ms=int(details.get("duration_ms", 0)),
+                        public_details={"reason": str(details.get("reason", "unknown"))},
+                    )
+
+            tool_registry = None
+            if source_mode == "verified_case":
+                request = build_workbench_request(
+                    case_id,
+                    cutoff_date,
+                    run_id,
+                    outputs_dir=self._settings.outputs_dir,
+                )
+            else:
+                if not subject or not research_question:
+                    raise ValueError("E500 module=workbench.runner: online research requires subject and question")
+                retrieval = RetrievalService(self._settings.outputs_dir)
+                query = SearchQuery(
+                    subject=subject,
+                    ticker=ticker,
+                    query=research_question,
+                    end_date=cutoff_date,
+                )
+                manifest_path, _ = retrieval.prepare_manifest(run_id, query)
+                tool_registry = build_retrieval_registry(
+                    retrieval,
+                    subject=subject,
+                    ticker=ticker,
+                    end_date=cutoff_date,
+                    default_query=research_question,
+                    event_callback=on_tool_event,
+                )
+                request = ResearchRequest(
+                    run_id=run_id,
+                    company_name=subject,
+                    ticker=ticker,
+                    industry_id=industry_id or "general",
+                    research_question=research_question,
+                    cutoff_date=cutoff_date,
+                    source_manifest_path=str(manifest_path),
+                    output_dir=str(self._settings.outputs_dir / "reports" / run_id),
+                )
 
             if not self._settings.llm_available():
                 raise ValueError("E300 module=workbench.runner: research model is unavailable")
             cache_path = self._settings.outputs_dir / "cache" / "model_cache.json"
             provider = ModelProvider.from_env(
                 transport=create_openai_compatible_transport(),
+                tool_transport=create_openai_compatible_tool_transport(),
                 cache=JsonFileCache(cache_path),
             )
 
@@ -111,6 +190,7 @@ class ResearchRunner:
             run_research(
                 request,
                 model_provider=provider,
+                tool_registry=tool_registry,
                 progress_callback=on_progress,
             )
 

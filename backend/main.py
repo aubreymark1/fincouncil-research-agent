@@ -8,13 +8,13 @@ import uuid
 from collections import defaultdict, deque
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.cases import get_workbench_case, list_workbench_cases
 from backend.config import Settings
@@ -42,8 +42,21 @@ class CaseInfo(BaseModel):
 class CreateRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    case_id: str = Field(min_length=1)
+    case_id: str | None = Field(default=None, min_length=1)
     cutoff_date: date
+    source_mode: Literal["verified_case", "authoritative_online"] = "verified_case"
+    subject: str | None = Field(default=None, min_length=1)
+    ticker: str | None = Field(default=None, min_length=1)
+    industry_id: str | None = Field(default=None, min_length=1)
+    research_question: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_mode_inputs(self) -> Self:
+        if self.source_mode == "verified_case" and not self.case_id:
+            raise ValueError("case_id is required for verified_case")
+        if self.source_mode == "authoritative_online" and (not self.subject or not self.research_question):
+            raise ValueError("subject and research_question are required for authoritative_online")
+        return self
 
 
 class RunStatus(BaseModel):
@@ -52,6 +65,11 @@ class RunStatus(BaseModel):
     status: Literal["queued", "running", "success", "failed"]
     mode: str
     llm_enabled: bool
+    source_mode: Literal["verified_case", "authoritative_online"] = "verified_case"
+    subject: str | None = None
+    ticker: str | None = None
+    industry_id: str | None = None
+    research_question: str | None = None
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -105,6 +123,11 @@ def _row_to_status(row: dict[str, Any]) -> RunStatus:
             "report_json": f"/api/runs/{run_id}/download/report.json",
             "report_md": f"/api/runs/{run_id}/download/report.md",
         },
+        source_mode=row.get("source_mode") or "verified_case",
+        subject=row.get("subject"),
+        ticker=row.get("ticker"),
+        industry_id=row.get("industry_id"),
+        research_question=row.get("research_question"),
     )
 
 
@@ -184,10 +207,12 @@ def create_app(settings: Settings | None = None, runner: ResearchRunner | None =
                 detail="请求过于频繁，请稍后再试（每 IP 每分钟有运行创建上限）。",
             )
 
-        try:
-            case = get_workbench_case(payload.case_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        case = None
+        if payload.source_mode == "verified_case":
+            try:
+                case = get_workbench_case(payload.case_id or "")
+            except ValueError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
 
         if not settings.llm_available():
             raise HTTPException(
@@ -202,17 +227,28 @@ def create_app(settings: Settings | None = None, runner: ResearchRunner | None =
             )
 
         run_id = f"RUN-WB-{uuid.uuid4().hex[:12].upper()}"
+        case_id = case.case_id if case is not None else f"online:{payload.ticker or payload.subject}"
         store.create_run(
             run_id=run_id,
-            case_id=case.case_id,
+            case_id=case_id,
             mode="rule-engine",
             llm_enabled=True,
+            source_mode=payload.source_mode,
+            subject=case.display_name if case is not None else payload.subject,
+            ticker=payload.ticker,
+            industry_id=payload.industry_id,
+            research_question=payload.research_question,
         )
 
         started = runner.start(
             run_id=run_id,
-            case_id=case.case_id,
+            case_id=case_id,
             cutoff_date=payload.cutoff_date,
+            source_mode=payload.source_mode,
+            subject=case.display_name if case is not None else payload.subject,
+            ticker=payload.ticker,
+            industry_id=payload.industry_id,
+            research_question=payload.research_question,
         )
         if not started:
             store.update_run(run_id, status="failed", error="并发冲突：已有任务启动")

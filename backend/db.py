@@ -49,6 +49,19 @@ class RunStore:
                 )
                 """
             )
+            existing_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(runs)").fetchall()
+            }
+            for column, definition in {
+                "source_mode": "TEXT NOT NULL DEFAULT 'verified_case'",
+                "subject": "TEXT",
+                "ticker": "TEXT",
+                "industry_id": "TEXT",
+                "research_question": "TEXT",
+            }.items():
+                if column not in existing_columns:
+                    conn.execute(f"ALTER TABLE runs ADD COLUMN {column} {definition}")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at DESC)"
             )
@@ -101,6 +114,11 @@ class RunStore:
         case_id: str,
         mode: str = "rule-engine",
         llm_enabled: bool = False,
+        source_mode: str = "verified_case",
+        subject: str | None = None,
+        ticker: str | None = None,
+        industry_id: str | None = None,
+        research_question: str | None = None,
     ) -> dict[str, Any]:
         with self._lock, self._connect() as conn:
             conn.execute(
@@ -108,8 +126,9 @@ class RunStore:
                 INSERT INTO runs (
                     run_id, case_id, status, mode, llm_enabled, created_at,
                     started_at, finished_at, error, report_path, markdown_path,
-                    metadata_path, stage, progress_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    metadata_path, stage, progress_json, source_mode, subject,
+                    ticker, industry_id, research_question
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -126,6 +145,11 @@ class RunStore:
                     None,
                     None,
                     "[]",
+                    source_mode,
+                    subject,
+                    ticker,
+                    industry_id,
+                    research_question,
                 ),
             )
             conn.commit()

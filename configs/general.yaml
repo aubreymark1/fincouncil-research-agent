@@ -1,0 +1,31 @@
+industry_id: general
+display_name: 通用研究
+
+required_metrics:
+  - metric_id: business_outlook
+    display_name: 经营变化
+    keywords:
+      - 营业
+      - 经营
+      - 风险
+    evidence_types:
+      - financial
+      - company_release
+      - news
+      - policy
+      - operating
+    required: false
+    evidence_requirement: single
+    missing_action: warn
+
+event_taxonomy: []
+risk_rules: []
+report_sections:
+  - 核心判断
+  - 风险与待确认
+retrieval_keywords:
+  - 年度报告
+  - 半年度报告
+  - 公告
+  - 经营
+  - 风险

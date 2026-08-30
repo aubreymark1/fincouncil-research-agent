@@ -1,110 +1,81 @@
-# FinCouncil 匿名体验版投研工作台部署文档
+# FinCouncil 匿名体验版部署说明
 
-> 部署目录固定为 `/opt/fincouncil`。  
-> 域名使用 sslip.io 自动 HTTPS，例如 `fincouncil.43-165-172-190.sslip.io`。
+本文档提供通用部署流程。请将服务器 IP、域名、API Key 和其他环境信息只保存在服务器控制台或 `.env` 中，不要提交到 Git。
 
-## 1. 前置条件
+## 前置条件
 
-- Ubuntu 服务器（已安装 Docker Engine + Docker Compose Plugin）；
-- 公网 IP，且安全组/防火墙放行 `80`、`443`；
-- 服务器可访问 `github.com` 或本仓库可被拷贝到 `/opt/fincouncil`；
-- 如启用 AI 增强模式，需要 DeepSeek API Key；
-- 不得修改服务器上 `/opt/fincouncil` 以外的文件，尤其不得触碰 `/opt/matrix_oj_clone`。
+- Ubuntu 服务器；
+- Docker Engine 和 Docker Compose Plugin；
+- 安全组/防火墙放行 `80`、`443`；
+- 服务器可以访问 GitHub 和模型服务；
+- 如启用 AI 增强，需要一个 OpenAI-compatible 模型服务和 API Key。
 
-## 2. 本地验证
+## 本地检查
 
 ```bash
-# 后端 API 测试
 python -m pytest tests/api tests/core -q
-
-# 前端 production build
 cd frontend && npm ci && npm run build && cd ..
-
-# 本地 Docker Compose 启动
-cp .env.example .env   # 按需修改 DEMO_HOST 和 API Key
-docker compose up -d --build
-curl http://localhost/api/health
 ```
 
-## 3. 服务器部署
+## 服务器部署
 
 ```bash
-# 3.1 创建部署目录并进入
 sudo mkdir -p /opt/fincouncil
-sudo chown $USER /opt/fincouncil
+sudo chown "$USER" /opt/fincouncil
 cd /opt/fincouncil
 
-# 3.2 获取代码（若服务器能访问 GitHub）
 git clone https://github.com/aubreymark1/fincouncil-research-agent.git .
-git checkout feature/anonymous-workbench-deploy
+git switch main
 
-# 3.3 创建 .env（服务器上人工填写）
 cp .env.example .env
-# 必须填写：
-#   DEMO_HOST=你的sslip域名
-#   如果启用 LLM：FINCOUNCIL_ENABLE_LLM_DEMO=true
-#   FINCOUNCIL_MODEL_API_KEY=你的DeepSeek Key
-#   FINCOUNCIL_MODEL_PROVIDER/NAME/BASE_URL 按默认即可
+# 编辑 .env：
+# DEMO_HOST=你的IP转换成短横线后的.sslip.io域名
+# FINCOUNCIL_ENABLE_LLM_DEMO=true
+# FINCOUNCIL_MODEL_API_KEY：只在服务器填写的真实 Key
 
-# 3.4 启动
 docker compose up -d --build
-
-# 3.5 验证
-curl -fsS https://${DEMO_HOST}/api/health
-curl -fsSI https://${DEMO_HOST} | head -n 1
-curl -fsS https://${DEMO_HOST}/api/cases
 ```
 
-## 4. HTTPS 证书失败处理
+## 验证
 
-Caddy 配置为自动 HTTPS。启动后必须执行：
+```bash
+curl -fsS "https://${DEMO_HOST}/api/health"
+curl -fsS "https://${DEMO_HOST}/api/cases"
+curl -fsSI "https://${DEMO_HOST}" | head -n 1
+docker compose ps
+```
+
+如果使用自定义域名，先把 DNS A 记录指向服务器，再等待 Caddy 自动申请 HTTPS 证书。证书失败时查看：
 
 ```bash
 docker compose logs caddy --tail 200
-curl -fsSI https://${DEMO_HOST} | head -n 1
 ```
 
-如果证书获取失败（例如 DNS 未指向本机、80/443 未放行、Caddy 日志出现 `certificate` 或 `HTTP-01` 错误），必须**停止并报告**，不能静默降级为 HTTP：
+不要把 HTTPS 静默降级为 HTTP；应先修复 DNS、端口或证书申请问题。
 
-```bash
-docker compose down
-```
+## 环境变量
 
-报告内容至少包含：端口检查、DNS 解析结果、Caddy 日志中的 HTTP-01 检查结果。
+必须按需配置：
 
-## 5. 回滚
+- `DEMO_HOST`：公开访问域名；
+- `FINCOUNCIL_ENABLE_LLM_DEMO`：是否启用 LLM；
+- `FINCOUNCIL_MODEL_PROVIDER`、`FINCOUNCIL_MODEL_NAME`、`FINCOUNCIL_MODEL_BASE_URL`：模型服务配置；
+- `FINCOUNCIL_MODEL_API_KEY`：服务器本地的模型 Key，不提交到 Git；
+- `FINCOUNCIL_MODEL_TIMEOUT_SECONDS`、`FINCOUNCIL_MODEL_MAX_RETRIES`：模型超时和重试。
+
+## 更新与回滚
 
 ```bash
 cd /opt/fincouncil
-# 备份当前部署（仅备份本目录内文件）
-ts=$(date +%Y%m%d-%H%M%S)
-cp docker-compose.yml docker-compose.yml.bak-$ts
-cp .env .env.bak-$ts
-# 回滚到上一个 git commit（不使用 rebase/force push）
-git checkout <上一个可用commit>
+git pull --ff-only origin main
 docker compose up -d --build
 ```
 
-如果镜像构建失败，可回退到上一份 `docker-compose.yml.bak-*`：
+更新前可以在服务器上备份 `docker-compose.yml` 和 `.env`。`.env` 只应保存在服务器本地，备份时注意访问权限。
 
-```bash
-cp docker-compose.yml.bak-<ts> docker-compose.yml
-docker compose up -d --build
-```
+## 运行边界
 
-## 6. 服务器 .env 需要人工填写的字段
-
-- `DEMO_HOST`
-- `FINCOUNCIL_ENABLE_LLM_DEMO`（只有需要 AI 增强才设 `true`）
-- `FINCOUNCIL_MODEL_API_KEY`（DeepSeek API Key，服务器上只存在 `.env`）
-
-其他字段有默认值，可按需调整。
-
-## 7. 产品边界提醒
-
-- 仅支持 `food_main`、`bank_main` 两个已验证资料包；
-- 不做任意公司实时大规模爬虫；
-- 不做登录、账户、多人协作、Redis、Celery、数据库集群；
-- 不做自动交易、目标价、真实账户；
-- 不暴露 API Key；
-- 不生成 Gold 未签收情况下的正式 E0–E3 分数。
+- 当前 MVP 只提供仓库中已配置的食品饮料和银行演示案例；
+- 不包含自动交易、真实账户、目标价和大规模实时爬虫；
+- 匿名体验版应配置限流，并禁止提交敏感资料；
+- 报告内容不构成投资建议。

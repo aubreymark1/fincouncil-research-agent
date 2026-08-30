@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -53,7 +53,35 @@ class NarrativeDraft(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    blocks: list[NarrativeBlock] = Field(min_length=1)
+    blocks: list[NarrativeBlock] = Field(default_factory=list)
+    # Compatibility with the response envelope used by the first online demo.
+    narrative: list[dict[str, Any]] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def normalize_legacy_blocks(self) -> Self:
+        if self.blocks or not self.narrative:
+            return self
+        blocks: list[NarrativeBlock] = []
+        for index, item in enumerate(self.narrative, start=1):
+            section = str(item.get("section") or "核心判断")
+            text = str(item.get("text") or "").strip()
+            evidence_ids = [str(value) for value in item.get("evidence_ids", [])]
+            if not text:
+                continue
+            claim_type = "risk" if "风险" in section and evidence_ids else "unresolved" if not evidence_ids else "analysis"
+            blocks.append(NarrativeBlock(
+                section=section,
+                segments=[NarrativeSegment(
+                    segment_id=f"SEG-LEGACY-{index:03d}",
+                    text=text,
+                    evidence_ids=evidence_ids,
+                    claim_type=claim_type,
+                    status="pass" if evidence_ids else "review",
+                )],
+            ))
+        self.blocks = blocks
+        return self
 
 
 class ResearchReport(BaseModel):

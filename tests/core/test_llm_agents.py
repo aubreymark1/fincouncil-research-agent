@@ -16,6 +16,7 @@ from app.agents import (
     run_critic_llm,
     synthesize_narrative,
 )
+from app.agents.llm import ClaimList
 from app.model import InMemoryCache, ModelConfig, ModelProvider, ModelProviderError
 from app.schemas import (
     Claim,
@@ -153,6 +154,40 @@ def test_synthesize_narrative_rejects_unknown_evidence_id() -> None:
 
     with pytest.raises(ModelProviderError, match="unknown evidence"):
         synthesize_narrative(make_provider(transport), make_request(), [], [make_evidence()])
+
+
+def test_claim_list_projects_legacy_narrative_when_claims_are_empty() -> None:
+    result = ClaimList.model_validate({
+        "narrative": [{
+            "section": "核心判断",
+            "text": "旧格式正文。",
+            "evidence_ids": ["EV-FOOD-001"],
+        }],
+        "claims": [],
+    })
+    assert len(result.claims) == 1
+    assert result.claims[0].text == "旧格式正文。"
+    assert result.claims[0].evidence_ids == ["EV-FOOD-001"]
+
+
+def test_synthesize_narrative_accepts_legacy_response_shape() -> None:
+    def transport(_prompt: str, _config: ModelConfig) -> dict:
+        return {
+            "narrative": [{
+                "section": "核心判断",
+                "text": "旧格式正文。",
+                "evidence_ids": ["EV-FOOD-001"],
+            }],
+            "claims": [],
+        }
+
+    blocks = synthesize_narrative(
+        make_provider(transport),
+        make_request(),
+        [],
+        [make_evidence()],
+    )
+    assert blocks[0].segments[0].text == "旧格式正文。"
 
 
 def test_llm_analysis_filters_pending_and_cross_industry_evidence() -> None:

@@ -20,11 +20,12 @@ The LLM path is intentionally defensive:
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from app.agents._helpers import scoped_verified_evidence
 from app.model import ModelProvider, ModelProviderError
@@ -47,10 +48,42 @@ _ANALYSIS_STATUSES = frozenset({"pass", "review"})
 MAX_PROMPT_EVIDENCE_CHARS = 120_000
 
 
+class LegacyNarrativeBlock(BaseModel):
+    section: str
+    text: str
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class ClaimList(BaseModel):
     """Structured LLM output for analysis nodes."""
 
     claims: list[Claim]
+    narrative: list[LegacyNarrativeBlock] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def project_legacy_narrative(self) -> "ClaimList":
+        if self.claims or not self.narrative:
+            return self
+        projected: list[Claim] = []
+        for block in self.narrative:
+            claim_type = "risk" if "风险" in block.section else "analysis"
+            status = "pass" if block.evidence_ids else "review"
+            if claim_type == "risk" and not block.evidence_ids:
+                claim_type = "unresolved"
+            digest = hashlib.sha1(f"{block.section}|{block.text}".encode("utf-8")).hexdigest()[:10].upper()
+            projected.append(Claim(
+                claim_id=f"CL-LEGACY-{digest}",
+                text=block.text,
+                claim_type=claim_type,
+                risk_severity="medium" if claim_type == "risk" else None,
+                evidence_ids=block.evidence_ids,
+                calculation=None,
+                confidence=0.5,
+                industry_metric_ids=[],
+                status=status,
+            ))
+        self.claims = projected
+        return self
 
 
 class ValidationIssueList(BaseModel):

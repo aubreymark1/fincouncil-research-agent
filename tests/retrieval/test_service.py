@@ -62,5 +62,5 @@ def test_service_caps_first_pass_documents(tmp_path: Path):
     query = SearchQuery(subject="测试", query="公告", end_date=date(2026, 8, 20))
     manifest_path, documents = service.prepare_manifest("RUN-WB-CAP", query)
 
-    assert len(documents) == 8
-    assert len(json.loads(manifest_path.read_text(encoding="utf-8"))) == 8
+    assert len(documents) == 4
+    assert len(json.loads(manifest_path.read_text(encoding="utf-8"))) == 4

@@ -46,7 +46,7 @@ class RetrievalService:
         seen_hashes: set[str] = set()
         # Keep the first pass within the existing extractor and LLM budgets.
         # Additional hits remain discoverable through the model tool loop.
-        for index, hit in enumerate(hits[:8], start=1):
+        for index, hit in enumerate(hits[:4], start=1):
             safe_name = f"DOC-ONLINE-{index:03d}.pdf"
             path = self.downloader(hit, raw_dir / safe_name)
             digest = hashlib.sha256(path.read_bytes()).hexdigest()

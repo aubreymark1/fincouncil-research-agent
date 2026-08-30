@@ -24,6 +24,7 @@ DEFAULT_MAX_TOTAL_EVIDENCE = 24
 DEFAULT_PER_METRIC = 2
 DEFAULT_PER_RISK = 2
 DEFAULT_NEWS_LIMIT = 4
+DEFAULT_MINIMAL_MAX_EVIDENCE = 24
 _PROMPT_VERSION_RE = re.compile(r"^\s*version:\s*(\S+)", re.MULTILINE)
 
 
@@ -123,6 +124,30 @@ def select_compact_evidence(
     remaining = [item for item in scoped if item.evidence_id not in selected_ids]
     add_ranked(remaining, max_total - len(selected), config.retrieval_keywords)
     return selected
+
+
+def select_minimal_evidence(
+    evidence: list[Evidence],
+    *,
+    max_total: int = DEFAULT_MINIMAL_MAX_EVIDENCE,
+) -> list[Evidence]:
+    """Bound an experiment prompt without applying industry verification.
+
+    E1/E2 intentionally receive raw pending evidence, including material that
+    the full system would later remove through time-lock or industry policy.
+    This selector only keeps the prompt small and deterministic.
+    """
+
+    if max_total < 1:
+        raise ValueError("minimal evidence limit must be positive")
+    return sorted(
+        evidence,
+        key=lambda item: (
+            -item.confidence,
+            -item.published_at.toordinal(),
+            item.evidence_id,
+        ),
+    )[:max_total]
 
 
 def compact_evidence_payload(evidence: list[Evidence]) -> list[dict[str, Any]]:
@@ -373,6 +398,14 @@ def get_compact_prompt_version() -> str:
     return match.group(1) if match else "unknown"
 
 
+def get_minimal_prompt_version() -> str:
+    from app.agents.llm import load_prompt
+
+    prompt = load_prompt("minimal_synthesis")
+    match = _PROMPT_VERSION_RE.search(prompt)
+    return match.group(1) if match else "unknown"
+
+
 def run_compact_analysis(
     provider: ModelProvider,
     request: ResearchRequest,
@@ -422,3 +455,33 @@ def run_compact_report(
             update={"narrative": _build_narrative_from_claims(result.claims)}
         )
     return result
+
+
+def run_minimal_narrative(
+    provider: ModelProvider,
+    request: ResearchRequest,
+    evidence: list[Evidence],
+    *,
+    config: IndustryConfig | None,
+    documents: list[SourceDocument],
+) -> list[ReportBlock]:
+    """Generate a small, comparable narrative for E1/E2/E3 experiments."""
+
+    selected = select_minimal_evidence(evidence)
+    context = {
+        "request": request.model_dump(mode="json"),
+        "evidence": compact_evidence_payload(selected),
+        "config": _compact_config_payload(config) if config is not None else None,
+        "documents": _document_payload(documents),
+    }
+    prompt = _build_prompt("minimal_synthesis", context=context)
+    result = provider.generate_json(prompt, response_model=CompactReportDraft)
+    if not isinstance(result, CompactReportDraft):
+        raise TypeError("E301 module=agents.compact: expected CompactReportDraft response")
+
+    narrative = _validate_narrative(result.narrative, selected)
+    if not narrative:
+        raise ModelProviderError(
+            "E301 module=agents.compact: minimal LLM output contained no narrative"
+        )
+    return narrative

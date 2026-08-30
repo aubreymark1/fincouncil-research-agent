@@ -401,10 +401,19 @@ run_research(
 ) -> ResearchReport
 ~~~
 
+受控实验可将 `llm_strategy` 设为 `minimal`：LLM 只返回带 Evidence ID 的
+`narrative` 正文段落，系统再执行统一来源校验；生产工作台仍使用既有
+`compact` 策略，正式 E0–E3 的结果必须记录实际策略和提示词版本。
+
 ### D 模块
 
 ~~~python
 evaluate_report(
+    report: ResearchReport,
+    gold_path: str
+) -> dict[str, float]
+
+evaluate_narrative(
     report: ResearchReport,
     gold_path: str
 ) -> dict[str, float]

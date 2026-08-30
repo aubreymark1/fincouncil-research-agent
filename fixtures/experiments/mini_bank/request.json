@@ -1,0 +1,11 @@
+{
+  "run_id": "RUN-MINI-BANK",
+  "company_name": "实验工商银行",
+  "ticker": "TEST.BANK",
+  "industry_id": "banking",
+  "cutoff_date": "2026-08-20",
+  "comparison_start": "2025-01-01",
+  "comparison_end": "2025-12-31",
+  "source_manifest_path": "fixtures/experiments/mini_bank/manifest.csv",
+  "output_dir": "outputs/experiments/mini_bank/RUN-MINI-BANK"
+}

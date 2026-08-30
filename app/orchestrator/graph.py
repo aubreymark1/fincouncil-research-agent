@@ -22,8 +22,14 @@ from app.agents import (
     render_report,
     run_critic,
     run_critic_llm,
+    run_narrative_critic,
 )
-from app.agents.compact import get_compact_prompt_version, run_compact_report
+from app.agents.compact import (
+    get_compact_prompt_version,
+    get_minimal_prompt_version,
+    run_compact_report,
+    run_minimal_narrative,
+)
 from app.agents.aggregation import run_analysis
 from app.agents.generic import build_raw_evidence, run_generic_analysis
 from app.industry.checklist import check_required_metrics
@@ -323,7 +329,9 @@ def run_pipeline(
     industry_loader: IndustryLoader | None = None,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
-    llm_strategy: Literal["full", "compact"] = "full",
+    llm_strategy: Literal["full", "compact", "minimal"] = "full",
+    time_lock_enabled: bool = True,
+    critic_enabled: bool = True,
     progress_callback: Callable[[str], None] | None = None,
 ) -> ResearchState:
     """Run the research pipeline over real B/C modules and persist outputs.
@@ -390,12 +398,22 @@ def run_pipeline(
         _emit("定位证据")
 
         try:
-            state.claims = run_generic_analysis(
-                model_provider,
-                request,
-                state.evidence,
-                config=state.config,
-            )
+            if llm_strategy == "minimal":
+                narrative = run_minimal_narrative(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    config=state.config,
+                    documents=state.documents,
+                )
+                state.claims = []
+            else:
+                state.claims = run_generic_analysis(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    config=state.config,
+                )
         except ModelProviderError as exc:
             _write_failed_metadata(request, started_at, exc, model_provider, mode)
             raise
@@ -407,15 +425,19 @@ def run_pipeline(
             state.claims,
             state.evidence,
             state.validation_issues,
+            narrative=narrative,
         )
     else:
         # rule-engine and E3 share the full formal chain. rule-engine may run
         # without a model provider; E3 is the full-system experiment mode and
         # therefore requires one (enforced above).
-        state.documents, time_lock_issues = apply_time_lock(
-            state.documents,
-            request.cutoff_date,
-        )
+        if time_lock_enabled:
+            state.documents, time_lock_issues = apply_time_lock(
+                state.documents,
+                request.cutoff_date,
+            )
+        else:
+            time_lock_issues = []
         state.validation_issues.extend(time_lock_issues)
         _emit("执行时间过滤")
 
@@ -435,12 +457,22 @@ def run_pipeline(
             located,
             state.documents,
             request=request,
+            enforce_cutoff=time_lock_enabled,
         )
         state.validation_issues.extend(policy_issues)
         _emit("定位证据")
 
         try:
-            if model_provider is not None and llm_strategy == "compact":
+            if model_provider is not None and llm_strategy == "minimal":
+                narrative = run_minimal_narrative(
+                    model_provider,
+                    request,
+                    state.evidence,
+                    config=state.config,
+                    documents=state.documents,
+                )
+                state.claims = []
+            elif model_provider is not None and llm_strategy == "compact":
                 compact_report = run_compact_report(
                     model_provider,
                     request,
@@ -467,18 +499,30 @@ def run_pipeline(
             ]
             state.validation_issues.extend(industry_issues)
 
-            critic_issues = run_critic(request, state.claims, state.evidence, state.config)
-            if model_provider is not None and llm_strategy == "full":
-                critic_issues = [
-                    *critic_issues,
-                    *run_critic_llm(
-                        model_provider,
-                        request,
-                        state.claims,
-                        state.evidence,
-                        state.config,
-                    ),
-                ]
+            critic_issues: list[ValidationIssue] = []
+            if critic_enabled:
+                critic_issues.extend(
+                    run_critic(request, state.claims, state.evidence, state.config)
+                )
+                if llm_strategy == "minimal":
+                    critic_issues.extend(
+                        run_narrative_critic(
+                            request,
+                            narrative,
+                            state.evidence,
+                            state.config,
+                        )
+                    )
+                if model_provider is not None and llm_strategy == "full":
+                    critic_issues.extend(
+                        run_critic_llm(
+                            model_provider,
+                            request,
+                            state.claims,
+                            state.evidence,
+                            state.config,
+                        )
+                    )
             state.validation_issues.extend(
                 _drop_duplicated_metric_issues(critic_issues, industry_issues)
             )
@@ -509,8 +553,15 @@ def run_pipeline(
         model_provider_name = model_provider.config.provider_name
         model_name = model_provider.config.model_name
         if mode in {"E1", "E2"}:
-            prompt_versions = {"generic": "v1"}
-            agents_version = "v1-generic"
+            if llm_strategy == "minimal":
+                prompt_versions = {"minimal_synthesis": get_minimal_prompt_version()}
+                agents_version = "v1-llm-minimal"
+            else:
+                prompt_versions = {"generic": "v1"}
+                agents_version = "v1-generic"
+        elif llm_strategy == "minimal":
+            prompt_versions = {"minimal_synthesis": get_minimal_prompt_version()}
+            agents_version = "v1-llm-minimal"
         elif llm_strategy == "compact":
             prompt_versions = {"synthesis": get_compact_prompt_version()}
             agents_version = "v1-llm-compact"

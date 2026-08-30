@@ -149,6 +149,20 @@ def test_post_cutoff_published_at_stays_pending_even_if_passed_in():
     assert resolved[0].review_status == "pending"
 
 
+def test_ablation_can_verify_post_cutoff_source_when_time_lock_is_disabled():
+    request = make_request()
+    late_doc = make_document("DOC-LATE-ABLATION", published_at=date(2026, 8, 25))
+
+    resolved, _ = apply_evidence_policy(
+        [make_evidence("EV-LATE-ABLATION", doc_id="DOC-LATE-ABLATION")],
+        [late_doc],
+        request=request,
+        enforce_cutoff=False,
+    )
+
+    assert resolved[0].review_status == "verified"
+
+
 def test_orphan_doc_reference_stays_pending():
     # Arrange
     request = make_request()

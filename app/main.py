@@ -17,7 +17,9 @@ def run_research(
     *,
     model_provider: ModelProvider | None = None,
     mode: str = "rule-engine",
-    llm_strategy: Literal["full", "compact"] = "full",
+    llm_strategy: Literal["full", "compact", "minimal"] = "full",
+    time_lock_enabled: bool = True,
+    critic_enabled: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> ResearchReport:
     """Run the research pipeline and return a validated report.
@@ -34,6 +36,8 @@ def run_research(
         model_provider=model_provider,
         mode=mode,
         llm_strategy=llm_strategy,
+        time_lock_enabled=time_lock_enabled,
+        critic_enabled=critic_enabled,
         progress_callback=progress_callback,
     )
     if state.report is None:  # pragma: no cover - defensive invariant check

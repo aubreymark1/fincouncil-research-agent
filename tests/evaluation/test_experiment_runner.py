@@ -456,6 +456,7 @@ class TestManualBaseline:
         experiment_dir = isolated_root / "outputs" / "experiments" / case_id / "E0"
         report = json.loads((experiment_dir / "report.json").read_text(encoding="utf-8"))
         assert report["summary"] == ["人工撰写的食品饮料简报"]
+        assert report["narrative"][0]["text"] == "人工撰写的食品饮料简报"
         assert report["report_version"] == "e0-manual-baseline"
         metadata = json.loads(
             (experiment_dir / "run_metadata.json").read_text(encoding="utf-8")

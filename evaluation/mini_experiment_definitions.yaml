@@ -1,0 +1,39 @@
+# 受控 mini_bank 实验定义。仅用于流程验证，不代表真实市场效果。
+schema_version: "1.0"
+
+cases:
+  - case_id: mini_bank
+    request_path: fixtures/experiments/mini_bank/request.json
+    gold_path: fixtures/evaluation/mini_bank_gold.json
+    enabled: true
+
+experiments:
+  E0:
+    name: manual_baseline
+    description: 人工基线；使用同一 mini_bank 资料包
+    run_command: null
+    enabled: true
+  E1:
+    name: generic_agent
+    description: 通用 Agent；仅用于受控流程验证
+    run_command: "{python} scripts/run_case.py --request {request_path} --mode E1 --llm --llm-strategy minimal"
+    enabled: true
+  E2:
+    name: industry_agent
+    description: 行业 Agent；仅用于受控流程验证
+    run_command: "{python} scripts/run_case.py --request {request_path} --mode E2 --llm --llm-strategy minimal"
+    enabled: true
+  E3:
+    name: full_system
+    description: 完整系统；仅用于受控流程验证
+    run_command: "{python} scripts/run_case.py --request {request_path} --mode E3 --llm --llm-strategy minimal"
+    enabled: true
+
+output:
+  root: outputs/experiments
+  files:
+    request: request.json
+    report: report.json
+    metadata: run_metadata.json
+    metrics: metrics.json
+    error: error.txt

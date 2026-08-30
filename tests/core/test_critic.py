@@ -6,8 +6,8 @@ import json
 from datetime import date
 from pathlib import Path
 
-from app.agents import run_critic
-from app.schemas import Claim, Evidence, IndustryConfig, ResearchRequest
+from app.agents import run_critic, run_narrative_critic
+from app.schemas import Claim, Evidence, IndustryConfig, ReportBlock, ResearchRequest
 
 
 ROOT = Path(__file__).parents[2]
@@ -80,6 +80,42 @@ def test_valid_pass_claim_produces_no_issues() -> None:
     issues = run_critic(request, claims, evidence, config)
 
     assert issues == []
+
+
+def test_narrative_critic_reports_unsourced_number() -> None:
+    request = make_request()
+    evidence = [make_evidence(fact_text="公司收入保持稳定。", quote="公司收入保持稳定。")]
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    narrative = [
+        ReportBlock(
+            section="核心判断",
+            text="公司收入增长 25%。",
+            evidence_ids=[evidence[0].evidence_id],
+        )
+    ]
+
+    issues = run_narrative_critic(request, narrative, evidence, config)
+
+    assert any(issue.issue_type == "narrative_unsourced_number" for issue in issues)
+
+
+def test_narrative_critic_reports_future_citation() -> None:
+    request = make_request(cutoff_date=date(2026, 8, 20))
+    evidence = [make_evidence(evidence_id="EV-LATE-001", published_at="2026-08-25")]
+    config = IndustryConfig.model_validate(load_fixture("food_config.json"))
+    narrative = [
+        ReportBlock(
+            section="核心判断",
+            text="资料显示收入增长。",
+            evidence_ids=["EV-LATE-001"],
+        )
+    ]
+
+    issues = run_narrative_critic(request, narrative, evidence, config)
+
+    cutoff = [issue for issue in issues if issue.issue_type == "narrative_cutoff_violation"]
+    assert len(cutoff) == 1
+    assert cutoff[0].evidence_id == "EV-LATE-001"
 
 
 def test_cutoff_violation_is_critical() -> None:

@@ -11,6 +11,7 @@ from app.agents.aggregation import run_analysis
 from app.agents.compact import (
     run_compact_analysis,
     run_compact_report,
+    run_minimal_narrative,
     select_compact_evidence,
 )
 from app.model import ModelConfig, ModelProvider, ModelProviderError
@@ -268,6 +269,32 @@ def test_compact_report_keeps_text_and_filters_unknown_narrative_sources() -> No
     )
 
     assert draft.narrative[0].evidence_ids == ["EV-COMPACT-001"]
+
+
+def test_minimal_narrative_accepts_pending_evidence_without_claim_schema() -> None:
+    provider = ModelProvider(
+        ModelConfig(max_retries=0),
+        transport=lambda _prompt, _config: {
+            "narrative": [
+                {
+                    "section": "核心判断",
+                    "text": "资料显示行业需求保持稳定。",
+                    "evidence_ids": ["EV-COMPACT-001"],
+                }
+            ]
+        },
+    )
+
+    narrative = run_minimal_narrative(
+        provider,
+        make_request(),
+        [make_evidence("EV-COMPACT-001", review_status="pending")],
+        config=None,
+        documents=[make_document()],
+    )
+
+    assert len(narrative) == 1
+    assert narrative[0].evidence_ids == ["EV-COMPACT-001"]
 
 
 def test_compact_report_builds_narrative_when_model_returns_claims_only() -> None:

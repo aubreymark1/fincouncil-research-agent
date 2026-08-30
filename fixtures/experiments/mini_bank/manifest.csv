@@ -1,0 +1,6 @@
+doc_id,title,source_type,publisher,source_url,local_path,published_at,event_date,retrieved_at,company_name,industry_id,trust_level,review_status
+DOC-MINI-BANK-001,实验工商银行2025年度报告,annual_report,实验工商银行,,fixtures/experiments/mini_bank/metrics.html,2026-03-28,2025-12-31,2026-08-29T09:00:00+08:00,实验工商银行,banking,5,formal
+DOC-MINI-BANK-002,实验工商银行经营风险说明,financial_note,实验工商银行,,fixtures/experiments/mini_bank/risk.html,2026-04-02,2025-12-31,2026-08-29T09:00:00+08:00,实验工商银行,banking,5,formal
+DOC-MINI-BANK-003,银行监管政策摘要,policy,实验监管机构,,fixtures/experiments/mini_bank/policy.html,2026-04-05,2026-04-05,2026-08-29T09:00:00+08:00,,banking,5,formal
+DOC-MINI-BANK-004,未来期间预测资料,news,实验财经媒体,,fixtures/experiments/mini_bank/future.html,2026-08-25,2026-08-25,2026-08-29T09:00:00+08:00,实验工商银行,banking,2,formal
+DOC-MINI-BANK-005,食品饮料行业资料,news,实验行业媒体,,fixtures/experiments/mini_bank/irrelevant.html,2026-04-06,2026-04-06,2026-08-29T09:00:00+08:00,实验食品公司,food_beverage,2,formal

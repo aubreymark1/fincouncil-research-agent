@@ -35,6 +35,22 @@ def main(argv: list[str] | None = None) -> int:
         default="rule-engine",
         help="Run mode: rule-engine (default), E1, E2, or E3 experiment mode",
     )
+    parser.add_argument(
+        "--llm-strategy",
+        choices=["full", "compact", "minimal"],
+        default="full",
+        help="LLM output strategy; minimal is the comparable narrative-only experiment path",
+    )
+    parser.add_argument(
+        "--disable-time-lock",
+        action="store_true",
+        help="Ablation only: allow post-cutoff documents into the E3 chain",
+    )
+    parser.add_argument(
+        "--disable-critic",
+        action="store_true",
+        help="Ablation only: skip deterministic and narrative Critic checks",
+    )
     args = parser.parse_args(argv)
 
     if args.mode in {"E1", "E2", "E3"} and not args.llm:
@@ -55,7 +71,17 @@ def main(argv: list[str] | None = None) -> int:
                 transport=create_openai_compatible_transport(),
                 cache=JsonFileCache(cache_path),
             )
-        report = run_research(request, model_provider=model_provider, mode=args.mode)
+        run_kwargs = {
+            "model_provider": model_provider,
+            "mode": args.mode,
+        }
+        if args.llm_strategy != "full":
+            run_kwargs["llm_strategy"] = args.llm_strategy
+        if args.disable_time_lock:
+            run_kwargs["time_lock_enabled"] = False
+        if args.disable_critic:
+            run_kwargs["critic_enabled"] = False
+        report = run_research(request, **run_kwargs)
     except ModelProviderError as exc:
         print(
             f"{exc}. file={args.request}. "

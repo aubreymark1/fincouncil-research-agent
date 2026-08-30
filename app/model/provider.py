@@ -125,6 +125,13 @@ def _strip_json_fence(text: str) -> str:
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         value = "\n".join(lines).strip()
+    # Some otherwise valid model responses prepend a short explanation or
+    # append a closing sentence. Extract the outer JSON object while leaving
+    # schema validation unchanged.
+    start = value.find("{")
+    end = value.rfind("}")
+    if start > 0 and end > start:
+        value = value[start : end + 1]
     return value
 
 

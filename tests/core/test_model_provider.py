@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.model import InMemoryCache, JsonFileCache, ModelConfig, ModelProvider, ModelProviderError
 from app.model.cache import CacheError
+from app.model.provider import _as_json_object
 
 
 class ExampleOutput(BaseModel):
@@ -190,6 +191,10 @@ def test_cache_write_failure_does_not_retry_or_discard_model_result() -> None:
     assert result.answer == "ok"
     assert len(attempts) == 1
     assert provider.last_cache_error == "cache write failed (error_type=OSError)"
+
+
+def test_json_response_with_leading_explanation_is_supported() -> None:
+    assert _as_json_object("下面是结果：\n{\"answer\": \"ok\"}\n以上。") == {"answer": "ok"}
 
 
 def test_cache_key_separates_model_providers() -> None:

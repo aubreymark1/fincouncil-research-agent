@@ -79,6 +79,14 @@ def test_blank_page_does_not_produce_empty_chunk(tmp_path: Path) -> None:
     assert chunks[0].page == 1
 
 
+def test_pdf_extractor_can_cap_pages(tmp_path: Path) -> None:
+    path = _write_pdf(tmp_path, "many_pages.pdf", pages_with_text=[True, True, True])
+
+    chunks = extract_pdf(_document(str(path)), max_pages=2)
+
+    assert [chunk.page for chunk in chunks] == [1, 2]
+
+
 def test_missing_file_raises_e100(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist.pdf"
 

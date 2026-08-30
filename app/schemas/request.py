@@ -19,6 +19,7 @@ class ResearchRequest(BaseModel):
     ticker: str | None = Field(default=None, min_length=1)
     industry_id: str = Field(min_length=1)
     research_question: str = Field(default="根据已验证资料生成研究初稿", min_length=1)
+    max_pages_per_document: int | None = Field(default=None, ge=1, le=1000)
     cutoff_date: date
     comparison_start: date | None = None
     comparison_end: date | None = None

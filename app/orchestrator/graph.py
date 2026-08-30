@@ -65,12 +65,12 @@ TextExtractor = Callable[[SourceDocument], list[TextChunk]]
 IndustryLoader = Callable[[str], IndustryConfig]
 
 
-def _extract_document_text(document: SourceDocument) -> list[TextChunk]:
+def _extract_document_text(document: SourceDocument, *, max_pages: int | None = None) -> list[TextChunk]:
     """Dispatch real extraction on the source file suffix."""
 
     suffix = Path(document.local_path).suffix.lower()
     if suffix == ".pdf":
-        return extract_pdf(document)
+        return extract_pdf(document, max_pages=max_pages)
     if suffix in {".html", ".htm"}:
         return extract_html(document)
     raise ValueError(
@@ -361,7 +361,12 @@ def run_pipeline(
     state.documents = _manifest_blocked_documents(state.documents, manifest_issues)
     _emit("校验资料清单")
 
-    extract_text = text_extractor or _extract_document_text
+    extract_text = text_extractor or (
+        lambda document: _extract_document_text(
+            document,
+            max_pages=request.max_pages_per_document,
+        )
+    )
 
     if mode in {"E1", "E2"}:
         # E1/E2 intentionally skip the formal time-lock and evidence chain.

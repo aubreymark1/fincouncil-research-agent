@@ -57,7 +57,7 @@ def _resolve(local_path: str) -> Path:
     return path
 
 
-def extract_pdf(document: SourceDocument) -> list[TextChunk]:
+def extract_pdf(document: SourceDocument, *, max_pages: int | None = None) -> list[TextChunk]:
     """Extract one TextChunk per non-blank page of ``document``.
 
     Raises :class:`PdfExtractionError` when the file is missing, cannot be
@@ -105,7 +105,8 @@ def extract_pdf(document: SourceDocument) -> list[TextChunk]:
         ) from exc
 
     chunks: list[TextChunk] = []
-    for page_index, page in enumerate(pages, start=1):
+    selected_pages = pages if max_pages is None else pages[:max(max_pages, 1)]
+    for page_index, page in enumerate(selected_pages, start=1):
         try:
             text = (page.extract_text() or "").strip()
         except PyPdfError as exc:

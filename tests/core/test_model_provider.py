@@ -18,6 +18,10 @@ class ExampleOutput(BaseModel):
     answer: str
 
 
+class ClaimList(BaseModel):
+    claims: list[dict] = []
+
+
 def test_model_config_reads_environment_and_bounds_retries() -> None:
     config = ModelConfig.from_env(
         {
@@ -196,6 +200,11 @@ def test_cache_write_failure_does_not_retry_or_discard_model_result() -> None:
 def test_json_response_with_leading_explanation_is_supported() -> None:
     assert _as_json_object("下面是结果：\n{\"answer\": \"ok\"}\n以上。") == {"answer": "ok"}
     assert _as_json_object("说明 {\"answer\": \"ok\"} 另一个对象 {\"ignored\": true}") == {"answer": "ok"}
+
+
+def test_empty_array_is_coerced_for_claim_envelope() -> None:
+    provider = ModelProvider(ModelConfig(max_retries=0), transport=lambda _prompt, _config: "[]")
+    assert provider.generate_json("return claims", response_model=ClaimList).claims == []
 
 
 def test_cache_key_separates_model_providers() -> None:

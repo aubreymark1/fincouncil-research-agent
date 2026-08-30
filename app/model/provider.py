@@ -159,6 +159,27 @@ def _as_json_object(raw: Any) -> dict[str, Any]:
     return payload
 
 
+def _as_response_payload(raw: Any, response_model: type[BaseModel] | None) -> dict[str, Any]:
+    """Normalize the two list envelopes occasionally emitted by models."""
+
+    try:
+        return _as_json_object(raw)
+    except ValueError:
+        if not isinstance(raw, str) or response_model is None:
+            raise
+        parsed = json.loads(_strip_json_fence(raw))
+        if isinstance(parsed, list):
+            key_by_model = {
+                "ClaimList": "claims",
+                "ValidationIssueList": "issues",
+                "NarrativeDraft": "blocks",
+            }
+            key = key_by_model.get(response_model.__name__)
+            if key is not None:
+                return {key: parsed}
+        raise
+
+
 def _to_jsonable(value: Any) -> Any:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
@@ -288,7 +309,7 @@ class ModelProvider:
                 continue
 
             try:
-                payload = _as_json_object(raw)
+                payload = _as_response_payload(raw, response_model)
                 result = self._validate(payload, response_model)
             except (TypeError, ValueError, ValidationError) as exc:
                 if attempt == attempts - 1:

@@ -48,7 +48,7 @@ class ToolRegistry:
         return result
 
 
-def build_retrieval_registry(service: Any, *, subject: str, ticker: str | None, end_date: date, default_query: str, event_callback: Callable[[str, str, dict[str, Any]], None] | None = None) -> ToolRegistry:
+def build_retrieval_registry(service: Any, *, subject: str, ticker: str | None, industry_id: str | None = None, end_date: date, default_query: str, event_callback: Callable[[str, str, dict[str, Any]], None] | None = None) -> ToolRegistry:
     """Create the small, allowlisted tool set exposed to the research LLM."""
 
     registry = ToolRegistry(event_callback=event_callback)
@@ -77,6 +77,7 @@ def build_retrieval_registry(service: Any, *, subject: str, ticker: str | None, 
                 SearchQuery(
                     subject=subject,
                     ticker=arguments.get("ticker") or ticker,
+                    industry_id=industry_id,
                     query=str(arguments["query"]),
                     end_date=end_date,
                 )
@@ -97,7 +98,7 @@ def build_retrieval_registry(service: Any, *, subject: str, ticker: str | None, 
         lambda arguments: [
             hit.model_dump(mode="json")
             for hit in service.connector.search_filings(
-                SearchQuery(subject=subject, query=str(arguments["query"]), end_date=end_date, categories=["regulation"])
+                SearchQuery(subject=subject, industry_id=industry_id, query=str(arguments["query"]), end_date=end_date, categories=["regulation"])
             )
             if hit.source_type == "regulation"
         ][:10],

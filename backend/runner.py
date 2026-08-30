@@ -145,6 +145,7 @@ class ResearchRunner:
                 query = SearchQuery(
                     subject=subject,
                     ticker=ticker,
+                    industry_id=industry_id or "general",
                     query=research_question,
                     end_date=cutoff_date,
                 )
@@ -153,6 +154,7 @@ class ResearchRunner:
                     retrieval,
                     subject=subject,
                     ticker=ticker,
+                    industry_id=industry_id or "general",
                     end_date=cutoff_date,
                     default_query=research_question,
                     event_callback=on_tool_event,

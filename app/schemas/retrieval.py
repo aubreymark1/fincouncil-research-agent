@@ -13,6 +13,7 @@ class SearchQuery(BaseModel):
 
     subject: str = Field(min_length=1)
     ticker: str | None = Field(default=None, min_length=1)
+    industry_id: str | None = Field(default=None, min_length=1)
     query: str = Field(min_length=1)
     start_date: date | None = None
     end_date: date

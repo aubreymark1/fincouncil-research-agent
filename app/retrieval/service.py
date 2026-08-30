@@ -73,6 +73,7 @@ class RetrievalService:
                 "event_date": hit.published_at.isoformat(),
                 "retrieved_at": downloaded_at.isoformat(),
                 "company_name": query.subject,
+                "industry_id": query.industry_id,
                 "trust_level": 5,
                 "review_status": "formal",
             })

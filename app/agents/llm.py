@@ -23,6 +23,7 @@ import json
 import hashlib
 import re
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
@@ -57,12 +58,26 @@ class LegacyNarrativeBlock(BaseModel):
 class ClaimList(BaseModel):
     """Structured LLM output for analysis nodes."""
 
-    claims: list[Claim]
+    claims: Any = Field(default_factory=list)
     narrative: list[LegacyNarrativeBlock] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def project_legacy_narrative(self) -> "ClaimList":
-        if self.claims or not self.narrative:
+        raw_claims = self.claims if isinstance(self.claims, list) else []
+        valid_claims: list[Claim] = []
+        for item in raw_claims:
+            if isinstance(item, Claim):
+                valid_claims.append(item)
+            elif isinstance(item, Mapping):
+                try:
+                    valid_claims.append(Claim.model_validate(item))
+                except ValidationError:
+                    continue
+        if valid_claims:
+            self.claims = valid_claims
+            return self
+        if not self.narrative:
+            self.claims = []
             return self
         projected: list[Claim] = []
         for block in self.narrative:

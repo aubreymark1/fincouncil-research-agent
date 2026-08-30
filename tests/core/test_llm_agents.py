@@ -152,8 +152,7 @@ def test_synthesize_narrative_rejects_unknown_evidence_id() -> None:
             }],
         }
 
-    with pytest.raises(ModelProviderError, match="unknown evidence"):
-        synthesize_narrative(make_provider(transport), make_request(), [], [make_evidence()])
+    assert synthesize_narrative(make_provider(transport), make_request(), [], [make_evidence()]) == []
 
 
 def test_claim_list_projects_legacy_narrative_when_claims_are_empty() -> None:

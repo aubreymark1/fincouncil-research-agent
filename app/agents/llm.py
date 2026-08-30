@@ -133,15 +133,16 @@ def _validate_narrative_evidence(
         for item in evidence
         if item.review_status == "verified"
     }
+    cleaned: list[NarrativeBlock] = []
     for block in blocks:
-        for segment in block.segments:
-            unknown = set(segment.evidence_ids) - allowed
-            if unknown:
-                raise ModelProviderError(
-                    "E301 module=agents.llm: unknown evidence IDs in narrative "
-                    f"({', '.join(sorted(unknown))})"
-                )
-    return blocks
+        valid_segments = [
+            segment
+            for segment in block.segments
+            if not (set(segment.evidence_ids) - allowed)
+        ]
+        if valid_segments:
+            cleaned.append(block.model_copy(update={"segments": valid_segments}))
+    return cleaned
 
 
 def synthesize_narrative(

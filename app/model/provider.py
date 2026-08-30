@@ -278,9 +278,13 @@ class ModelProvider:
                 result = self._validate(payload, response_model)
             except (TypeError, ValueError, ValidationError) as exc:
                 if attempt == attempts - 1:
+                    detail = type(exc).__name__
+                    if isinstance(exc, ValidationError):
+                        fields = sorted({".".join(str(part) for part in error.get("loc", ())) for error in exc.errors()})
+                        detail = f"{detail}; fields={','.join(fields[:8])}"
                     raise ModelProviderError(
                         f"E301 module=model: output could not be parsed after {attempts} attempts "
-                        f"(error_type={type(exc).__name__})"
+                        f"(error_type={detail})"
                     ) from None
                 self._sleep(0)
                 continue

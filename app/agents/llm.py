@@ -104,7 +104,22 @@ class ClaimList(BaseModel):
 class ValidationIssueList(BaseModel):
     """Structured LLM output for the industry Critic node."""
 
-    issues: list[ValidationIssue]
+    issues: Any = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def keep_valid_issues(self) -> "ValidationIssueList":
+        raw_issues = self.issues if isinstance(self.issues, list) else []
+        valid: list[ValidationIssue] = []
+        for item in raw_issues:
+            if isinstance(item, ValidationIssue):
+                valid.append(item)
+            elif isinstance(item, Mapping):
+                try:
+                    valid.append(ValidationIssue.model_validate(item))
+                except ValidationError:
+                    continue
+        self.issues = valid
+        return self
 
 
 def _validate_narrative_evidence(

@@ -86,6 +86,8 @@ def synthesize_narrative(
     request: ResearchRequest,
     claims: list[Claim],
     evidence: list[Evidence],
+    *,
+    tool_registry: Any | None = None,
 ) -> list[NarrativeBlock]:
     """Ask the LLM to organize claims into sentence-level cited prose."""
 
@@ -94,11 +96,21 @@ def synthesize_narrative(
         "claims": [claim.model_dump(mode="json") for claim in claims],
         "evidence": _evidence_payload(evidence),
     }
-    result = provider.generate_json(
-        _build_prompt("synthesis", context=context),
-        response_model=NarrativeDraft,
-        cache_key=f"narrative:{request.run_id}",
-    )
+    prompt = _build_prompt("synthesis", context=context)
+    if tool_registry is not None and getattr(provider, "has_tool_transport", False):
+        result = provider.run_with_tools(
+            [{"role": "user", "content": prompt}],
+            tool_registry.definitions(),
+            tool_registry.dispatch,
+            response_model=NarrativeDraft,
+            max_tool_calls=6,
+        )
+    else:
+        result = provider.generate_json(
+            prompt,
+            response_model=NarrativeDraft,
+            cache_key=f"narrative:{request.run_id}",
+        )
     if not isinstance(result, NarrativeDraft):
         raise TypeError("E301 module=agents.llm: expected NarrativeDraft response")
     return _validate_narrative_evidence(result.blocks, evidence)

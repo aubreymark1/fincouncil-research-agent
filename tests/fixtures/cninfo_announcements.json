@@ -1,0 +1,20 @@
+{
+  "announcements": [
+    {
+      "announcementTitle": "贵州茅台2025年年度报告",
+      "announcementTime": "2026-04-17",
+      "adjunctUrl": "finalpage/2026-04-17/1225114741.PDF",
+      "secName": "贵州茅台",
+      "secCode": "600519",
+      "announcementType": "年度报告"
+    },
+    {
+      "announcementTitle": "贵州茅台2025年第一季度报告",
+      "announcementTime": 1776384000000,
+      "adjunctUrl": "/finalpage/2026-04-17/1225114742.PDF",
+      "secName": "贵州茅台",
+      "secCode": "600519",
+      "announcementType": "季度报告"
+    }
+  ]
+}

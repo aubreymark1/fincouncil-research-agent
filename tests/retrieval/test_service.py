@@ -36,3 +36,31 @@ def test_service_writes_manifest_with_required_source_fields(tmp_path: Path):
     assert records[0]["review_status"] == "formal"
     assert records[0]["trust_level"] == 5
     assert load_manifest(str(manifest_path))[0].doc_id == "DOC-ONLINE-001"
+
+
+def test_service_caps_first_pass_documents(tmp_path: Path):
+    hits = [
+        SearchHit(
+            title=f"公告 {index}",
+            source_url=f"https://static.cninfo.com.cn/finalpage/{index}.pdf",
+            publisher="巨潮资讯",
+            published_at=date(2026, 4, 17),
+            source_type="announcement",
+        )
+        for index in range(12)
+    ]
+
+    def download(hit, destination: Path) -> Path:
+        destination.write_bytes(hit.title.encode("utf-8"))
+        return destination
+
+    service = RetrievalService(
+        tmp_path,
+        connector=type("Connector", (), {"search_filings": lambda self, query: hits})(),
+        downloader=download,
+    )
+    query = SearchQuery(subject="测试", query="公告", end_date=date(2026, 8, 20))
+    manifest_path, documents = service.prepare_manifest("RUN-WB-CAP", query)
+
+    assert len(documents) == 8
+    assert len(json.loads(manifest_path.read_text(encoding="utf-8"))) == 8

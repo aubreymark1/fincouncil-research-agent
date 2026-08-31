@@ -88,7 +88,7 @@ class ModelConfig:
     temperature: float = DEFAULT_TEMPERATURE
     max_retries: int = 2
     timeout_seconds: float = 120.0
-    max_tokens: int = 4096
+    max_tokens: int = 8192
 
     def __post_init__(self) -> None:
         if not self.provider_name:
@@ -127,7 +127,7 @@ class ModelConfig:
                 "FINCOUNCIL_MODEL_TIMEOUT_SECONDS",
                 120.0,
             ),
-            max_tokens=_parse_int(values, "FINCOUNCIL_MODEL_MAX_TOKENS", 4096),
+            max_tokens=_parse_int(values, "FINCOUNCIL_MODEL_MAX_TOKENS", 8192),
         )
 
 

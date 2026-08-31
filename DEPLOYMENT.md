@@ -133,7 +133,7 @@ docker compose up -d --build
 - `FINCOUNCIL_ENABLE_LLM_DEMO`（只有需要 AI 增强才设 `true`）
 - `FINCOUNCIL_MODEL_API_KEY`（DeepSeek API Key，服务器上只存在 `.env`）
 - `FINCOUNCIL_MODEL_TIMEOUT_SECONDS`（默认 120 秒，避免研究上下文较大时过早超时）
-- `FINCOUNCIL_MODEL_MAX_TOKENS`（默认 4096，限制单次输出规模）
+- `FINCOUNCIL_MODEL_MAX_TOKENS`（默认 8192，为推理和结构化正文保留足够输出空间）
 
 其他字段有默认值，可按需调整。
 

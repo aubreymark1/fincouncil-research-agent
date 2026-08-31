@@ -71,7 +71,19 @@ def openai_compatible_transport(prompt: str, config: ModelConfig) -> str:
 
     try:
         decoded = json.loads(raw)
-        return decoded["choices"][0]["message"]["content"]
+        choice = decoded["choices"][0]
+        message = choice["message"]
+        content = message.get("content")
+        if not isinstance(content, str) or not content.strip():
+            reasoning = message.get("reasoning_content")
+            reasoning_chars = len(reasoning) if isinstance(reasoning, str) else 0
+            completion_tokens = (decoded.get("usage") or {}).get("completion_tokens", "unknown")
+            raise ModelProviderError(
+                "E301 module=model.transport: empty chat content "
+                f"(finish_reason={choice.get('finish_reason', 'unknown')}; "
+                f"reasoning_chars={reasoning_chars}; completion_tokens={completion_tokens})"
+            )
+        return content
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
         raise ModelProviderError(
             "E301 module=model.transport: response missing chat content"

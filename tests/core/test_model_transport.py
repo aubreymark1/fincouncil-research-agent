@@ -98,6 +98,26 @@ def test_openai_transport_rejects_missing_chat_content(monkeypatch) -> None:
         )
 
 
+def test_openai_transport_reports_empty_content_token_exhaustion(monkeypatch) -> None:
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda _request, **kwargs: FakeResponse(json.dumps({
+            "choices": [{
+                "finish_reason": "length",
+                "message": {"content": "", "reasoning_content": "r" * 4096},
+            }],
+            "usage": {"completion_tokens": 4096},
+        })),
+    )
+
+    with pytest.raises(ModelProviderError, match=r"finish_reason=length.*reasoning_chars=4096.*completion_tokens=4096"):
+        openai_compatible_transport(
+            "x",
+            ModelConfig(provider_name="openai", model_name="m", api_key="k"),
+        )
+
+
 def test_openai_tool_transport_posts_tools_and_parses_tool_calls(monkeypatch) -> None:
     captured: dict[str, object] = {}
 

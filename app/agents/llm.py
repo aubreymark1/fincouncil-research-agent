@@ -46,7 +46,7 @@ PROMPTS_ROOT = Path(__file__).resolve().parents[2] / "prompts"
 _PROMPT_VERSION_RE = re.compile(r"^\s*version:\s*(\S+)", re.MULTILINE)
 _NEWS_POLICY_TYPES = frozenset({"news", "policy", "company_release"})
 _ANALYSIS_STATUSES = frozenset({"pass", "review"})
-MAX_PROMPT_EVIDENCE_CHARS = 120_000
+MAX_PROMPT_EVIDENCE_CHARS = 30_000
 
 
 class LegacyNarrativeBlock(BaseModel):
@@ -566,8 +566,14 @@ def _run_claim_node_single(
     if documents is not None:
         context["documents"] = [document.model_dump(mode="json") for document in documents]
 
+    prompt = _build_prompt(prompt_name, context=context)
+    prompt += (
+        "\n## 批次输出限制\n"
+        "每个批次最多输出 12 条 Claim；优先覆盖不同指标并合并重复证据，"
+        "不要逐条复述 Evidence。\n"
+    )
     result = provider.generate_json(
-        _build_prompt(prompt_name, context=context),
+        prompt,
         response_model=ClaimList,
     )
     if not isinstance(result, ClaimList):

@@ -109,6 +109,7 @@ def test_analyze_fundamentals_llm_uses_provider_and_returns_claims() -> None:
     assert claims[0].claim_id == "CL-LLM-001"
     assert "基本面分析提示词" in captured[0]
     assert "示例食品公司" in captured[0]
+    assert "每个批次最多输出 12 条 Claim" in captured[0]
 
 
 def test_synthesize_narrative_returns_sentence_level_evidence() -> None:

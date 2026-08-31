@@ -900,6 +900,7 @@ body {
 .brand {
   padding: 0 7px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .brand-mark {
@@ -912,6 +913,28 @@ body {
 .brand-name {
   font-size: 16px;
   letter-spacing: -0.02em;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .primary-action {
@@ -1720,4 +1743,93 @@ body {
   .decision-grid {
     grid-template-columns: 1fr;
   }
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f5f7;
+  --bg-elevated: #e9edf1;
+  --bg-panel: #ffffff;
+  --bg-hover: #e7edf3;
+  --border: #cbd5df;
+  --text: #17212b;
+  --text-muted: #5d6b78;
+  --accent: #1769d1;
+  --accent-soft: rgba(23, 105, 209, 0.11);
+  --green: #168653;
+  --amber: #a66000;
+  --red: #c9364d;
+  --shadow: 0 12px 32px rgba(39, 55, 70, 0.12);
+}
+
+[data-theme="light"] body,
+[data-theme="light"] .app-shell {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme="light"] .sidebar {
+  background: #e9edf1;
+  border-right-color: #cbd5df;
+}
+
+[data-theme="light"] .panel,
+[data-theme="light"] .stat-card {
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="light"] .summary-panel,
+[data-theme="light"] .activity-panel {
+  background: #f7f9fb;
+}
+
+[data-theme="light"] .investment-panel {
+  background: #f1f6fc;
+}
+
+[data-theme="light"] code {
+  background: rgba(23, 33, 43, 0.07);
+}
+
+[data-theme="light"] .citation-popover,
+[data-theme="light"] .citation-popover::before {
+  border-color: #b9c5d1;
+  background: #ffffff;
+  color: var(--text);
+}
+
+[data-theme="light"] .citation-popover::before {
+  border-top-color: #b9c5d1;
+  border-left-color: #b9c5d1;
+}
+
+[data-theme="light"] .citation-popover-source,
+[data-theme="light"] .citation-popover-quote {
+  color: var(--text);
+}
+
+[data-theme="light"] .citation-popover-meta,
+[data-theme="light"] .citation-more,
+[data-theme="light"] .activity-title-row span,
+[data-theme="light"] .activity-copy small {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .evidence-drawer {
+  background: #ffffff;
+  border-left-color: #cbd5df;
+}
+
+[data-theme="light"] .evidence-detail .quote {
+  background: #f4f7fa;
+  border-color: #d5dde5;
+}
+
+[data-theme="light"] .activity-item {
+  border-bottom-color: rgba(23, 33, 43, 0.1);
+}
+
+[data-theme="light"] .narrative-prose {
+  color: #243443;
 }

@@ -21,6 +21,7 @@ import type {
   ResearchReport,
   RunStatus,
 } from "./types";
+import { getInitialTheme, nextTheme, type Theme } from "./theme";
 
 export default function App() {
   const [cases, setCases] = useState<CaseInfo[]>([]);
@@ -31,6 +32,17 @@ export default function App() {
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => {
+    const browserWindow = typeof window === "undefined" ? null : window;
+    const prefersLight = browserWindow?.matchMedia("(prefers-color-scheme: light)").matches ?? false;
+    return getInitialTheme(browserWindow?.localStorage ?? { getItem: () => null }, prefersLight);
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem("fincouncil-theme", theme);
+  }, [theme]);
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -139,6 +151,8 @@ export default function App() {
         activeRunId={activeRun?.run_id ?? null}
         onNew={handleNew}
         onSelectRun={handleSelectRun}
+        theme={theme}
+        onToggleTheme={() => setTheme((current) => nextTheme(current))}
       />
 
       <main className="main-content">

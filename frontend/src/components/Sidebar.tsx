@@ -1,4 +1,5 @@
 import type { CaseInfo, RunStatus } from "../types";
+import type { Theme } from "../theme";
 
 interface SidebarProps {
   cases: CaseInfo[];
@@ -6,6 +7,8 @@ interface SidebarProps {
   activeRunId: string | null;
   onNew: () => void;
   onSelectRun: (runId: string) => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
 function statusLabel(status: RunStatus["status"]): string {
@@ -27,6 +30,8 @@ export function Sidebar({
   activeRunId,
   onNew,
   onSelectRun,
+  theme,
+  onToggleTheme,
 }: SidebarProps) {
   return (
     <aside className="sidebar">
@@ -36,6 +41,17 @@ export function Sidebar({
           <div className="brand-name">FinCouncil</div>
           <div className="brand-sub">匿名体验版投研工作台</div>
         </div>
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={onToggleTheme}
+          aria-label={theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"}
+          aria-pressed={theme === "light"}
+          title={theme === "dark" ? "切换到白天模式" : "切换到黑夜模式"}
+        >
+          <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>
+          <span>{theme === "dark" ? "白天" : "黑夜"}</span>
+        </button>
       </div>
 
       <button className="primary-action" onClick={onNew} type="button">

@@ -112,6 +112,19 @@ def test_analyze_fundamentals_llm_uses_provider_and_returns_claims() -> None:
     assert "每个批次最多输出 12 条 Claim" in captured[0]
 
 
+def test_analyze_fundamentals_discards_invalid_claim_without_name_error() -> None:
+    provider = make_provider(lambda _prompt, _config: {"claims": [{"bad": "shape"}]})
+
+    claims = analyze_fundamentals_llm(
+        provider,
+        make_request(),
+        [make_evidence()],
+        make_config(),
+    )
+
+    assert claims == []
+
+
 def test_synthesize_narrative_returns_sentence_level_evidence() -> None:
     def transport(prompt: str, _config: ModelConfig) -> dict:
         assert "句子" in prompt

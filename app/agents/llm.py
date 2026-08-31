@@ -26,7 +26,7 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from app.agents._helpers import scoped_verified_evidence
 from app.model import ModelProvider, ModelProviderError

@@ -2,6 +2,8 @@
 
 岭院商业策划比赛项目：证据链与行业适配的 A 股投研 Agent。
 
+> [在线体验 FinCouncil 投研工作台](https://fincouncil.43-165-172-190.sslip.io/)
+
 ## 匿名体验版投研工作台
 
 - 前端：`frontend/`（React + TypeScript + Vite）

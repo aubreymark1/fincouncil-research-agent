@@ -27,6 +27,7 @@ export function RunActivity({ runId, active }: RunActivityProps) {
     let cancelled = false;
     let source: EventSource | null = null;
     let timer: number | undefined;
+    let fallbackStarted = false;
 
     const append = (next: RunEvent[]) => {
       if (!cancelled) {
@@ -46,15 +47,21 @@ export function RunActivity({ runId, active }: RunActivityProps) {
 
     void poll();
     if (active) {
-      timer = window.setInterval(() => void poll(), 2000);
       try {
         source = new EventSource(`/api/runs/${encodeURIComponent(runId)}/events/stream`);
         source.addEventListener("run_event", (event) => {
           append([JSON.parse((event as MessageEvent).data) as RunEvent]);
         });
-        source.onerror = () => source?.close();
+        source.onerror = () => {
+          source?.close();
+          if (!fallbackStarted && !cancelled) {
+            fallbackStarted = true;
+            timer = window.setInterval(() => void poll(), 2500);
+          }
+        };
       } catch {
-        // Polling remains the supported fallback when EventSource is unavailable.
+        fallbackStarted = true;
+        timer = window.setInterval(() => void poll(), 2500);
       }
     }
 
@@ -94,10 +101,10 @@ export function RunActivity({ runId, active }: RunActivityProps) {
                   {new Date(event.occurred_at).toLocaleTimeString("zh-CN", { hour12: false })}
                   {event.duration_ms !== null ? ` · ${event.duration_ms} ms` : ""}
                 </small>
-                {Object.keys(event.public_details).length > 0 && (
+                {(event.kind === "tool_start" || event.kind === "tool_result" || Object.keys(event.public_details).length > 0) && (
                   <details className="activity-details">
-                    <summary>查看公开详情</summary>
-                    <span>{Object.entries(event.public_details).map(([key, value]) => `${key}: ${value}`).join(" · ")}</span>
+                    <summary>{event.kind === "tool_start" ? "展开工具调用" : "查看公开详情"}</summary>
+                    <span>{Object.entries(event.public_details).filter(([key]) => key !== "tool_call_id").map(([key, value]) => `${key}: ${value}`).join(" · ") || "暂无公开参数"}</span>
                   </details>
                 )}
               </div>

@@ -114,6 +114,10 @@ class TextChunk(BaseModel):
 class Evidence(BaseModel):
     evidence_id: str
     doc_id: str
+    source_title: str | None
+    publisher: str | None
+    source_url: str | None
+    source_type: str | None
     chunk_id: str
     fact_text: str
     quote: str
@@ -260,6 +264,7 @@ class ResearchReport(BaseModel):
     cutoff_date: date
     summary: list[str]
     claims: list[Claim]
+    investment_view: InvestmentDecisionSupport | None
     risks: list[Claim]
     unresolved_items: list[Claim]
     evidence_index: list[Evidence]
@@ -267,6 +272,16 @@ class ResearchReport(BaseModel):
     generated_at: datetime
     report_version: str
 ~~~
+
+RunEvent tool records use an optional stable `tool_call_id` shared by the
+`tool_start` and `tool_result` events so clients can render one collapsible
+activity row. Legacy events without this field remain valid.
+
+InvestmentDecisionSupport is an evidence-bounded action frame. It may state
+whether the current evidence supports further tracking, but it must not invent
+target prices, position sizes, or buy/sell instructions when valuation data is
+unavailable. The view records horizon, thesis, risks, entry/invalidation
+conditions, data gaps, valuation status, and confidence.
 
 输出文件：
 

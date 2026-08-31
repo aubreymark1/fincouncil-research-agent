@@ -12,7 +12,7 @@ interface ReportViewProps {
 function sourceSummary(evidence: Evidence | undefined): string {
   if (!evidence) return "缺失来源";
   const page = evidence.page ? `第 ${evidence.page} 页` : "页码未提供";
-  return `${evidence.doc_id} · ${page}`;
+  return `${evidence.source_title ?? evidence.doc_id} · ${page}`;
 }
 
 function SourceChips({
@@ -41,7 +41,7 @@ function SourceChips({
             className="source-chip"
             onClick={() => onSelectEvidence(evidence)}
             title="点击查看原文证据"
-            aria-label={`查看 ${evidence.evidence_id} 原文证据`}
+            aria-label={`查看 ${evidence.source_title ?? evidence.evidence_id} 原文证据`}
           >
             <span aria-hidden="true">↗</span> {sourceSummary(evidence)}
           </button>
@@ -261,6 +261,25 @@ export function ReportView({ report, onSelectEvidence }: ReportViewProps) {
           <li>证据索引包含 <strong>{report.evidence_index.length} 条</strong>已定位来源，时间锁截止于 {report.cutoff_date}。</li>
         </ul>
       </section>
+
+      {report.investment_view && (
+        <section className="panel investment-panel" aria-label="投资决策支持">
+          <div className="section-heading">
+            <div>
+              <div className="section-kicker">投资决策支持</div>
+              <h2>{report.investment_view.stance}</h2>
+            </div>
+            <span className="section-note">基于当前证据，不构成自动交易指令</span>
+          </div>
+          <p className="investment-horizon">研究期限：{report.investment_view.horizon}</p>
+          <div className="decision-grid">
+            <div><strong>核心依据</strong><ul>{(report.investment_view.thesis.length ? report.investment_view.thesis : ["暂无通过校验的核心依据"]).map((item) => <li key={item}>{item}</li>)}</ul></div>
+            <div><strong>进入条件</strong><ul>{report.investment_view.entry_conditions.map((item) => <li key={item}>{item}</li>)}</ul></div>
+            <div><strong>失效条件</strong><ul>{report.investment_view.invalidation_conditions.map((item) => <li key={item}>{item}</li>)}</ul></div>
+            <div><strong>数据缺口</strong><ul>{report.investment_view.data_gaps.map((item) => <li key={item}>{item}</li>)}</ul></div>
+          </div>
+        </section>
+      )}
 
       <section className="panel evidence-index-panel">
         <div className="section-heading">

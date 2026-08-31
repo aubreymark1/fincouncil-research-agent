@@ -21,6 +21,7 @@ def test_run_events_are_ordered_and_public_details_are_allowlisted(tmp_path):
         title="检索公告",
         summary="开始检索",
         tool_name="search_company_filings",
+        tool_call_id="CALL-SEARCH-001",
         public_details={"query": "600519"},
     )
     second = store.append_event(
@@ -29,6 +30,7 @@ def test_run_events_are_ordered_and_public_details_are_allowlisted(tmp_path):
         title="检索完成",
         summary="找到 4 份资料",
         tool_name="search_company_filings",
+        tool_call_id="CALL-SEARCH-001",
         status="success",
         duration_ms=840,
         public_details={"count": 4},
@@ -37,6 +39,7 @@ def test_run_events_are_ordered_and_public_details_are_allowlisted(tmp_path):
     events = store.list_events("RUN-WB-EVENTS", after_sequence=0)
     assert [event["sequence"] for event in events] == [first["sequence"], second["sequence"]]
     assert events[1]["duration_ms"] == 840
+    assert events[0]["tool_call_id"] == "CALL-SEARCH-001"
     assert "api_key" not in str(events)
 
 

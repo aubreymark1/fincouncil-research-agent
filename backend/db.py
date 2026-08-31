@@ -74,6 +74,7 @@ class RunStore:
                     occurred_at TEXT NOT NULL,
                     kind TEXT NOT NULL,
                     tool_name TEXT,
+                    tool_call_id TEXT,
                     title TEXT NOT NULL,
                     summary TEXT NOT NULL,
                     status TEXT NOT NULL,
@@ -88,6 +89,9 @@ class RunStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_run_events_run_sequence ON run_events(run_id, sequence)"
             )
+            event_columns = {row["name"] for row in conn.execute("PRAGMA table_info(run_events)").fetchall()}
+            if "tool_call_id" not in event_columns:
+                conn.execute("ALTER TABLE run_events ADD COLUMN tool_call_id TEXT")
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -223,6 +227,7 @@ class RunStore:
         title: str,
         summary: str,
         tool_name: str | None = None,
+        tool_call_id: str | None = None,
         status: str = "running",
         duration_ms: int | None = None,
         source_ids: list[str] | None = None,
@@ -247,6 +252,7 @@ class RunStore:
                 occurred_at=datetime.now(timezone.utc),
                 kind=kind,  # type: ignore[arg-type]
                 tool_name=tool_name,
+                tool_call_id=tool_call_id,
                 title=title,
                 summary=summary,
                 status=status,  # type: ignore[arg-type]
@@ -259,9 +265,9 @@ class RunStore:
                 """
                 INSERT INTO run_events (
                     event_id, run_id, sequence, occurred_at, kind, tool_name,
-                    title, summary, status, duration_ms, source_ids_json,
+                    tool_call_id, title, summary, status, duration_ms, source_ids_json,
                     public_details_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload["event_id"],
@@ -270,6 +276,7 @@ class RunStore:
                     payload["occurred_at"],
                     payload["kind"],
                     payload["tool_name"],
+                    payload["tool_call_id"],
                     payload["title"],
                     payload["summary"],
                     payload["status"],
@@ -298,6 +305,7 @@ class RunStore:
                 occurred_at=row["occurred_at"],
                 kind=row["kind"],
                 tool_name=row["tool_name"],
+                tool_call_id=row["tool_call_id"],
                 title=row["title"],
                 summary=row["summary"],
                 status=row["status"],

@@ -206,7 +206,7 @@ def _build_prompt(prompt_name: str, *, context: dict[str, Any]) -> str:
 
 
 def _evidence_payload(evidence: list[Evidence]) -> list[dict[str, Any]]:
-    return [item.model_dump(mode="json") for item in evidence]
+    return [item.model_dump(mode="json", exclude_none=True) for item in evidence]
 
 
 def _evidence_text(item: Evidence) -> str:
@@ -274,7 +274,7 @@ def _budget_evidence(
     selected: list[Evidence] = []
     total_chars = 0
     for item in evidence:
-        serialized = json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
+        serialized = json.dumps(item.model_dump(mode="json", exclude_none=True), ensure_ascii=False)
         item_chars = len(serialized)
         if total_chars + item_chars > limit:
             if not selected:
@@ -300,7 +300,7 @@ def _split_evidence_batches(
     current: list[Evidence] = []
     total_chars = 0
     for item in evidence:
-        serialized = json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
+        serialized = json.dumps(item.model_dump(mode="json", exclude_none=True), ensure_ascii=False)
         item_chars = len(serialized)
         if item_chars > limit:
             raise ModelProviderError(

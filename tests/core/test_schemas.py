@@ -94,6 +94,50 @@ def test_all_public_schemas_are_importable_and_fixtures_validate() -> None:
     assert report.run_id == metadata.run_id
 
 
+def test_investment_decision_support_is_structured_and_bounded() -> None:
+    report = ResearchReport.model_validate({
+        **load_fixture("report.json"),
+        "investment_view": {
+            "stance": "当前证据不足",
+            "horizon": "中长期",
+            "thesis": ["现金流仍需继续核验"],
+            "catalysts": [],
+            "risks": ["估值数据未接入"],
+            "entry_conditions": ["补齐估值数据"],
+            "invalidation_conditions": ["核心现金流恶化"],
+            "data_gaps": ["实时价格"],
+            "valuation_status": "not_available",
+            "confidence": 0.4,
+        },
+    })
+    assert report.investment_view is not None
+    assert report.investment_view.valuation_status == "not_available"
+
+
+def test_evidence_accepts_human_readable_source_metadata() -> None:
+    evidence = Evidence.model_validate({
+        "evidence_id": "EV-SOURCE-001",
+        "doc_id": "DOC-SOURCE-001",
+        "source_title": "贵州茅台2026年半年度报告",
+        "publisher": "贵州茅台酒股份有限公司",
+        "source_url": "https://example.com/report.pdf",
+        "source_type": "interim_report",
+        "chunk_id": "CHUNK-SOURCE-001",
+        "fact_text": "收入增长。",
+        "quote": "收入增长。",
+        "published_at": "2026-08-20",
+        "page": 5,
+        "section": "经营情况",
+        "locator": "第5页",
+        "company_name": "贵州茅台",
+        "industry_id": "food_beverage",
+        "evidence_type": "financial",
+        "confidence": 0.9,
+        "review_status": "verified",
+    })
+    assert evidence.source_title == "贵州茅台2026年半年度报告"
+
+
 def test_request_rejects_invalid_comparison_range_and_output_dir() -> None:
     payload = load_fixture("research_request.json")
     payload["comparison_start"] = "2026-01-01"

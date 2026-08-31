@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 ALLOWED_PUBLIC_DETAIL_KEYS = frozenset({
     "query",
     "count",
+    "first_title",
     "document_count",
     "evidence_count",
     "excluded_count",
@@ -31,6 +32,7 @@ class RunEvent(BaseModel):
     occurred_at: datetime
     kind: Literal["stage", "tool_start", "tool_result", "warning", "error"]
     tool_name: str | None = None
+    tool_call_id: str | None = Field(default=None, pattern=r"^CALL-[A-Za-z0-9][A-Za-z0-9._-]*$")
     title: str = Field(min_length=1, max_length=120)
     summary: str = Field(min_length=1, max_length=500)
     status: Literal["running", "success", "warning", "failed"] = "running"

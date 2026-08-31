@@ -170,6 +170,8 @@ def test_render_report_uses_a008_version_and_metadata_summary() -> None:
     assert report.company_name == request.company_name
     assert any("正文结论" in item for item in report.summary)
     assert any("证据索引" in item for item in report.summary)
+    assert report.investment_view is not None
+    assert report.investment_view.valuation_status == "not_available"
 
 
 def test_render_markdown_contains_sections_and_excludes_rejected_claims() -> None:

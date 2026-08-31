@@ -35,6 +35,10 @@ export function EvidenceDrawer({ evidence, onClose }: EvidenceDrawerProps) {
         </div>
 
         <dl className="evidence-detail">
+          <dt>来源标题</dt>
+          <dd>{evidence.source_title ?? "未提供"}</dd>
+          <dt>发布机构</dt>
+          <dd>{evidence.publisher ?? "未提供"}</dd>
           <dt>Evidence ID</dt>
           <dd>
             <code>{evidence.evidence_id}</code>
@@ -53,6 +57,12 @@ export function EvidenceDrawer({ evidence, onClose }: EvidenceDrawerProps) {
           <dd>{evidence.page ?? "未提供"}</dd>
           <dt>章节</dt>
           <dd>{evidence.section ?? "未提供"}</dd>
+          {evidence.source_url && (
+            <>
+              <dt>原始文件</dt>
+              <dd><a href={evidence.source_url} target="_blank" rel="noreferrer">打开原始来源</a></dd>
+            </>
+          )}
         <dt>审核状态</dt>
         <dd>
           <span className={`review-badge ${evidence.review_status}`}>

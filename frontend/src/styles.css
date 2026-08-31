@@ -12,7 +12,7 @@
   --green: #22c55e;
   --amber: #f59e0b;
   --red: #ef4444;
-  --radius: 12px;
+  --radius: 6px;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
@@ -816,6 +816,21 @@ code {
   }
 }
 
+@keyframes citationIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-3px) scale(0.98); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes activityIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes detailsIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -861,7 +876,7 @@ code {
   --green: #47d18c;
   --amber: #f6b73c;
   --red: #ff6b78;
-  --radius: 18px;
+  --radius: 6px;
   --shadow: 0 18px 55px rgba(0, 0, 0, 0.28);
 }
 
@@ -1162,6 +1177,7 @@ body {
   font-size: 12px;
   line-height: 1.5;
   text-align: left;
+  animation: citationIn 0.16s ease-out;
 }
 
 .citation-popover::before {
@@ -1242,6 +1258,37 @@ body {
   background: #0e1318;
 }
 
+.investment-panel {
+  background: #101821;
+  border-left: 3px solid var(--accent);
+}
+
+.investment-horizon {
+  margin: 0 0 16px;
+  color: #c6d2df;
+}
+
+.decision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 24px;
+}
+
+.decision-grid > div {
+  min-width: 0;
+}
+
+.decision-grid strong {
+  color: #dce7f3;
+  font-size: 13px;
+}
+
+.decision-grid ul {
+  margin: 7px 0 0;
+  padding-left: 19px;
+  color: #aebdcc;
+}
+
 .summary-list {
   display: grid;
   gap: 10px;
@@ -1270,12 +1317,14 @@ body {
   border-radius: 10px;
   background: transparent;
   cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
 }
 
 .evidence-index-item:hover,
 .evidence-index-item:focus-visible {
   background: var(--bg-hover);
   border-color: #344352;
+  transform: translateY(-1px);
 }
 
 .evidence-index-icon {
@@ -1410,6 +1459,7 @@ body {
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  animation: activityIn 0.18s ease-out both;
 }
 
 .activity-item:last-child {
@@ -1467,6 +1517,10 @@ body {
 .activity-details summary {
   cursor: pointer;
   color: #9ebeff;
+}
+
+.activity-details[open] span {
+  animation: detailsIn 0.14s ease-out;
 }
 
 .activity-details span {
@@ -1614,5 +1668,9 @@ body {
 
   .evidence-index-item .review-badge {
     display: none;
+  }
+
+  .decision-grid {
+    grid-template-columns: 1fr;
   }
 }

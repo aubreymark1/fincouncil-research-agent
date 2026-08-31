@@ -44,6 +44,7 @@ export interface RunEvent {
   occurred_at: string;
   kind: "stage" | "tool_start" | "tool_result" | "warning" | "error";
   tool_name: string | null;
+  tool_call_id: string | null;
   title: string;
   summary: string;
   status: "running" | "success" | "warning" | "failed";
@@ -65,6 +66,10 @@ export interface CreateRunPayload {
 export interface Evidence {
   evidence_id: string;
   doc_id: string;
+  source_title: string | null;
+  publisher: string | null;
+  source_url: string | null;
+  source_type: string | null;
   chunk_id: string;
   fact_text: string;
   quote: string;
@@ -120,6 +125,19 @@ export interface NarrativeBlock {
   evidence_ids?: string[];
 }
 
+export interface InvestmentDecisionSupport {
+  stance: "值得深入跟踪" | "中性观察" | "当前证据不足";
+  horizon: string;
+  thesis: string[];
+  catalysts: string[];
+  risks: string[];
+  entry_conditions: string[];
+  invalidation_conditions: string[];
+  data_gaps: string[];
+  valuation_status: "not_available" | "available";
+  confidence: number;
+}
+
 export interface ResearchReport {
   run_id: string;
   company_name: string;
@@ -127,6 +145,7 @@ export interface ResearchReport {
   cutoff_date: string;
   summary: string[];
   narrative?: NarrativeBlock[];
+  investment_view?: InvestmentDecisionSupport | null;
   claims: Claim[];
   risks: Claim[];
   unresolved_items: Claim[];

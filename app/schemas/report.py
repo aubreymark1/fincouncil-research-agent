@@ -84,6 +84,23 @@ class NarrativeDraft(BaseModel):
         return self
 
 
+class InvestmentDecisionSupport(BaseModel):
+    """Evidence-bounded decision support, never an automatic trading signal."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stance: Literal["值得深入跟踪", "中性观察", "当前证据不足"]
+    horizon: str = Field(min_length=1)
+    thesis: list[str] = Field(default_factory=list)
+    catalysts: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    entry_conditions: list[str] = Field(default_factory=list)
+    invalidation_conditions: list[str] = Field(default_factory=list)
+    data_gaps: list[str] = Field(default_factory=list)
+    valuation_status: Literal["not_available", "available"] = "not_available"
+    confidence: float = Field(ge=0, le=1)
+
+
 class ResearchReport(BaseModel):
     """Complete structured output for one research run."""
 
@@ -95,6 +112,7 @@ class ResearchReport(BaseModel):
     cutoff_date: date
     summary: list[str]
     narrative: list[NarrativeBlock] = Field(default_factory=list)
+    investment_view: InvestmentDecisionSupport | None = None
     claims: list[Claim]
     risks: list[Claim]
     unresolved_items: list[Claim]

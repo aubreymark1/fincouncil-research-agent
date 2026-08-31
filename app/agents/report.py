@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from app.schemas import (
     Claim,
     Evidence,
+    InvestmentDecisionSupport,
     NarrativeBlock,
     NarrativeSegment,
     ResearchReport,
@@ -229,6 +230,7 @@ def render_report(
         ),
         key=lambda item: item.evidence_id,
     )
+    investment_view = _build_investment_view(body_claims, risks, evidence_index)
 
     return ResearchReport(
         run_id=request.run_id,
@@ -243,6 +245,7 @@ def render_report(
             evidence_count=len(evidence_index),
         ),
         narrative=narrative,
+        investment_view=investment_view,
         claims=body_claims,
         risks=risks,
         unresolved_items=unresolved_items,
@@ -250,6 +253,45 @@ def render_report(
         validation_issues=issues,
         generated_at=datetime.now(timezone.utc),
         report_version="v1-a008",
+    )
+
+
+def _build_investment_view(
+    claims: list[Claim],
+    risks: list[Claim],
+    evidence: list[Evidence],
+) -> InvestmentDecisionSupport:
+    """Build a conservative action frame without inventing valuation facts."""
+
+    pass_claims = [claim for claim in claims if claim.status == "pass"]
+    pass_risks = [claim for claim in risks if claim.status == "pass"]
+    if not pass_claims:
+        stance = "当前证据不足"
+    elif len(pass_risks) > len(pass_claims):
+        stance = "中性观察"
+    else:
+        stance = "值得深入跟踪"
+    return InvestmentDecisionSupport(
+        stance=stance,
+        horizon="中长期，需结合估值与组合约束复核",
+        thesis=[claim.text for claim in pass_claims[:4]],
+        catalysts=[],
+        risks=[claim.text for claim in pass_risks[:4]],
+        entry_conditions=[
+            "补齐当前价格、估值倍数和同行比较数据",
+            "核心经营指标继续改善，并由截止日前正式来源核验",
+        ],
+        invalidation_conditions=[
+            "核心盈利或经营现金流出现持续恶化",
+            "新增高严重度风险且无法被后续证据排除",
+        ],
+        data_gaps=[
+            "实时及历史价格",
+            "PE、PB、自由现金流收益率等估值指标",
+            "同行公司可比数据与行业周期位置",
+        ],
+        valuation_status="not_available",
+        confidence=min(1.0, len(evidence) / 20) if evidence else 0.0,
     )
 
 
@@ -282,6 +324,27 @@ def render_markdown(report: ResearchReport) -> str:
     ]
     lines.extend(f"- {item}" for item in report.summary)
     lines.append("")
+
+    if report.investment_view is not None:
+        view = report.investment_view
+        lines.extend([
+            "## 投资决策支持",
+            "",
+            f"- 当前立场：{view.stance}",
+            f"- 研究期限：{view.horizon}",
+            f"- 估值状态：{'已接入' if view.valuation_status == 'available' else '尚未接入'}",
+            f"- 证据充分度：{view.confidence:.2f}",
+            "",
+            "### 核心依据",
+        ])
+        lines.extend(f"- {item}" for item in view.thesis or ["暂无通过校验的核心依据。"])
+        lines.extend(["", "### 进入条件"])
+        lines.extend(f"- {item}" for item in view.entry_conditions)
+        lines.extend(["", "### 失效条件"])
+        lines.extend(f"- {item}" for item in view.invalidation_conditions)
+        lines.extend(["", "### 数据缺口"])
+        lines.extend(f"- {item}" for item in view.data_gaps)
+        lines.append("")
 
     lines.append("## 投研正文")
     if report.narrative:

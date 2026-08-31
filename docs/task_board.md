@@ -116,6 +116,7 @@
 | CONTRACT-CHANGE-005 | 2026-08-26 | RiskRule 增加 exclude_terms，排除否定/已缓解语句 | A/C、configs、tests |
 | CONTRACT-CHANGE-006 | 2026-08-26 | 拆分 financial inventory、inventory_volume 和 channel 口径，禁止裸关键词混用 | B/C/D、共享 fixture、集成 |
 | CONTRACT-CHANGE-007 | 2026-08-27 | locate_evidence 产物按显式编排规则升级 verified（来源 formal ∧ 过时间锁 ∧ 行业匹配）；不做公司与请求相等比较；graph 层去重 Critic 对 checklist 缺指标的重复上报 | A/B/C/D、集成测试断言该语义 |
+| CONTRACT-CHANGE-009 | 2026-08-31 | Evidence 保留来源标题/发布机构/链接/类型；RunEvent 增加 tool_call_id 以合并工具开始与结果；ResearchReport 增加保守的 InvestmentDecisionSupport | A、D/UI、在线工作台；不改变 cutoff、证据和交易边界 |
 
 ## 六、验收记录
 

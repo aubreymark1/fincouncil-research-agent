@@ -7,7 +7,7 @@ interface CitationPopoverProps {
 }
 
 function evidenceLabel(item: Evidence): string {
-  return `${item.doc_id}${item.page ? ` · 第 ${item.page} 页` : ""}`;
+  return `${item.source_title ?? item.doc_id}${item.page ? ` · 第 ${item.page} 页` : ""}`;
 }
 
 export function CitationPopover({ evidence, onOpenEvidence }: CitationPopoverProps) {
@@ -37,6 +37,7 @@ export function CitationPopover({ evidence, onOpenEvidence }: CitationPopoverPro
         <span className="citation-popover" role="dialog" aria-label="句子来源">
           <span className="citation-popover-title">来源</span>
           <span className="citation-popover-source">{evidenceLabel(primary)}</span>
+          {primary.publisher && <span className="citation-popover-meta">{primary.publisher}</span>}
           <span className="citation-popover-quote">“{primary.quote}”</span>
           <span className="citation-popover-meta">
             发布于 {primary.published_at} · {primary.review_status === "verified" ? "已验证" : "待复核"}
@@ -44,6 +45,11 @@ export function CitationPopover({ evidence, onOpenEvidence }: CitationPopoverPro
           <button type="button" className="citation-open" onClick={() => onOpenEvidence(primary)}>
             查看原文详情
           </button>
+          {primary.source_url && (
+            <a className="citation-open" href={primary.source_url} target="_blank" rel="noreferrer">
+              打开原始文件
+            </a>
+          )}
           {evidence.length > 1 && <span className="citation-more">还有 {evidence.length - 1} 条关联来源</span>}
         </span>
       )}

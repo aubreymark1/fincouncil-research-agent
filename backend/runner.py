@@ -105,6 +105,7 @@ class ResearchRunner:
                         title=f"调用工具：{name}",
                         summary="工具开始执行",
                         tool_name=name,
+                        tool_call_id=str(details.get("tool_call_id")) if details.get("tool_call_id") else None,
                         status="running",
                     )
                 elif phase == "result":
@@ -114,9 +115,10 @@ class ResearchRunner:
                         title=f"工具完成：{name}",
                         summary="工具返回检索结果",
                         tool_name=name,
+                        tool_call_id=str(details.get("tool_call_id")) if details.get("tool_call_id") else None,
                         status="success",
                         duration_ms=int(details.get("duration_ms", 0)),
-                        public_details={key: value for key, value in details.items() if key in {"count"}},
+                        public_details={key: value for key, value in details.items() if key in {"count", "first_title"}},
                     )
                 else:
                     self._store.append_event(
@@ -125,6 +127,7 @@ class ResearchRunner:
                         title=f"工具失败：{name}",
                         summary="工具执行失败",
                         tool_name=name,
+                        tool_call_id=str(details.get("tool_call_id")) if details.get("tool_call_id") else None,
                         status="failed",
                         duration_ms=int(details.get("duration_ms", 0)),
                         public_details={"reason": str(details.get("reason", "unknown"))},

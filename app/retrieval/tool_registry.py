@@ -6,6 +6,7 @@ from collections.abc import Callable
 from time import perf_counter
 from typing import Any
 from datetime import date
+import uuid
 
 from app.model.tool_types import ToolDefinition
 from app.schemas import SearchQuery
@@ -31,19 +32,22 @@ class ToolRegistry:
         if item is None:
             raise ValueError(f"unknown tool: {name}")
         started = perf_counter()
+        tool_call_id = f"CALL-{uuid.uuid4().hex[:12].upper()}"
         if self._event_callback is not None:
-            self._event_callback(name, "start", {})
+            self._event_callback(name, "start", {"tool_call_id": tool_call_id})
         try:
             result = item[1](arguments)
         except Exception as exc:
             if self._event_callback is not None:
-                self._event_callback(name, "error", {"reason": type(exc).__name__, "duration_ms": int((perf_counter() - started) * 1000)})
+                self._event_callback(name, "error", {"tool_call_id": tool_call_id, "reason": type(exc).__name__, "duration_ms": int((perf_counter() - started) * 1000)})
             raise
         if self._event_callback is not None:
             count = len(result) if isinstance(result, list) else None
-            details: dict[str, Any] = {"duration_ms": int((perf_counter() - started) * 1000)}
+            details: dict[str, Any] = {"tool_call_id": tool_call_id, "duration_ms": int((perf_counter() - started) * 1000)}
             if count is not None:
                 details["count"] = count
+                if result and isinstance(result[0], dict) and result[0].get("title"):
+                    details["first_title"] = str(result[0]["title"])
             self._event_callback(name, "result", details)
         return result
 

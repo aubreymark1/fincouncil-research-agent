@@ -17,6 +17,11 @@ class Evidence(BaseModel):
 
     evidence_id: str = Field(min_length=1, pattern=r"^EV-[A-Za-z0-9][A-Za-z0-9._-]*$")
     doc_id: str = Field(min_length=1, pattern=r"^DOC-[A-Za-z0-9][A-Za-z0-9._-]*$")
+    # Stable doc_id remains the audit key; these fields are the user-facing provenance.
+    source_title: str | None = Field(default=None, min_length=1)
+    publisher: str | None = Field(default=None, min_length=1)
+    source_url: str | None = Field(default=None, min_length=1)
+    source_type: str | None = Field(default=None, min_length=1)
     chunk_id: str = Field(min_length=1, pattern=r"^CHUNK-[A-Za-z0-9][A-Za-z0-9._-]*$")
     fact_text: str = Field(min_length=1)
     quote: str = Field(min_length=1)

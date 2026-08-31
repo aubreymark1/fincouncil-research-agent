@@ -130,6 +130,10 @@ def locate_evidence(
                 Evidence(
                     evidence_id=evidence_id,
                     doc_id=chunk.doc_id,
+                    source_title=document.title,
+                    publisher=document.publisher,
+                    source_url=document.source_url,
+                    source_type=document.source_type,
                     chunk_id=chunk.chunk_id,
                     fact_text=sentence,
                     quote=sentence,

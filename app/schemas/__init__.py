@@ -4,7 +4,7 @@ from .claim import Claim
 from .evidence import Evidence
 from .evidence_types import ALLOWED_EVIDENCE_TYPES, EvidenceType
 from .industry import IndustryConfig, MetricRule, RiskRule
-from .report import NarrativeBlock, NarrativeDraft, NarrativeSegment, ResearchReport, RunMetadata
+from .report import InvestmentDecisionSupport, NarrativeBlock, NarrativeDraft, NarrativeSegment, ResearchReport, RunMetadata
 from .request import ResearchRequest
 from .retrieval import RetrievedDocument, SearchHit, SearchQuery
 from .run_event import RunEvent
@@ -19,6 +19,7 @@ __all__ = [
     "IndustryConfig",
     "MetricRule",
     "NarrativeBlock",
+    "InvestmentDecisionSupport",
     "NarrativeDraft",
     "NarrativeSegment",
     "ResearchReport",

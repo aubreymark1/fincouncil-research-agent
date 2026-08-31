@@ -37,7 +37,7 @@ def test_openai_transport_posts_chat_completion_and_returns_content(monkeypatch)
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
     config = ModelConfig(
-        provider_name="openai-test",
+        provider_name="deepseek-test",
         model_name="gpt-test",
         api_key="secret",
         base_url="https://example.com/v1",
@@ -55,6 +55,8 @@ def test_openai_transport_posts_chat_completion_and_returns_content(monkeypatch)
     assert body["model"] == "gpt-test"
     assert body["messages"] == [{"role": "user", "content": "hello"}]
     assert body["max_tokens"] == 8192
+    assert body["thinking"] == {"type": "disabled"}
+    assert body["response_format"] == {"type": "json_object"}
     assert captured["timeout"] == 12
 
 
@@ -141,11 +143,12 @@ def test_openai_tool_transport_posts_tools_and_parses_tool_calls(monkeypatch) ->
     result = openai_compatible_tool_transport(
         [{"role": "user", "content": "lookup"}],
         [ToolDefinition(name="lookup", description="look up", input_schema={"type": "object"})],
-        ModelConfig(provider_name="openai-test", model_name="gpt-test", api_key="secret", timeout_seconds=12),
+        ModelConfig(provider_name="deepseek-test", model_name="gpt-test", api_key="secret", timeout_seconds=12),
     )
 
     assert result.tool_calls[0].name == "lookup"
     assert result.tool_calls[0].arguments == {"ticker": "600519"}
     body = json.loads(captured["request"].data.decode("utf-8"))
     assert body["tool_choice"] == "auto"
+    assert body["thinking"] == {"type": "disabled"}
     assert body["tools"][0]["function"]["name"] == "lookup"

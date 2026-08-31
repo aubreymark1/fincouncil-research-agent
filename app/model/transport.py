@@ -24,6 +24,10 @@ DEFAULT_BASE_URL = "https://api.openai.com/v1"
 JsonTransport = Callable[[str, ModelConfig], Any]
 
 
+def _is_deepseek(config: ModelConfig) -> bool:
+    return "deepseek" in config.provider_name.casefold() or "deepseek.com" in (config.base_url or "").casefold()
+
+
 def openai_compatible_transport(prompt: str, config: ModelConfig) -> str:
     """Call an OpenAI-compatible ``/chat/completions`` endpoint.
 
@@ -43,7 +47,10 @@ def openai_compatible_transport(prompt: str, config: ModelConfig) -> str:
         "messages": [{"role": "user", "content": prompt}],
         "temperature": config.temperature,
         "max_tokens": config.max_tokens,
+        "response_format": {"type": "json_object"},
     }
+    if _is_deepseek(config):
+        payload["thinking"] = {"type": "disabled"}
     body = json.dumps(payload).encode("utf-8")
     headers = {
         "Content-Type": "application/json",
@@ -126,6 +133,8 @@ def openai_compatible_tool_transport(
         "temperature": config.temperature,
         "max_tokens": config.max_tokens,
     }
+    if _is_deepseek(config):
+        payload["thinking"] = {"type": "disabled"}
     request = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=json.dumps(payload).encode("utf-8"),

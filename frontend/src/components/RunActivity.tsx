@@ -90,7 +90,7 @@ export function RunActivity({ runId, active }: RunActivityProps) {
         <ol className="activity-list">
           {events.map((event) => (
             <li key={event.event_id} className={`activity-item ${event.status}`}>
-              <details className="activity-disclosure" open={event.status === "running"}>
+              <details className="activity-disclosure">
                 <summary className="activity-summary">
                   <span className="activity-marker" aria-hidden="true">{event.status === "success" ? "✓" : event.status === "failed" ? "!" : "·"}</span>
                   <span className="activity-copy">

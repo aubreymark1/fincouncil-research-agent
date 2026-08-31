@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { reduceRunEvents } from "../src/runEvents.ts";
+import { activityDetailsLabel, reduceRunEvents } from "../src/runEvents.ts";
 import type { RunEvent } from "../src/types.ts";
 
 const base = (updates: Partial<RunEvent>): RunEvent => ({
@@ -31,5 +31,7 @@ const merged = reduceRunEvents([], [toolStart, toolResult]);
 assert.equal(merged.length, 1);
 assert.equal(merged[0].event_id, "EVT-4");
 assert.equal(merged[0].status, "success");
+assert.equal(activityDetailsLabel(first), "展开阶段详情");
+assert.equal(activityDetailsLabel(toolResult), "展开工具调用");
 
 console.log("run event behavior tests passed");

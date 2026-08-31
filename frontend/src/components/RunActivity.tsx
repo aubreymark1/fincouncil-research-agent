@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchRunEvents } from "../api";
-import { reduceRunEvents } from "../runEvents";
+import { activityDetailsLabel, reduceRunEvents } from "../runEvents";
 import type { RunEvent } from "../types";
 
 interface RunActivityProps {
@@ -90,24 +90,20 @@ export function RunActivity({ runId, active }: RunActivityProps) {
         <ol className="activity-list">
           {events.map((event) => (
             <li key={event.event_id} className={`activity-item ${event.status}`}>
-              <span className="activity-marker" aria-hidden="true">{event.status === "success" ? "✓" : event.status === "failed" ? "!" : "·"}</span>
-              <div className="activity-copy">
-                <div className="activity-title-row">
-                  <strong>{event.title}</strong>
-                  <span>{statusLabel(event.status)}</span>
+              <details className="activity-disclosure" open={event.status === "running"}>
+                <summary className="activity-summary">
+                  <span className="activity-marker" aria-hidden="true">{event.status === "success" ? "✓" : event.status === "failed" ? "!" : "·"}</span>
+                  <span className="activity-copy">
+                    <span className="activity-title-row"><strong>{event.title}</strong><span>{statusLabel(event.status)}</span></span>
+                    <small>{new Date(event.occurred_at).toLocaleTimeString("zh-CN", { hour12: false })}{event.duration_ms !== null ? ` · ${event.duration_ms} ms` : ""}</small>
+                  </span>
+                </summary>
+                <div className="activity-expanded">
+                  <p>{event.summary}</p>
+                  <span className="activity-details-label">{activityDetailsLabel(event)}</span>
+                  {Object.keys(event.public_details).length > 0 && <span className="activity-details-values">{Object.entries(event.public_details).filter(([key]) => key !== "tool_call_id").map(([key, value]) => `${key}: ${value}`).join(" · ")}</span>}
                 </div>
-                <p>{event.summary}</p>
-                <small>
-                  {new Date(event.occurred_at).toLocaleTimeString("zh-CN", { hour12: false })}
-                  {event.duration_ms !== null ? ` · ${event.duration_ms} ms` : ""}
-                </small>
-                {(event.kind === "tool_start" || event.kind === "tool_result" || Object.keys(event.public_details).length > 0) && (
-                  <details className="activity-details">
-                    <summary>{event.kind === "tool_start" ? "展开工具调用" : "查看公开详情"}</summary>
-                    <span>{Object.entries(event.public_details).filter(([key]) => key !== "tool_call_id").map(([key, value]) => `${key}: ${value}`).join(" · ") || "暂无公开参数"}</span>
-                  </details>
-                )}
-              </div>
+              </details>
             </li>
           ))}
         </ol>

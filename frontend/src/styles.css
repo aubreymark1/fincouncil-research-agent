@@ -1462,6 +1462,35 @@ body {
   animation: activityIn 0.18s ease-out both;
 }
 
+.activity-disclosure {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-disclosure > summary {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.activity-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.activity-disclosure > summary::after {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--text-muted);
+  content: "⌄";
+  transition: transform 0.16s ease;
+}
+
+.activity-disclosure:not([open]) > summary::after {
+  transform: rotate(-90deg);
+}
+
 .activity-item:last-child {
   border-bottom: 0;
 }
@@ -1533,6 +1562,24 @@ body {
   margin: 0;
   color: #cad4df;
   font-size: 13px;
+}
+
+.activity-expanded {
+  margin: 8px 30px 0 36px;
+  color: #cad4df;
+  animation: detailsIn 0.14s ease-out;
+}
+
+.activity-expanded p {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.activity-details-label,
+.activity-details-values {
+  display: block;
+  color: #8594a5;
+  font-size: 11px;
 }
 
 .activity-error {

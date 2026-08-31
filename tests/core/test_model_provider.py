@@ -99,6 +99,20 @@ def test_transport_failures_are_retried_with_a_hard_limit() -> None:
     assert len(attempts) == 3
 
 
+def test_transport_provider_error_preserves_safe_upstream_reason() -> None:
+    def transport(_prompt: str, _config: ModelConfig) -> dict[str, str]:
+        raise ModelProviderError("E300 module=model.transport: HTTP 429 from deepseek")
+
+    provider = ModelProvider(
+        ModelConfig(max_retries=1),
+        transport=transport,
+        sleep_fn=lambda _seconds: None,
+    )
+
+    with pytest.raises(ModelProviderError, match="HTTP 429"):
+        provider.generate_json("return JSON")
+
+
 def test_invalid_structured_output_is_retried_and_then_rejected() -> None:
     attempts: list[int] = []
 

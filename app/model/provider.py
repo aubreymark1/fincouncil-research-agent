@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from time import sleep
@@ -44,6 +45,15 @@ class ModelProviderError(RuntimeError):
         super().__init__(message)
         prefix = message.split(" ", 1)[0]
         self.code = prefix if (len(prefix) == 4 and prefix[0] == "E" and prefix[1:].isdigit()) else None
+
+
+def _safe_error_detail(exc: BaseException) -> str | None:
+    """Keep actionable upstream errors while redacting credential-like text."""
+
+    if not isinstance(exc, ModelProviderError):
+        return None
+    value = re.sub(r"(?i)(bearer\s+|api[_-]?key\s*[=:]\s*)\S+", r"\1<redacted>", str(exc))
+    return value[:240] if value else None
 
 
 def _parse_float(env: Mapping[str, str], name: str, default: float) -> float:
@@ -293,17 +303,20 @@ class ModelProvider:
 
         attempts = self.config.max_retries + 1
         last_transport_error_type = "UnknownError"
+        last_transport_error_detail: str | None = None
         for attempt in range(attempts):
             try:
                 raw = self._transport(prompt, self.config)
             except Exception as exc:
                 last_transport_error_type = type(exc).__name__
+                last_transport_error_detail = _safe_error_detail(exc)
                 if attempt == attempts - 1:
                     if isinstance(exc, ModelProviderError) and exc.code == "E301":
                         raise
                     raise ModelProviderError(
                         f"E300 module=model: transport failed after {attempts} attempts "
                         f"(error_type={last_transport_error_type})"
+                        + (f"; upstream={last_transport_error_detail}" if last_transport_error_detail else "")
                     ) from None
                 self._sleep(0)
                 continue

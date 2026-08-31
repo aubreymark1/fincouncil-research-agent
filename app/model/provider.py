@@ -9,6 +9,7 @@ Environment variables:
 ``FINCOUNCIL_MODEL_TEMPERATURE``
 ``FINCOUNCIL_MODEL_MAX_RETRIES``
 ``FINCOUNCIL_MODEL_TIMEOUT_SECONDS``
+``FINCOUNCIL_MODEL_MAX_TOKENS``
 
 The provider accepts a transport callable instead of importing a vendor SDK.
 That keeps agents independent from a concrete model client and lets tests use
@@ -86,7 +87,8 @@ class ModelConfig:
     base_url: str | None = None
     temperature: float = DEFAULT_TEMPERATURE
     max_retries: int = 2
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 120.0
+    max_tokens: int = 4096
 
     def __post_init__(self) -> None:
         if not self.provider_name:
@@ -101,6 +103,8 @@ class ModelConfig:
             object.__setattr__(self, "max_retries", MAX_RETRIES)
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        if self.max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "ModelConfig":
@@ -121,8 +125,9 @@ class ModelConfig:
             timeout_seconds=_parse_float(
                 values,
                 "FINCOUNCIL_MODEL_TIMEOUT_SECONDS",
-                30.0,
+                120.0,
             ),
+            max_tokens=_parse_int(values, "FINCOUNCIL_MODEL_MAX_TOKENS", 4096),
         )
 
 

@@ -42,6 +42,7 @@ def openai_compatible_transport(prompt: str, config: ModelConfig) -> str:
         "model": config.model_name,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
     }
     body = json.dumps(payload).encode("utf-8")
     headers = {
@@ -111,6 +112,7 @@ def openai_compatible_tool_transport(
         ],
         "tool_choice": "auto",
         "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
     }
     request = urllib.request.Request(
         f"{base_url}/chat/completions",

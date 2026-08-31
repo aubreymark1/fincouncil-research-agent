@@ -54,6 +54,7 @@ def test_openai_transport_posts_chat_completion_and_returns_content(monkeypatch)
     body = json.loads(request.data.decode("utf-8"))
     assert body["model"] == "gpt-test"
     assert body["messages"] == [{"role": "user", "content": "hello"}]
+    assert body["max_tokens"] == 4096
     assert captured["timeout"] == 12
 
 

@@ -976,6 +976,8 @@ body {
 .main-content {
   max-width: 1280px;
   padding: 30px 40px 80px;
+  min-width: 0;
+  width: auto;
 }
 
 .panel {
@@ -1784,8 +1786,37 @@ body {
   background: #f7f9fb;
 }
 
+[data-theme="light"] .claim-panel,
+[data-theme="light"] .review-panel,
+[data-theme="light"] .issue-panel {
+  background: #ffffff;
+}
+
+[data-theme="light"] .narrative-block {
+  background: #fbfcfd;
+  border-color: #d5dee7;
+}
+
+[data-theme="light"] .narrative-content p {
+  color: #243443;
+}
+
+[data-theme="light"] .stat-card .stat-label {
+  color: #536477;
+}
+
 [data-theme="light"] .investment-panel {
   background: #f1f6fc;
+}
+
+[data-theme="light"] .source-chip {
+  background: #eaf2ff;
+  border-color: #b9d0f2;
+  color: #1556a5;
+}
+
+[data-theme="light"] .source-chip:hover {
+  background: #dbeaff;
 }
 
 [data-theme="light"] code {
@@ -1828,6 +1859,31 @@ body {
 
 [data-theme="light"] .activity-item {
   border-bottom-color: rgba(23, 33, 43, 0.1);
+}
+
+[data-theme="light"] .issue-item {
+  background: #f7f9fb;
+  border-color: #d5dee7;
+}
+
+[data-theme="light"] .issue-detail {
+  color: #3d4d5c;
+}
+
+[data-theme="light"] .issue-action,
+[data-theme="light"] .issue-evidence {
+  color: #1556a5;
+}
+
+[data-theme="light"] .activity-expanded,
+[data-theme="light"] .activity-details-label,
+[data-theme="light"] .activity-details-values {
+  color: #4c5d6d;
+}
+
+[data-theme="light"] .activity-marker {
+  border-color: #aebdca;
+  color: #586b7b;
 }
 
 [data-theme="light"] .narrative-prose {

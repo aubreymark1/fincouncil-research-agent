@@ -1328,6 +1328,8 @@ body {
 .evidence-index-list {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .evidence-index-item {

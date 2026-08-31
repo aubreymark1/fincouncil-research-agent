@@ -90,6 +90,13 @@ def openai_compatible_transport(prompt: str, config: ModelConfig) -> str:
                 f"(finish_reason={choice.get('finish_reason', 'unknown')}; "
                 f"reasoning_chars={reasoning_chars}; completion_tokens={completion_tokens})"
             )
+        if choice.get("finish_reason") == "length":
+            completion_tokens = (decoded.get("usage") or {}).get("completion_tokens", "unknown")
+            raise ModelProviderError(
+                "E301 module=model.transport: truncated chat content "
+                f"(finish_reason=length; content_chars={len(content)}; "
+                f"completion_tokens={completion_tokens})"
+            )
         return content
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
         raise ModelProviderError(

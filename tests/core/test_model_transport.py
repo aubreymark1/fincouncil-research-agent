@@ -120,6 +120,26 @@ def test_openai_transport_reports_empty_content_token_exhaustion(monkeypatch) ->
         )
 
 
+def test_openai_transport_reports_truncated_nonempty_content(monkeypatch) -> None:
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda _request, **kwargs: FakeResponse(json.dumps({
+            "choices": [{
+                "finish_reason": "length",
+                "message": {"content": '{"claims":[', "reasoning_content": None},
+            }],
+            "usage": {"completion_tokens": 8192},
+        })),
+    )
+
+    with pytest.raises(ModelProviderError, match=r"finish_reason=length.*content_chars=11.*completion_tokens=8192"):
+        openai_compatible_transport(
+            "x",
+            ModelConfig(provider_name="deepseek", model_name="m", api_key="k"),
+        )
+
+
 def test_openai_tool_transport_posts_tools_and_parses_tool_calls(monkeypatch) -> None:
     captured: dict[str, object] = {}
 

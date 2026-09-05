@@ -21,6 +21,7 @@ from app.agents.llm import (
     ClaimList,
     _merge_claims,
     _repair_batch_claims,
+    _select_llm_evidence,
     _split_evidence_batches,
 )
 from app.model import ModelProvider, ModelProviderError
@@ -173,13 +174,16 @@ def run_generic_analysis(
     """
 
     evidence_by_id = {item.evidence_id: item for item in evidence}
-    batches = _split_evidence_batches(evidence)
+    llm_evidence, omitted_evidence_ids = _select_llm_evidence(evidence)
+    batches = _split_evidence_batches(llm_evidence)
     raw_claims: list[Claim] = []
 
     for batch_index, batch in enumerate(batches, start=1):
         context: dict[str, Any] = {
             "request": request.model_dump(mode="json"),
             "evidence": [item.model_dump(mode="json") for item in batch],
+            "evidence_truncated": bool(omitted_evidence_ids),
+            "omitted_evidence_ids": omitted_evidence_ids if batch_index == 1 else [],
             "config": config.model_dump(mode="json") if config is not None else None,
             "batch_index": batch_index,
             "total_batches": len(batches),

@@ -16,7 +16,7 @@ from app.agents import (
     run_critic_llm,
     synthesize_narrative,
 )
-from app.agents.llm import ClaimList
+from app.agents.llm import ClaimList, _select_llm_evidence
 from app.model import InMemoryCache, ModelConfig, ModelProvider, ModelProviderError
 from app.schemas import (
     Claim,
@@ -43,6 +43,16 @@ def make_request(**updates: object) -> ResearchRequest:
 def make_evidence(**updates: object) -> Evidence:
     payload = {**load_fixture("evidence.json"), **updates}
     return Evidence.model_validate(payload)
+
+
+def test_select_llm_evidence_caps_large_industry_pool_deterministically(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_LLM_EVIDENCE_ITEMS", 2)
+    evidence = [make_evidence(evidence_id=f"EV-POOL-{index:03d}") for index in range(4)]
+
+    selected, omitted = _select_llm_evidence(evidence)
+
+    assert [item.evidence_id for item in selected] == ["EV-POOL-000", "EV-POOL-001"]
+    assert omitted == ["EV-POOL-002", "EV-POOL-003"]
 
 
 def make_document(**updates: object) -> SourceDocument:

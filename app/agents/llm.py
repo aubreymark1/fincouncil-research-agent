@@ -47,6 +47,7 @@ _PROMPT_VERSION_RE = re.compile(r"^\s*version:\s*(\S+)", re.MULTILINE)
 _NEWS_POLICY_TYPES = frozenset({"news", "policy", "company_release"})
 _ANALYSIS_STATUSES = frozenset({"pass", "review"})
 MAX_PROMPT_EVIDENCE_CHARS = 30_000
+MAX_LLM_EVIDENCE_ITEMS = 80
 
 
 class LegacyNarrativeBlock(BaseModel):
@@ -316,6 +317,31 @@ def _split_evidence_batches(
     if current or not batches:
         batches.append(current)
     return batches
+
+
+def _select_llm_evidence(
+    evidence: list[Evidence],
+    max_items: int | None = None,
+) -> tuple[list[Evidence], list[str]]:
+    """Bound LLM context while retaining deterministic omission metadata."""
+
+    limit = MAX_LLM_EVIDENCE_ITEMS if max_items is None else max_items
+    if limit <= 0:
+        raise ValueError("max_items must be positive")
+    buckets: dict[str, list[Evidence]] = {}
+    for item in evidence:
+        buckets.setdefault(item.doc_id, []).append(item)
+    selected: list[Evidence] = []
+    while len(selected) < limit and buckets:
+        for doc_id in list(buckets):
+            bucket = buckets[doc_id]
+            selected.append(bucket.pop(0))
+            if not bucket:
+                del buckets[doc_id]
+            if len(selected) >= limit:
+                break
+    selected_ids = {item.evidence_id for item in selected}
+    return selected, [item.evidence_id for item in evidence if item.evidence_id not in selected_ids]
 
 
 def _evidence_matches_rule_terms(item: Evidence, rule: Any) -> bool:
@@ -594,13 +620,14 @@ def _run_claim_node_single(
     full_evidence_by_id: dict[str, Evidence] | None,
     batch_index: int,
     total_batches: int,
+    omitted_evidence_ids: list[str] | None = None,
     documents: list[SourceDocument] | None = None,
 ) -> list[Claim]:
     context: dict[str, Any] = {
         "request": request.model_dump(mode="json"),
         "evidence": _evidence_payload(evidence),
-        "evidence_truncated": False,
-        "omitted_evidence_ids": [],
+        "evidence_truncated": bool(omitted_evidence_ids),
+        "omitted_evidence_ids": omitted_evidence_ids or [],
         "batch_index": batch_index,
         "total_batches": total_batches,
         "config": config.model_dump(mode="json"),
@@ -643,7 +670,8 @@ def _run_claim_node(
     filtered = _filter_evidence_types(evidence, config, allowed_types)
     filtered = _relevance_filter(prompt_name, filtered, config)
     full_evidence_by_id = {item.evidence_id: item for item in filtered}
-    batches = _split_evidence_batches(filtered)
+    llm_evidence, omitted_evidence_ids = _select_llm_evidence(filtered)
+    batches = _split_evidence_batches(llm_evidence)
 
     raw_claims: list[Claim] = []
     for batch_index, batch in enumerate(batches, start=1):
@@ -657,6 +685,7 @@ def _run_claim_node(
                 full_evidence_by_id=full_evidence_by_id,
                 batch_index=batch_index,
                 total_batches=len(batches),
+                omitted_evidence_ids=omitted_evidence_ids if batch_index == 1 else None,
                 documents=documents,
             )
         )

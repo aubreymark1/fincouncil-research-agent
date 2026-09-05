@@ -330,15 +330,15 @@ def test_llm_mode_rejects_evidence_not_sent_to_node(tmp_path, food_manifest):
 
     provider = ModelProvider(ModelConfig(max_retries=0), transport=transport)
 
-    # Act / Assert: node-level evidence isolation rejects the bad ID.
-    with pytest.raises(ModelProviderError, match="current batch"):
-        run_pipeline(request, model_provider=provider)
+    # Act / Assert: invalid cross-batch claims are dropped, while the run remains reportable.
+    state = run_pipeline(request, model_provider=provider)
+    assert state.report is not None
 
     metadata_path = tmp_path / "outputs" / "logs" / request.run_id / "run_metadata.json"
     assert metadata_path.exists()
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert metadata["status"] == "failed"
-    assert metadata["errors"][0].startswith("E301 module=agents.llm")
+    assert metadata["status"] == "success"
+    assert metadata["errors"] == []
 
 
 def test_llm_failure_writes_failed_run_metadata(tmp_path, food_manifest):

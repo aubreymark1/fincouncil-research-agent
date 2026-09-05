@@ -494,6 +494,48 @@ def _validate_batch_evidence_isolation(
             )
 
 
+def _claims_supported_by_batch(
+    claims: list[Claim],
+    batch_evidence_by_id: dict[str, Evidence],
+) -> list[Claim]:
+    """Keep only claims whose every citation belongs to the current batch."""
+
+    return [
+        claim
+        for claim in claims
+        if all(evidence_id in batch_evidence_by_id for evidence_id in claim.evidence_ids)
+    ]
+
+
+def _repair_batch_claims(
+    provider: ModelProvider,
+    prompt_name: str,
+    prompt: str,
+    result: ClaimList,
+    batch_evidence_by_id: dict[str, Evidence],
+) -> list[Claim]:
+    """Retry once with an explicit batch-ID allowlist, then fail closed."""
+
+    valid_initial = _claims_supported_by_batch(result.claims, batch_evidence_by_id)
+    if len(valid_initial) == len(result.claims):
+        return valid_initial
+    allowed_ids = ", ".join(batch_evidence_by_id)
+    repair_prompt = (
+        f"{prompt}\n\n## 证据引用纠正\n"
+        f"上一版引用了当前批次之外的 Evidence ID。请重新输出完整 ClaimList，"
+        f"只允许使用当前批次中的 Evidence ID：{allowed_ids}。"
+        "不确定时删除该 Claim，不得猜测或改写 ID。\n"
+    )
+    try:
+        repaired = provider.generate_json(repair_prompt, response_model=ClaimList)
+    except ModelProviderError:
+        return valid_initial
+    if not isinstance(repaired, ClaimList):
+        return valid_initial
+    valid_repaired = _claims_supported_by_batch(repaired.claims, batch_evidence_by_id)
+    return [*valid_initial, *valid_repaired]
+
+
 def _merge_claims(claims: list[Claim]) -> list[Claim]:
     """Merge duplicate claim_ids using conservative reporting semantics.
 
@@ -579,12 +621,13 @@ def _run_claim_node_single(
     if not isinstance(result, ClaimList):
         raise TypeError("E301 module=agents.llm: expected ClaimList response")
     batch_evidence_by_id = {item.evidence_id: item for item in evidence}
-    _validate_batch_evidence_isolation(
+    return _repair_batch_claims(
+        provider,
         prompt_name,
-        result.claims,
+        prompt,
+        result,
         batch_evidence_by_id,
     )
-    return result.claims
 
 
 def _run_claim_node(

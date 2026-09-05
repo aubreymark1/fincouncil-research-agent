@@ -20,8 +20,8 @@ from typing import Any
 from app.agents.llm import (
     ClaimList,
     _merge_claims,
+    _repair_batch_claims,
     _split_evidence_batches,
-    _validate_batch_evidence_isolation,
 )
 from app.model import ModelProvider, ModelProviderError
 from app.schemas import (
@@ -194,12 +194,15 @@ def run_generic_analysis(
             raise TypeError("E301 module=agents.generic: expected ClaimList response")
 
         batch_evidence_by_id = {item.evidence_id: item for item in batch}
-        _validate_batch_evidence_isolation(
-            "generic",
-            result.claims,
-            batch_evidence_by_id,
+        raw_claims.extend(
+            _repair_batch_claims(
+                provider,
+                "generic",
+                prompt,
+                result,
+                batch_evidence_by_id,
+            )
         )
-        raw_claims.extend(result.claims)
 
     claims = _merge_claims(raw_claims)
     _validate_generic_claims(claims, evidence_by_id)

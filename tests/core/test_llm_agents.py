@@ -590,7 +590,7 @@ def test_risk_claim_with_exclude_signal_is_rejected() -> None:
         analyze_risks_llm(provider, request, evidence, config)
 
 
-def test_claim_referencing_evidence_not_sent_to_node_is_rejected() -> None:
+def test_claim_referencing_evidence_not_sent_to_node_is_dropped() -> None:
     provider = make_provider(
         lambda _prompt, _config: {
             "claims": [make_claim_payload(evidence_ids=["EV-OTHER-001"])]
@@ -600,8 +600,7 @@ def test_claim_referencing_evidence_not_sent_to_node_is_rejected() -> None:
     evidence = [make_evidence()]
     config = make_config()
 
-    with pytest.raises(ModelProviderError, match="current batch"):
-        analyze_fundamentals_llm(provider, request, evidence, config)
+    assert analyze_fundamentals_llm(provider, request, evidence, config) == []
 
 
 def make_tiny_evidence(evidence_id: str) -> Evidence:
@@ -839,7 +838,7 @@ def test_duplicate_claim_ids_merge_evidence_ids(monkeypatch) -> None:
     assert set(claims[0].evidence_ids) == {"EV-A", "EV-B"}
 
 
-def test_claim_referencing_evidence_from_other_batch_is_rejected(monkeypatch) -> None:
+def test_claim_referencing_evidence_from_other_batch_is_repaired_or_dropped(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
     call_count = 0
 
@@ -858,15 +857,33 @@ def test_claim_referencing_evidence_from_other_batch_is_rejected(monkeypatch) ->
     provider = make_provider(transport)
     request = make_request()
     config = make_config()
-    evidence = [
-        make_tiny_metric_evidence("EV-A"),
-        make_tiny_metric_evidence("EV-B"),
-    ]
+    evidence = [make_tiny_metric_evidence("EV-A")]
 
-    with pytest.raises(ModelProviderError, match="current batch"):
-        analyze_fundamentals_llm(provider, request, evidence, config)
+    assert analyze_fundamentals_llm(provider, request, evidence, config) == []
 
-    assert call_count == 1
+    assert call_count == 2
+
+
+def test_claim_referencing_other_batch_is_repaired_with_current_batch_ids(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.llm.MAX_PROMPT_EVIDENCE_CHARS", 400)
+    prompts: list[str] = []
+
+    def transport(prompt: str, _config: ModelConfig) -> dict:
+        prompts.append(prompt)
+        if len(prompts) == 1:
+            return {"claims": [make_claim_payload(evidence_ids=["EV-B"])]}
+        return {"claims": [make_claim_payload(evidence_ids=["EV-A"])]}
+
+    claims = analyze_fundamentals_llm(
+        make_provider(transport),
+        make_request(),
+        [make_tiny_metric_evidence("EV-A"), make_tiny_metric_evidence("EV-B")],
+        make_config(),
+    )
+
+    assert len(claims) == 1
+    assert claims[0].evidence_ids == ["EV-A"]
+    assert "只允许使用当前批次中的 Evidence ID" in prompts[1]
 
 
 def test_duplicate_claim_ids_merge_is_conservative(monkeypatch) -> None:

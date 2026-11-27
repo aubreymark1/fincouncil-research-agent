@@ -20,7 +20,20 @@ import type {
   RunStatus,
 } from "./types";
 
+type ThemeMode = "light" | "dark";
+
+function getInitialTheme(): ThemeMode {
+  try {
+    const saved = window.localStorage.getItem("fincouncil_ui_theme");
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {
+    // Ignore storage access errors.
+  }
+  return "light";
+}
+
 export default function App() {
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [cases, setCases] = useState<CaseInfo[]>([]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [history, setHistory] = useState<RunStatus[]>([]);
@@ -29,6 +42,15 @@ export default function App() {
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      window.localStorage.setItem("fincouncil_ui_theme", theme);
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [theme]);
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -133,6 +155,10 @@ export default function App() {
     (activeRun !== null &&
       (activeRun.status === "queued" || activeRun.status === "running"));
 
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -143,46 +169,147 @@ export default function App() {
         onSelectRun={handleSelectRun}
       />
 
-      <main className="main-content">
-        {error && (
-          <div className="error-banner" role="alert">
-            {error}
-            <button type="button" onClick={() => setError(null)}>
-              ✕
+      <div className="workspace-column">
+        <header className="topbar">
+          <div className="topbar-left">
+            <span className="topbar-section">投研工作台</span>
+            <span className="topbar-sep">/</span>
+            <span className="topbar-crumb">
+              {report
+                ? report.company_name
+                : activeRun
+                ? `执行监控 · ${activeRun.run_id}`
+                : "新建研究任务"}
+            </span>
+          </div>
+
+          <div className="topbar-right">
+            <div className="status-pill" title="T+0 时间锁防未来函数校验">
+              <span className="status-pill-dot teal" />
+              <span>时间锁已启用</span>
+            </div>
+
+            <div
+              className="status-pill"
+              title={
+                health
+                  ? `服务版本 v${health.version}`
+                  : "正在连接本地研究引擎"
+              }
+            >
+              <span
+                className={`status-pill-dot ${
+                  health ? (health.llm_available ? "green" : "blue") : "amber"
+                }`}
+              />
+              <span>
+                {health
+                  ? health.llm_available
+                    ? "LLM 增强在线"
+                    : "确定性规则引擎"
+                  : "连接服务中…"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              title={theme === "light" ? "切换深色模式" : "切换浅色模式"}
+            >
+              {theme === "light" ? (
+                <>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                  </svg>
+                  <span>深色</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                  </svg>
+                  <span>浅色</span>
+                </>
+              )}
             </button>
           </div>
-        )}
+        </header>
 
-        {activeRun &&
-          (activeRun.status === "queued" || activeRun.status === "running") && (
-            <RunProgress run={activeRun} />
+        <main className="main-content">
+          {error && (
+            <div className="error-banner" role="alert">
+              <div className="error-banner-body">
+                <span className="error-dot" />
+                <span>{error}</span>
+              </div>
+              <button
+                type="button"
+                className="icon-button subtle"
+                onClick={() => setError(null)}
+                aria-label="关闭提示"
+              >
+                ✕
+              </button>
+            </div>
           )}
 
-        {activeRun && activeRun.status === "failed" && (
-          <div className="panel error-panel">
-            <h2>研究失败</h2>
-            <p>{activeRun.error ?? "未知错误"}</p>
-            <p className="muted">
-              请检查资料包与运行环境；LLM 失败时可切换回 rule-engine 重试。
-            </p>
-          </div>
-        )}
+          {activeRun &&
+            (activeRun.status === "queued" || activeRun.status === "running") && (
+              <RunProgress run={activeRun} />
+            )}
 
-        {report ? (
-          <ReportView
-            report={report}
-            onSelectEvidence={setSelectedEvidence}
-          />
-        ) : (
-          <NewResearch
-            cases={cases}
-            llmAvailable={health?.llm_available ?? false}
-            disabled={busy}
-            activeRun={activeRun}
-            onStart={handleStart}
-          />
-        )}
-      </main>
+          {activeRun && activeRun.status === "failed" && (
+            <div className="panel error-panel">
+              <div className="panel-header">
+                <h2>研究任务执行失败</h2>
+                <span className="status-badge failed">已中止</span>
+              </div>
+              <p className="error-detail-text">{activeRun.error ?? "未知错误"}</p>
+              <p className="muted">
+                请检查资料包完整性与模型环境；若 LLM 暂不可用，可切换回确定性
+                rule-engine 重试。
+              </p>
+            </div>
+          )}
+
+          {report ? (
+            <ReportView
+              report={report}
+              onSelectEvidence={setSelectedEvidence}
+            />
+          ) : (
+            <NewResearch
+              cases={cases}
+              llmAvailable={health?.llm_available ?? false}
+              disabled={busy}
+              activeRun={activeRun}
+              onStart={handleStart}
+            />
+          )}
+        </main>
+      </div>
 
       <EvidenceDrawer
         evidence={selectedEvidence}
